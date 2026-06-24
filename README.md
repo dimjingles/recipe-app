@@ -1,36 +1,142 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🍽️ Mise en Place — Recipe & Meal Planner
 
-## Getting Started
+A mobile-first web app to track your home recipes, plan weekly meals, and generate smart grocery lists. Built with Next.js 16, Supabase, and Claude AI.
 
-First, run the development server:
+---
 
+## Features
+
+- **Recipe Library** — Add recipes by name; AI auto-fills ingredients, quantities, cuisine & cook time
+- **Cooking History** — Log every time you cook a recipe with ratings and notes
+- **Weekly Meal Planner** — Assign recipes to days of the week, navigate weeks
+- **Grocery List** — Auto-generated from your weekly plan, grouped by category (produce/dairy/meat/etc), checkable as you shop, shareable via Web Share API
+- **AI Recommendations** — Get 5 new recipe ideas based on your cooking history
+- **PWA** — Installable on Android (Add to Home Screen in Chrome)
+- **Magic Link Auth** — No password needed; sign in with email link
+
+---
+
+## Deploy in 15 minutes
+
+### 1. Create a Supabase project
+
+1. Go to [supabase.com](https://supabase.com) → New Project
+2. Note your: **Project URL**, **anon key**, **service_role key**
+3. Go to **SQL Editor** and run the contents of `supabase/schema.sql`
+4. Go to **Authentication → URL Configuration** → set Site URL to your Vercel URL (you'll get this in step 3, or use `http://localhost:3000` for now)
+
+### 2. Get an Anthropic API key
+
+1. Go to [console.anthropic.com](https://console.anthropic.com)
+2. Create an API key
+
+### 3. Deploy to Vercel
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/dimjingles/recipe-app)
+
+Or manually:
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm i -g vercel
+vercel
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Set these environment variables in Vercel:
+```
+NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
+SUPABASE_SERVICE_ROLE_KEY=eyJ...
+ANTHROPIC_API_KEY=sk-ant-...
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 4. Update Supabase auth redirect URL
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+After you have your Vercel URL:
+- Supabase → Authentication → URL Configuration
+- Add `https://your-app.vercel.app/**` to **Redirect URLs**
 
-## Learn More
+### 5. Install on Android
 
-To learn more about Next.js, take a look at the following resources:
+Open the app in Chrome → three-dot menu → **Add to Home Screen**. Done! Full PWA experience.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+---
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Local development
 
-## Deploy on Vercel
+```bash
+# Clone and install
+git clone https://github.com/dimjingles/recipe-app
+cd recipe-app
+npm install
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+# Set up environment
+cp .env.local.example .env.local
+# Fill in your Supabase and Anthropic credentials
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+# Run dev server
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000)
+
+---
+
+## Tech Stack
+
+| | |
+|---|---|
+| Framework | Next.js 16 (App Router) |
+| Database + Auth | Supabase (Postgres + magic link) |
+| AI | Anthropic Claude API |
+| Styling | Tailwind CSS + shadcn/ui |
+| Hosting | Vercel |
+
+---
+
+## App Structure
+
+```
+src/
+├── app/
+│   ├── page.tsx                    # Dashboard / home
+│   ├── login/page.tsx              # Magic link login
+│   ├── recipes/
+│   │   ├── page.tsx                # Recipe library
+│   │   ├── new/page.tsx            # Add recipe (AI ingredient lookup)
+│   │   └── [id]/
+│   │       ├── page.tsx            # Recipe detail
+│   │       └── edit/page.tsx       # Edit recipe
+│   ├── planner/
+│   │   ├── page.tsx                # Weekly meal planner
+│   │   └── grocery/page.tsx        # Grocery list
+│   └── api/
+│       ├── recipes/
+│       │   ├── route.ts            # Create recipe
+│       │   ├── [id]/route.ts       # Update/delete recipe
+│       │   ├── [id]/log/route.ts   # Log cooking session
+│       │   ├── lookup/route.ts     # AI ingredient lookup
+│       │   └── recommend/route.ts  # AI recommendations
+│       └── planner/
+│           ├── slots/route.ts      # Add/remove plan slots
+│           ├── week/route.ts       # Get week plan
+│           └── grocery/route.ts    # Generate grocery list
+├── components/
+│   ├── bottom-nav.tsx              # Mobile navigation
+│   ├── recipe-library.tsx          # Recipe grid + search
+│   ├── recipe-detail.tsx           # Recipe detail view
+│   ├── edit-recipe-form.tsx        # Edit recipe form
+│   ├── planner-view.tsx            # Weekly planner UI
+│   └── grocery-list.tsx            # Grocery list UI
+└── lib/
+    ├── supabase/                   # Supabase client helpers
+    └── db/                         # Database query functions
+```
+
+---
+
+## Future ideas
+
+- Recipe photo uploads (Supabase Storage)
+- Share recipes with Emily
+- Serving size scaling on grocery list
+- Nutrition info via AI
+- React Native / Android native app (same Supabase backend)

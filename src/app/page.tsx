@@ -1,65 +1,151 @@
-import Image from "next/image";
+import { createClient } from '@/lib/supabase/server'
+import { getRecipes } from '@/lib/db/recipes'
+import { getWeekPlan, getWeekStart } from '@/lib/db/planner'
+import Link from 'next/link'
+import { ChefHat, CalendarDays, Clock, Plus } from 'lucide-react'
+import { format, addDays } from 'date-fns'
 
-export default function Home() {
+const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+const CUISINE_EMOJI: Record<string, string> = {
+  italian: '🍝', japanese: '🍜', chinese: '🥢', mexican: '🌮', indian: '🍛',
+  thai: '🌶️', french: '🥐', american: '🍔', mediterranean: '🫒', korean: '🍱',
+  vietnamese: '🍲', greek: '🥗', spanish: '🥘', middle_eastern: '🧆',
+}
+
+function getCuisineEmoji(cuisine: string | null) {
+  if (!cuisine) return '🍽️'
+  return CUISINE_EMOJI[cuisine.toLowerCase()] ?? '🍽️'
+}
+
+export default async function HomePage() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  const weekStart = getWeekStart()
+  const [recipes, plan] = await Promise.all([
+    getRecipes(),
+    getWeekPlan(weekStart),
+  ])
+
+  const recentRecipes = recipes.slice(0, 6)
+  const slots = plan?.weekly_plan_slots ?? []
+
+  const weekDays = Array.from({ length: 7 }, (_, i) => {
+    const date = addDays(new Date(weekStart + 'T00:00:00'), i)
+    const slot = slots.find(s => s.day_of_week === i)
+    return { day: DAYS[i], date, slot }
+  })
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <div className="max-w-lg mx-auto px-4 pt-6 pb-4">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <div className="flex items-center gap-2">
+            <ChefHat className="w-6 h-6 text-orange-500" />
+            <h1 className="text-2xl font-bold text-gray-900">Mise en Place</h1>
+          </div>
+          <p className="text-sm text-gray-500 mt-0.5">
+            {format(new Date(), 'EEEE, MMMM d')}
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+        <Link
+          href="/recipes/new"
+          className="bg-orange-500 text-white rounded-full p-3 shadow-md hover:bg-orange-600 active:scale-95 transition-all"
+        >
+          <Plus className="w-5 h-5" />
+        </Link>
+      </div>
+
+      {/* This week's plan */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-6">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="font-semibold text-gray-900 flex items-center gap-1.5">
+            <CalendarDays className="w-4 h-4 text-orange-500" />
+            This Week
+          </h2>
+          <Link href="/planner" className="text-sm text-orange-500 font-medium">
+            Edit plan →
+          </Link>
         </div>
-      </main>
+        <div className="grid grid-cols-7 gap-1">
+          {weekDays.map(({ day, date, slot }) => {
+            const isToday = format(date, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd')
+            return (
+              <div key={day} className="text-center">
+                <p className={`text-xs font-medium mb-1 ${isToday ? 'text-orange-500' : 'text-gray-400'}`}>{day}</p>
+                <div className={`rounded-lg h-14 flex items-center justify-center text-center p-1 ${
+                  isToday ? 'bg-orange-50 border border-orange-200' : 'bg-gray-50'
+                }`}>
+                  {slot?.recipe ? (
+                    <p className="text-xs text-gray-700 leading-tight line-clamp-3 font-medium">
+                      {getCuisineEmoji((slot.recipe as any).cuisine)} {(slot.recipe as any).name}
+                    </p>
+                  ) : (
+                    <Link href="/planner" className="text-gray-300 hover:text-orange-400 text-lg">+</Link>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+        {slots.length > 0 && (
+          <Link
+            href="/planner/grocery"
+            className="mt-3 flex items-center justify-center gap-2 w-full bg-orange-50 hover:bg-orange-100 text-orange-600 font-medium text-sm rounded-xl py-2.5 transition-colors"
+          >
+            🛒 View grocery list
+          </Link>
+        )}
+      </div>
+
+      {/* Recent recipes */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="font-semibold text-gray-900">My Recipes</h2>
+          <Link href="/recipes" className="text-sm text-orange-500 font-medium">
+            See all →
+          </Link>
+        </div>
+        {recentRecipes.length === 0 ? (
+          <div className="bg-white rounded-2xl border border-dashed border-gray-200 p-8 text-center">
+            <div className="text-4xl mb-3">🧑‍🍳</div>
+            <p className="text-gray-500 mb-4">No recipes yet. Add your first one!</p>
+            <Link
+              href="/recipes/new"
+              className="inline-flex items-center gap-2 bg-orange-500 text-white rounded-xl px-4 py-2.5 text-sm font-medium hover:bg-orange-600 transition-colors"
+            >
+              <Plus className="w-4 h-4" /> Add recipe
+            </Link>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-3">
+            {recentRecipes.map(recipe => (
+              <Link
+                key={recipe.id}
+                href={`/recipes/${recipe.id}`}
+                className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 hover:shadow-md active:scale-98 transition-all"
+              >
+                <div className="text-3xl mb-2">{getCuisineEmoji(recipe.cuisine)}</div>
+                <p className="font-semibold text-gray-900 text-sm line-clamp-2 leading-tight">{recipe.name}</p>
+                {recipe.cuisine && (
+                  <p className="text-xs text-gray-400 mt-1 capitalize">{recipe.cuisine}</p>
+                )}
+                <div className="flex items-center gap-1 mt-2">
+                  {recipe.cook_time_minutes && (
+                    <span className="text-xs text-gray-400 flex items-center gap-0.5">
+                      <Clock className="w-3 h-3" /> {recipe.cook_time_minutes}m
+                    </span>
+                  )}
+                  {recipe.cooked_count > 0 && (
+                    <span className="text-xs text-gray-400 ml-auto">🍳 ×{recipe.cooked_count}</span>
+                  )}
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
-  );
+  )
 }
