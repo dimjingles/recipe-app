@@ -23,14 +23,18 @@ export interface Database {
           tags: string[]
           cooked_count: number
           last_cooked_at: string | null
+          rank: number | null
           created_at: string
         }
-        Insert: Omit<Database['public']['Tables']['recipes']['Row'], 'id' | 'created_at' | 'cooked_count'> & {
+        Insert: Omit<Database['public']['Tables']['recipes']['Row'], 'id' | 'created_at' | 'cooked_count' | 'last_cooked_at' | 'rank'> & {
           id?: string
           created_at?: string
           cooked_count?: number
+          last_cooked_at?: string | null
+          rank?: number | null
         }
         Update: Partial<Database['public']['Tables']['recipes']['Insert']>
+        Relationships: []
       }
       ingredients: {
         Row: {
@@ -43,6 +47,7 @@ export interface Database {
         }
         Insert: Omit<Database['public']['Tables']['ingredients']['Row'], 'id'> & { id?: string }
         Update: Partial<Database['public']['Tables']['ingredients']['Insert']>
+        Relationships: []
       }
       cooking_log: {
         Row: {
@@ -51,13 +56,13 @@ export interface Database {
           recipe_id: string
           cooked_at: string
           notes: string | null
-          rating: number | null
         }
         Insert: Omit<Database['public']['Tables']['cooking_log']['Row'], 'id' | 'cooked_at'> & {
           id?: string
           cooked_at?: string
         }
         Update: Partial<Database['public']['Tables']['cooking_log']['Insert']>
+        Relationships: []
       }
       weekly_plans: {
         Row: {
@@ -71,6 +76,7 @@ export interface Database {
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['weekly_plans']['Insert']>
+        Relationships: []
       }
       weekly_plan_slots: {
         Row: {
@@ -82,8 +88,11 @@ export interface Database {
         }
         Insert: Omit<Database['public']['Tables']['weekly_plan_slots']['Row'], 'id'> & { id?: string }
         Update: Partial<Database['public']['Tables']['weekly_plan_slots']['Insert']>
+        Relationships: []
       }
     }
+    Views: Record<string, never>
+    Functions: Record<string, never>
   }
 }
 

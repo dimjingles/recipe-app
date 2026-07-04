@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
+import CuisineCombobox from '@/components/cuisine-combobox'
 
 interface IngredientRow {
   name: string
@@ -168,7 +169,7 @@ export default function NewRecipePage({
         <div className="grid grid-cols-3 gap-3">
           <div>
             <Label className="text-gray-700 font-medium text-sm">Cuisine</Label>
-            <Input value={cuisine} onChange={e => setCuisine(e.target.value)} placeholder="Italian" className="mt-1.5" />
+            <CuisineCombobox value={cuisine} onChange={setCuisine} className="mt-1.5" />
           </div>
           <div>
             <Label className="text-gray-700 font-medium text-sm">Cook Time (min)</Label>

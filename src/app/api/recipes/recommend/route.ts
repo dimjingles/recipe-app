@@ -12,7 +12,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get user's recipe history
     const { data: recipes } = await supabase
       .from('recipes')
       .select('name, cuisine, tags, cooked_count')
@@ -24,7 +23,7 @@ export async function POST(request: NextRequest) {
     ).join('\n') || 'No recipes yet'
 
     const message = await client.messages.create({
-      model: 'claude-opus-4-5',
+      model: 'claude-haiku-4-5-20251001',
       max_tokens: 1024,
       messages: [
         {

@@ -10,6 +10,7 @@ export async function getRecipes() {
     .from('recipes')
     .select('*, ingredients(*)')
     .eq('user_id', user.id)
+    .order('rank', { ascending: true, nullsFirst: false })
     .order('created_at', { ascending: false })
 
   if (error) { console.error(error); return [] }
@@ -48,7 +49,17 @@ export async function createRecipe(recipe: {
 
   const { data: newRecipe, error: recipeError } = await supabase
     .from('recipes')
-    .insert({ ...recipeData, user_id: user.id })
+    .insert({
+      user_id: user.id,
+      name: recipeData.name,
+      description: recipeData.description ?? null,
+      cuisine: recipeData.cuisine ?? null,
+      cook_time_minutes: recipeData.cook_time_minutes ?? null,
+      servings: recipeData.servings ?? 4,
+      instructions: recipeData.instructions ?? null,
+      image_url: recipeData.image_url ?? null,
+      tags: recipeData.tags ?? [],
+    })
     .select()
     .single()
 
@@ -57,7 +68,13 @@ export async function createRecipe(recipe: {
   if (ingredients.length > 0) {
     const { error: ingError } = await supabase
       .from('ingredients')
-      .insert(ingredients.map(i => ({ ...i, recipe_id: newRecipe.id })))
+      .insert(ingredients.map(i => ({
+        recipe_id: newRecipe.id,
+        name: i.name,
+        quantity: i.quantity ?? null,
+        unit: i.unit ?? null,
+        category: i.category ?? null,
+      })))
     if (ingError) throw ingError
   }
 
@@ -92,7 +109,13 @@ export async function updateRecipe(id: string, recipe: {
     await supabase.from('ingredients').delete().eq('recipe_id', id)
     if (ingredients.length > 0) {
       await supabase.from('ingredients').insert(
-        ingredients.map(i => ({ ...i, recipe_id: id }))
+        ingredients.map(i => ({
+          recipe_id: id,
+          name: i.name,
+          quantity: i.quantity ?? null,
+          unit: i.unit ?? null,
+          category: i.category ?? null,
+        }))
       )
     }
   }
@@ -107,7 +130,6 @@ export async function deleteRecipe(id: string) {
 }
 
 export async function logCooking(recipeId: string, data: {
-  rating?: number
   notes?: string
   cooked_at?: string
 }) {
@@ -119,7 +141,8 @@ export async function logCooking(recipeId: string, data: {
   const { error: logError } = await supabase.from('cooking_log').insert({
     recipe_id: recipeId,
     user_id: user.id,
-    ...data,
+    notes: data.notes ?? null,
+    cooked_at: data.cooked_at,
   })
   if (logError) throw logError
 

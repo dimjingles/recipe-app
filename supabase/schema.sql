@@ -17,6 +17,7 @@ create table if not exists recipes (
   tags text[] default '{}',
   cooked_count integer default 0,
   last_cooked_at timestamptz,
+  rank integer,
   created_at timestamptz default now()
 );
 
@@ -36,8 +37,7 @@ create table if not exists cooking_log (
   user_id uuid references auth.users not null,
   recipe_id uuid references recipes(id) on delete cascade not null,
   cooked_at timestamptz default now(),
-  notes text,
-  rating integer check (rating between 1 and 5)
+  notes text
 );
 
 -- WEEKLY PLANS

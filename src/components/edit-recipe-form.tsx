@@ -3,13 +3,14 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Plus, X, Loader2 } from 'lucide-react'
+import { ArrowLeft, Plus, X, Loader2, Trash2 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
 import { RecipeWithIngredients } from '@/types/database'
+import CuisineCombobox from '@/components/cuisine-combobox'
 
 const CATEGORIES = ['produce', 'dairy', 'meat', 'seafood', 'pantry', 'spices', 'bakery', 'frozen', 'other']
 
@@ -38,6 +39,7 @@ export default function EditRecipeForm({ recipe }: { recipe: RecipeWithIngredien
     }))
   )
   const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   const addIngredient = () => {
     setIngredients(prev => [...prev, { name: '', quantity: '', unit: '', category: 'other' }])
@@ -49,6 +51,19 @@ export default function EditRecipeForm({ recipe }: { recipe: RecipeWithIngredien
 
   const updateIngredient = (i: number, field: keyof IngredientRow, value: string) => {
     setIngredients(prev => prev.map((ing, idx) => idx === i ? { ...ing, [field]: value } : ing))
+  }
+
+  const handleDelete = async () => {
+    if (!confirm('Delete this recipe? This cannot be undone.')) return
+    setDeleting(true)
+    try {
+      await fetch(`/api/recipes/${recipe.id}`, { method: 'DELETE' })
+      toast.success('Recipe deleted')
+      router.push('/recipes')
+    } catch {
+      toast.error('Could not delete recipe')
+      setDeleting(false)
+    }
   }
 
   const handleSave = async () => {
@@ -100,7 +115,7 @@ export default function EditRecipeForm({ recipe }: { recipe: RecipeWithIngredien
         <div className="grid grid-cols-3 gap-3">
           <div>
             <Label className="text-gray-700 font-medium text-sm">Cuisine</Label>
-            <Input value={cuisine} onChange={e => setCuisine(e.target.value)} className="mt-1.5" />
+            <CuisineCombobox value={cuisine} onChange={setCuisine} className="mt-1.5" />
           </div>
           <div>
             <Label className="text-gray-700 font-medium text-sm">Cook Time (min)</Label>
@@ -143,9 +158,17 @@ export default function EditRecipeForm({ recipe }: { recipe: RecipeWithIngredien
           <Input value={tags} onChange={e => setTags(e.target.value)} placeholder="quick, weeknight (comma-separated)" className="mt-1.5" />
         </div>
 
-        <Button onClick={handleSave} disabled={saving || !name.trim()} className="w-full bg-orange-500 hover:bg-orange-600 text-white h-12 text-base font-semibold">
+        <Button onClick={handleSave} disabled={saving || deleting || !name.trim()} className="w-full bg-orange-500 hover:bg-orange-600 text-white h-12 text-base font-semibold">
           {saving ? <><Loader2 className="w-4 h-4 animate-spin mr-2" /> Saving...</> : 'Save Changes'}
         </Button>
+        <button
+          onClick={handleDelete}
+          disabled={deleting}
+          className="w-full flex items-center justify-center gap-2 text-sm text-red-400 hover:text-red-600 py-2 transition-colors"
+        >
+          <Trash2 className="w-4 h-4" />
+          {deleting ? 'Deleting...' : 'Delete recipe'}
+        </button>
       </div>
     </div>
   )

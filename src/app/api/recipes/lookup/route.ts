@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
     }
 
     const message = await client.messages.create({
-      model: 'claude-opus-4-5',
+      model: 'claude-haiku-4-5-20251001',
       max_tokens: 1024,
       messages: [
         {
@@ -39,7 +39,6 @@ Use realistic quantities for a home meal. Category must be one of: produce, dair
       return NextResponse.json({ error: 'Unexpected response' }, { status: 500 })
     }
 
-    // Parse JSON from response
     const jsonMatch = content.text.match(/\{[\s\S]*\}/)
     if (!jsonMatch) {
       return NextResponse.json({ error: 'Could not parse recipe data' }, { status: 500 })
