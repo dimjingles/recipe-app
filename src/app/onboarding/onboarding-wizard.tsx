@@ -230,6 +230,10 @@ export default function OnboardingWizard({ isAuthenticated }: { isAuthenticated:
   const holdIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const submittedRef = useRef(false)
 
+  // Step 17 error / retry state
+  const [submitError, setSubmitError] = useState<string | null>(null)
+  const [forceRetry, setForceRetry] = useState(0)
+
   // ── Hydrate from localStorage on mount ──────────────────────────────────────
   useEffect(() => {
     const stored = loadFromStorage()
@@ -354,6 +358,7 @@ export default function OnboardingWizard({ isAuthenticated }: { isAuthenticated:
 
   // Welcome step sign-in (returning users, skips onboarding)
   const handleSignIn = async () => {
+    clearStorage()  // discard any stale pendingSubmit from a previous partial run
     const supabase = createClient()
     await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -367,6 +372,7 @@ export default function OnboardingWizard({ isAuthenticated }: { isAuthenticated:
   useEffect(() => {
     if (step !== 17 || submittedRef.current) return
     submittedRef.current = true
+    setSubmitError(null)
 
     // Prefer stored answers (they survived the OAuth redirect)
     const stored = loadFromStorage()
@@ -387,11 +393,10 @@ export default function OnboardingWizard({ isAuthenticated }: { isAuthenticated:
       })
       .catch((err: unknown) => {
         const message = err instanceof Error ? err.message : 'Something went wrong'
-        toast.error(message + ' — please try again')
         submittedRef.current = false
-        setStep(16)   // back to account step
+        setSubmitError(message)
       })
-  }, [step]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [step, forceRetry]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Welcome screen (step -1) ───────────────────────────────────────────────
   if (step === -1) {
@@ -589,6 +594,19 @@ export default function OnboardingWizard({ isAuthenticated }: { isAuthenticated:
 
   // ─── Finishing screen (step 17 — post-auth flush) ───────────────────────────
   if (step === 17) {
+    if (submitError) {
+      return (
+        <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center gap-6 px-8 text-center">
+          <p className="text-red-400 text-base">{submitError}</p>
+          <button
+            onClick={() => setForceRetry(c => c + 1)}
+            className="h-14 px-8 rounded-full bg-orange-500 hover:bg-orange-600 text-white font-semibold text-base active:scale-[0.98] transition-all"
+          >
+            Try again
+          </button>
+        </div>
+      )
+    }
     return <DarkLoadingScreen message="Setting up your kitchen…" />
   }
 
