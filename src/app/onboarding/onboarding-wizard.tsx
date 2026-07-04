@@ -1,20 +1,47 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
+import { createClient } from '@/lib/supabase/client'
 import {
-  Users, User, Heart, Clock, TrendingUp, DollarSign,
-  BookOpen, Leaf, Flame, Star, ChefHat, Bell,
-  ChevronLeft, UtensilsCrossed, Sprout,
+  Users, User, Heart, Clock, DollarSign,
+  BookOpen, Leaf, ChefHat,
+  ChevronLeft, Sprout,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import OnboardingShell from '@/components/onboarding/shell'
 import OptionCard from '@/components/onboarding/option-card'
 import OptionGrid from '@/components/onboarding/option-grid'
 
-// Steps 0-13 use the shell; 14 = commit, 15 = loading
+// Steps 0–13 use the shell; 14 = commit, 15 = loading (auto), 16 = create account, 17 = finishing
 const TOTAL_SHELL_STEPS = 14
+
+// ── localStorage persistence ──────────────────────────────────────────────────
+
+const STORAGE_KEY = 'mep-onboarding-v1'
+
+type StoredState = {
+  answers: Answers
+  step: number
+  pendingSubmit?: boolean
+}
+
+function saveToStorage(data: StoredState): void {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)) } catch {}
+}
+
+function loadFromStorage(): StoredState | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    return raw ? (JSON.parse(raw) as StoredState) : null
+  } catch { return null }
+}
+
+function clearStorage(): void {
+  try { localStorage.removeItem(STORAGE_KEY) } catch {}
+}
+
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 type Answers = {
   household_size: string
@@ -151,10 +178,49 @@ const GOAL_LABELS: Record<string, string> = {
   reduce_waste: 'reducing food waste',
 }
 
+// ── Shared loading visual ─────────────────────────────────────────────────────
+
+function DarkLoadingScreen({ message }: { message: string }) {
+  return (
+    <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center gap-8">
+      <p className="text-white text-xl font-medium tracking-wide">{message}</p>
+      <div className="relative w-20 h-20">
+        <svg className="w-full h-full animate-spin" viewBox="0 0 80 80">
+          <circle cx="40" cy="40" r="36" fill="none" stroke="#374151" strokeWidth="6" />
+          <circle
+            cx="40" cy="40" r="36"
+            fill="none"
+            stroke="#f97316"
+            strokeWidth="6"
+            strokeLinecap="round"
+            strokeDasharray={`${2 * Math.PI * 36 * 0.25} ${2 * Math.PI * 36 * 0.75}`}
+            transform="rotate(-90 40 40)"
+          />
+        </svg>
+        <div className="absolute inset-0 flex items-center justify-center">
+          <ChefHat className="w-8 h-8 text-white" />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Google logo ───────────────────────────────────────────────────────────────
+
+function GoogleIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <path d="M19.6 10.23c0-.68-.06-1.36-.18-2H10v3.79h5.38c-.23 1.24-.95 2.29-2.01 2.99v2.48h3.25c1.9-1.75 3-4.33 3-7.26z" fill="#4285F4"/>
+      <path d="M10 20c2.7 0 4.96-.9 6.61-2.43l-3.22-2.5c-.9.6-2.04.96-3.39.96-2.61 0-4.82-1.76-5.61-4.14H1.08v2.58C2.72 17.76 6.1 20 10 20z" fill="#34A853"/>
+      <path d="M4.39 11.89A6.02 6.02 0 0 1 4.04 10c0-.65.11-1.29.35-1.89V5.53H1.08A10 10 0 0 0 0 10c0 1.61.38 3.13 1.08 4.47l3.31-2.58z" fill="#FBBC05"/>
+      <path d="M10 3.98c1.47 0 2.8.51 3.84 1.5l2.87-2.87C14.96.9 12.7 0 10 0 6.1 0 2.72 2.24 1.08 5.53l3.31 2.58C5.18 5.74 7.39 3.98 10 3.98z" fill="#EA4335"/>
+    </svg>
+  )
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function OnboardingWizard() {
-  const router = useRouter()
+export default function OnboardingWizard({ isAuthenticated }: { isAuthenticated: boolean }) {
   const [step, setStep] = useState(-1)
   const [answers, setAnswers] = useState<Answers>(INITIAL_ANSWERS)
 
@@ -163,6 +229,33 @@ export default function OnboardingWizard() {
   const [committed, setCommitted] = useState(false)
   const holdIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const submittedRef = useRef(false)
+
+  // ── Hydrate from localStorage on mount ──────────────────────────────────────
+  useEffect(() => {
+    const stored = loadFromStorage()
+    if (!stored) return
+
+    if (stored.pendingSubmit && isAuthenticated) {
+      // Returned from Google OAuth successfully → auto-flush answers to DB
+      setAnswers(stored.answers)
+      setStep(17)
+    } else if (stored.pendingSubmit) {
+      // OAuth wasn't completed (user closed the Google popup / cancelled) → show account step
+      setAnswers(stored.answers)
+      setStep(16)
+    } else if (stored.step >= 0 && stored.step <= 13) {
+      // Mid-flow page refresh → restore progress
+      setAnswers(stored.answers)
+      setStep(stored.step)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Persist question steps to localStorage ───────────────────────────────
+  useEffect(() => {
+    if (step >= 0 && step <= 13) {
+      saveToStorage({ answers, step })
+    }
+  }, [answers, step])
 
   const goNext = () => setStep(s => s + 1)
   const goBack = () => setStep(s => Math.max(0, s - 1))
@@ -215,7 +308,7 @@ export default function OnboardingWizard() {
     goNext()
   }
 
-  // Commit tap-and-hold
+  // Commit tap-and-hold → advances to step 15 (loading screen)
   const startHold = () => {
     if (committed) return
     holdIntervalRef.current = setInterval(() => {
@@ -238,28 +331,63 @@ export default function OnboardingWizard() {
     setHoldProgress(0)
   }
 
-  // Submit on loading step
+  // Step 15: auto-advance to account creation after loading animation
   useEffect(() => {
-    if (step !== 15 || submittedRef.current) return
+    if (step !== 15) return
+    const timer = setTimeout(() => setStep(16), 1800)
+    return () => clearTimeout(timer)
+  }, [step])
+
+  // Step 16: Google OAuth → kick off sign-up, buffer answers + flag
+  const handleCreateAccount = async () => {
+    saveToStorage({ answers, step: 13, pendingSubmit: true })
+    const supabase = createClient()
+    await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback?next=/onboarding`,
+      },
+    })
+  }
+
+  // Welcome step sign-in (returning users, skips onboarding)
+  const handleSignIn = async () => {
+    const supabase = createClient()
+    await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback?next=/`,
+      },
+    })
+  }
+
+  // Step 17: flush buffered answers to DB, then navigate to app
+  useEffect(() => {
+    if (step !== 17 || submittedRef.current) return
     submittedRef.current = true
+
+    // Prefer stored answers (they survived the OAuth redirect)
+    const stored = loadFromStorage()
+    const submittingAnswers = stored?.answers ?? answers
 
     fetch('/api/onboarding', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(answers),
+      body: JSON.stringify(submittingAnswers),
     })
       .then(async (res) => {
         if (!res.ok) {
           const body = await res.json().catch(() => ({}))
           throw new Error(body.error || `Request failed (${res.status})`)
         }
+        clearStorage()
         window.location.href = '/'
       })
       .catch((err: unknown) => {
         const message = err instanceof Error ? err.message : 'Something went wrong'
         toast.error(message + ' — please try again')
         submittedRef.current = false
-        setStep(13)
+        setStep(16)   // back to account step
       })
   }, [step]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -275,14 +403,22 @@ export default function OnboardingWizard() {
               </div>
             </div>
             <h1 className="text-3xl font-bold text-gray-900">Mise en Place</h1>
-            <p className="text-gray-500 mt-2">Your personal recipe & meal planner</p>
+            <p className="text-gray-500 mt-2">Your personal recipe &amp; meal planner</p>
           </div>
-          <button
-            onClick={() => setStep(0)}
-            className="w-full h-14 rounded-full bg-orange-500 hover:bg-orange-600 text-white text-base font-semibold transition-colors active:scale-[0.98]"
-          >
-            Get started
-          </button>
+          <div className="flex flex-col gap-3">
+            <button
+              onClick={() => setStep(0)}
+              className="w-full h-14 rounded-full bg-orange-500 hover:bg-orange-600 text-white text-base font-semibold transition-colors active:scale-[0.98]"
+            >
+              Get started
+            </button>
+            <button
+              onClick={handleSignIn}
+              className="w-full h-14 rounded-full bg-white border border-gray-200 text-gray-700 text-base font-medium hover:bg-gray-50 active:scale-[0.98] transition-all"
+            >
+              Already have an account? Sign in
+            </button>
+          </div>
         </div>
       </div>
     )
@@ -413,34 +549,48 @@ export default function OnboardingWizard() {
     )
   }
 
-  // ─── Loading / generating screen (step 15) ──────────────────────────────────
+  // ─── Generating plan screen (step 15) ───────────────────────────────────────
   if (step === 15) {
+    return <DarkLoadingScreen message="Building your plan…" />
+  }
+
+  // ─── Create account screen (step 16) ────────────────────────────────────────
+  if (step === 16) {
     return (
-      <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center gap-8">
-        <p className="text-white text-xl font-medium tracking-wide">Almost there...</p>
-        <div className="relative w-20 h-20">
-          {/* Spinning ring */}
-          <svg className="w-full h-full animate-spin" viewBox="0 0 80 80">
-            <circle cx="40" cy="40" r="36" fill="none" stroke="#374151" strokeWidth="6" />
-            <circle
-              cx="40" cy="40" r="36"
-              fill="none"
-              stroke="#f97316"
-              strokeWidth="6"
-              strokeLinecap="round"
-              strokeDasharray={`${2 * Math.PI * 36 * 0.25} ${2 * Math.PI * 36 * 0.75}`}
-              transform="rotate(-90 40 40)"
-            />
-          </svg>
-          <div className="absolute inset-0 flex items-center justify-center">
-            <ChefHat className="w-8 h-8 text-white" />
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-amber-50 flex items-center justify-center p-4">
+        <div className="w-full max-w-sm">
+          <div className="text-center mb-8">
+            <div className="flex justify-center mb-4">
+              <div className="bg-orange-500 rounded-2xl p-4">
+                <ChefHat className="w-10 h-10 text-white" />
+              </div>
+            </div>
+            <h1 className="text-3xl font-bold text-gray-900">Almost ready!</h1>
+            <p className="text-gray-500 mt-3">
+              Create your free account to save your personalised plan.
+            </p>
           </div>
+          <button
+            onClick={handleCreateAccount}
+            className="w-full h-14 rounded-full bg-white border border-gray-200 shadow-sm flex items-center justify-center gap-3 text-gray-700 font-semibold text-base hover:bg-gray-50 active:scale-[0.98] transition-all"
+          >
+            <GoogleIcon />
+            Continue with Google
+          </button>
+          <p className="text-center text-xs text-gray-400 mt-4">
+            Your answers are saved. You won&apos;t lose your progress.
+          </p>
         </div>
       </div>
     )
   }
 
-  // ─── Shell-wrapped steps (0–12) ─────────────────────────────────────────────
+  // ─── Finishing screen (step 17 — post-auth flush) ───────────────────────────
+  if (step === 17) {
+    return <DarkLoadingScreen message="Setting up your kitchen…" />
+  }
+
+  // ─── Shell-wrapped steps (0–13) ─────────────────────────────────────────────
   const showBack = step > 0
   const stepContent = renderStepContent(step, answers, set, toggleArray, goNext, handleNotificationRequest)
 
@@ -606,7 +756,7 @@ function renderStepContent(
       return (
         <div>
           <h1 className="text-3xl font-bold text-gray-900 leading-tight mb-2">
-            What's your goal?
+            What&apos;s your goal?
           </h1>
           <p className="text-gray-400 text-sm mb-8">
             This helps us generate a plan for your recipe ideas.
@@ -656,7 +806,7 @@ function renderStepContent(
             Anything you avoid?
           </h1>
           <p className="text-gray-400 text-sm mb-8">
-            We'll filter these out of your recommendations.
+            We&apos;ll filter these out of your recommendations.
           </p>
           <OptionGrid
             options={ALLERGY_OPTIONS}
@@ -692,7 +842,7 @@ function renderStepContent(
             How confident are you in the kitchen?
           </h1>
           <p className="text-gray-400 text-sm mb-8">
-            We'll match recipe difficulty to your level.
+            We&apos;ll match recipe difficulty to your level.
           </p>
           <div className="flex flex-col gap-3">
             {SKILL_OPTIONS.map(o => (
@@ -771,7 +921,7 @@ function renderStepContent(
             Thank you for trusting us!
           </h1>
           <p className="text-gray-400 text-base">
-            Now let's personalize Mise en Place for you...
+            Now let&apos;s personalize Mise en Place for you...
           </p>
         </div>
       )
@@ -784,13 +934,13 @@ function renderStepContent(
             Reach your goals with meal reminders
           </h1>
           <p className="text-gray-400 text-sm text-center mb-10">
-            We'll nudge you to plan and cook — on your schedule.
+            We&apos;ll nudge you to plan and cook — on your schedule.
           </p>
           {/* Simulated notification prompt */}
           <div className="bg-gray-100 rounded-2xl overflow-hidden mb-8">
             <div className="bg-gray-200 px-5 py-4 text-center">
               <p className="font-semibold text-gray-900 text-sm">
-                "Mise en Place" would like to send you notifications
+                &ldquo;Mise en Place&rdquo; would like to send you notifications
               </p>
             </div>
             <div className="flex divide-x divide-gray-300">
@@ -798,7 +948,7 @@ function renderStepContent(
                 onClick={() => { set('meal_reminders', false); goNext() }}
                 className="flex-1 py-3.5 text-center text-gray-500 font-medium text-sm hover:bg-gray-200 transition-colors"
               >
-                Don't Allow
+                Don&apos;t Allow
               </button>
               <button
                 onClick={handleNotificationRequest}
@@ -854,7 +1004,7 @@ function renderStepContent(
             The real cost of takeout
           </h1>
           <p className="text-gray-400 text-sm mb-6">
-            Here's what the numbers actually look like.
+            Here&apos;s what the numbers actually look like.
           </p>
 
           {/* Side-by-side header */}
@@ -936,7 +1086,7 @@ function renderStepContent(
               Cook 5×/week → save $3,360/year
             </p>
             <p className="text-orange-100 text-sm mt-1">
-              That's a vacation. Or a very good knife set.
+              That&apos;s a vacation. Or a very good knife set.
             </p>
           </div>
         </div>

@@ -4,7 +4,7 @@ import { getRecipes } from '@/lib/db/recipes'
 import { getWeekPlan, getWeekStart } from '@/lib/db/planner'
 import { getProfile } from '@/lib/db/profile'
 import Link from 'next/link'
-import { ChefHat, CalendarDays, Clock, Plus } from 'lucide-react'
+import { ChefHat, CalendarDays, Clock, Plus, LogOut } from 'lucide-react'
 import { format, addDays } from 'date-fns'
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -59,12 +59,23 @@ export default async function HomePage() {
             {format(new Date(), 'EEEE, MMMM d')}
           </p>
         </div>
-        <Link
-          href="/recipes/new"
-          className="bg-orange-500 text-white rounded-full p-3 shadow-md hover:bg-orange-600 active:scale-95 transition-all"
-        >
-          <Plus className="w-5 h-5" />
-        </Link>
+        <div className="flex items-center gap-2">
+          <form action="/auth/signout" method="POST">
+            <button
+              type="submit"
+              title="Sign out"
+              className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 active:scale-95 transition-all"
+            >
+              <LogOut className="w-4 h-4 text-gray-500" />
+            </button>
+          </form>
+          <Link
+            href="/recipes/new"
+            className="bg-orange-500 text-white rounded-full p-3 shadow-md hover:bg-orange-600 active:scale-95 transition-all"
+          >
+            <Plus className="w-5 h-5" />
+          </Link>
+        </div>
       </div>
 
       {/* This week's plan */}
