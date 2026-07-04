@@ -99,14 +99,6 @@ export default function LoginPage() {
             <p className="text-center text-xs text-gray-400 mt-4">
               No password required. We'll email you a sign-in link.
             </p>
-            <div className="mt-5 pt-4 border-t border-gray-100 text-center">
-              <button
-                onClick={() => { window.location.href = '/onboarding' }}
-                className="text-sm text-orange-600 hover:underline"
-              >
-                New here? Get started →
-              </button>
-            </div>
           </div>
         )}
       </div>

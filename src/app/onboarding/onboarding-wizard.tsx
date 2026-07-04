@@ -153,9 +153,9 @@ const GOAL_LABELS: Record<string, string> = {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function OnboardingWizard() {
+export default function OnboardingWizard({ initialStep = -1 }: { initialStep?: number }) {
   const router = useRouter()
-  const [step, setStep] = useState(-1)
+  const [step, setStep] = useState(initialStep)
   const [answers, setAnswers] = useState<Answers>(INITIAL_ANSWERS)
 
   // Commit button state
@@ -257,7 +257,7 @@ export default function OnboardingWizard() {
 
   // ─── Welcome screen (step -1) ───────────────────────────────────────────────
   if (step === -1) {
-    return <WelcomeScreen onGetStarted={() => setStep(0)} />
+    return <WelcomeScreen />
   }
 
   // ─── Commit screen (step 14) ────────────────────────────────────────────────
@@ -921,7 +921,7 @@ function renderStepContent(
 
 // ─── Welcome screen component ─────────────────────────────────────────────────
 
-function WelcomeScreen({ onGetStarted }: { onGetStarted: () => void }) {
+function WelcomeScreen() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-amber-50 flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
@@ -936,7 +936,7 @@ function WelcomeScreen({ onGetStarted }: { onGetStarted: () => void }) {
         </div>
         <div className="flex flex-col gap-3">
           <button
-            onClick={onGetStarted}
+            onClick={() => { window.location.href = '/login' }}
             className="w-full h-14 rounded-full bg-orange-500 hover:bg-orange-600 text-white text-base font-semibold transition-colors active:scale-[0.98]"
           >
             Get started
