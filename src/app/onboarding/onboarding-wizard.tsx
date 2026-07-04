@@ -233,20 +233,22 @@ export default function OnboardingWizard({ isAuthenticated }: { isAuthenticated:
   // ── Hydrate from localStorage on mount ──────────────────────────────────────
   useEffect(() => {
     const stored = loadFromStorage()
-    if (!stored) return
 
-    if (stored.pendingSubmit && isAuthenticated) {
+    if (stored?.pendingSubmit && isAuthenticated) {
       // Returned from Google OAuth successfully → auto-flush answers to DB
       setAnswers(stored.answers)
       setStep(17)
-    } else if (stored.pendingSubmit) {
+    } else if (stored?.pendingSubmit) {
       // OAuth wasn't completed (user closed the Google popup / cancelled) → show account step
       setAnswers(stored.answers)
       setStep(16)
-    } else if (stored.step >= 0 && stored.step <= 13) {
+    } else if (stored?.step >= 0 && stored.step <= 13) {
       // Mid-flow page refresh → restore progress
       setAnswers(stored.answers)
       setStep(stored.step)
+    } else if (isAuthenticated) {
+      // Already signed in, no saved progress → skip welcome screen
+      setStep(0)
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
