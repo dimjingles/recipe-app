@@ -59,7 +59,7 @@ function CookDialog({ recipeId, onClose, onSaved, isAlreadyRanked }: CookDialogP
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40" onClick={onClose}>
+    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/40" onClick={onClose}>
       <div
         className="bg-white w-full max-w-lg rounded-t-3xl p-6 pb-10 shadow-xl"
         onClick={e => e.stopPropagation()}
@@ -170,7 +170,7 @@ function ComparisonDialog({ thisRecipe, onClose, onRanked }: ComparisonDialogPro
 
   if (loading || !ranked) {
     return (
-      <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40">
+      <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/40">
         <div className="bg-white w-full max-w-lg rounded-t-3xl p-6 pb-10 shadow-xl">
           <p className="text-center text-gray-400 py-8">Loading rankings…</p>
         </div>
@@ -180,7 +180,7 @@ function ComparisonDialog({ thisRecipe, onClose, onRanked }: ComparisonDialogPro
 
   if (saving) {
     return (
-      <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40">
+      <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/40">
         <div className="bg-white w-full max-w-lg rounded-t-3xl p-6 pb-10 shadow-xl">
           <p className="text-center text-gray-400 py-8">Saving your ranking…</p>
         </div>
