@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import {
   Users, User, Heart, Clock, TrendingUp, DollarSign,
@@ -257,35 +258,7 @@ export default function OnboardingWizard() {
 
   // ─── Welcome screen (step -1) ───────────────────────────────────────────────
   if (step === -1) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-amber-50 flex items-center justify-center p-4">
-        <div className="w-full max-w-sm">
-          <div className="text-center mb-10">
-            <div className="flex justify-center mb-4">
-              <div className="bg-orange-500 rounded-2xl p-4">
-                <ChefHat className="w-10 h-10 text-white" />
-              </div>
-            </div>
-            <h1 className="text-3xl font-bold text-gray-900">Mise en Place</h1>
-            <p className="text-gray-500 mt-2">Your personal recipe & meal planner</p>
-          </div>
-          <div className="flex flex-col gap-3">
-            <button
-              onClick={() => setStep(0)}
-              className="w-full h-14 rounded-full bg-orange-500 hover:bg-orange-600 text-white text-base font-semibold transition-colors active:scale-[0.98]"
-            >
-              Get started
-            </button>
-            <button
-              onClick={() => { window.location.href = '/' }}
-              className="w-full h-14 rounded-full border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 text-base font-semibold transition-colors active:scale-[0.98]"
-            >
-              Already have an account? Sign in
-            </button>
-          </div>
-        </div>
-      </div>
-    )
+    return <WelcomeScreen onGetStarted={() => setStep(0)} />
   }
 
   // ─── Commit screen (step 14) ────────────────────────────────────────────────
@@ -945,4 +918,52 @@ function renderStepContent(
     default:
       return null
   }
+}
+
+// ─── Welcome screen component ─────────────────────────────────────────────────
+
+function WelcomeScreen({ onGetStarted }: { onGetStarted: () => void }) {
+  const [checking, setChecking] = useState(true)
+
+  useEffect(() => {
+    createClient().auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        window.location.href = '/'
+      } else {
+        setChecking(false)
+      }
+    })
+  }, [])
+
+  if (checking) return null
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-amber-50 flex items-center justify-center p-4">
+      <div className="w-full max-w-sm">
+        <div className="text-center mb-10">
+          <div className="flex justify-center mb-4">
+            <div className="bg-orange-500 rounded-2xl p-4">
+              <ChefHat className="w-10 h-10 text-white" />
+            </div>
+          </div>
+          <h1 className="text-3xl font-bold text-gray-900">Mise en Place</h1>
+          <p className="text-gray-500 mt-2">Your personal recipe & meal planner</p>
+        </div>
+        <div className="flex flex-col gap-3">
+          <button
+            onClick={onGetStarted}
+            className="w-full h-14 rounded-full bg-orange-500 hover:bg-orange-600 text-white text-base font-semibold transition-colors active:scale-[0.98]"
+          >
+            Get started
+          </button>
+          <button
+            onClick={() => { window.location.href = '/login' }}
+            className="w-full h-14 rounded-full border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 text-base font-semibold transition-colors active:scale-[0.98]"
+          >
+            Already have an account? Sign in
+          </button>
+        </div>
+      </div>
+    </div>
+  )
 }
