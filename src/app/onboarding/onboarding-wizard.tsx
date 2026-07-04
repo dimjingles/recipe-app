@@ -602,6 +602,7 @@ export default function OnboardingWizard({ isAuthenticated }: { isAuthenticated:
       onContinue={goNext}
       canContinue={canContinue()}
       hideCta={step === 11}  // notification step uses inline CTAs
+      onSignIn={step === 0 ? handleSignIn : undefined}
     >
       {stepContent}
     </OnboardingShell>

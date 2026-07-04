@@ -10,6 +10,7 @@ interface OnboardingShellProps {
   onContinue: () => void
   canContinue: boolean
   hideCta?: boolean     // for steps with custom bottom UIs
+  onSignIn?: () => void // show "Sign in" link in header when provided
   children: React.ReactNode
 }
 
@@ -20,13 +21,14 @@ export default function OnboardingShell({
   onContinue,
   canContinue,
   hideCta,
+  onSignIn,
   children,
 }: OnboardingShellProps) {
   const progress = Math.round(((step + 1) / total) * 100)
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
-      {/* Progress bar + back */}
+      {/* Progress bar + back + sign-in */}
       <div className="flex items-center gap-3 px-4 pt-12 pb-4 flex-shrink-0">
         {onBack ? (
           <button
@@ -45,6 +47,16 @@ export default function OnboardingShell({
             style={{ width: `${progress}%` }}
           />
         </div>
+        {onSignIn ? (
+          <button
+            onClick={onSignIn}
+            className="flex-shrink-0 text-sm font-medium text-orange-500 hover:text-orange-600 transition-colors"
+          >
+            Sign in
+          </button>
+        ) : (
+          <div className="w-12 flex-shrink-0" />
+        )}
       </div>
 
       {/* Step content */}
