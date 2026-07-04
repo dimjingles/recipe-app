@@ -248,10 +248,10 @@ export default function OnboardingWizard() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(answers),
     })
-      .then(() => router.push('/'))
+      .then(() => { window.location.href = '/' })
       .catch(() => {
         toast.error('Something went wrong. Taking you home...')
-        setTimeout(() => router.push('/'), 2000)
+        setTimeout(() => { window.location.href = '/' }, 2000)
       })
   }, [step]) // eslint-disable-line react-hooks/exhaustive-deps
 

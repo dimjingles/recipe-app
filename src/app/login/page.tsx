@@ -5,9 +5,14 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { ChefHat } from 'lucide-react'
+import { ChefHat, ChevronLeft } from 'lucide-react'
+
+type Phase = 'landing' | 'email'
+type Mode = 'signup' | 'signin'
 
 export default function LoginPage() {
+  const [phase, setPhase] = useState<Phase>('landing')
+  const [mode, setMode] = useState<Mode>('signup')
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [sent, setSent] = useState(false)
@@ -19,8 +24,6 @@ export default function LoginPage() {
     setError('')
 
     const supabase = createClient()
-    // Preserve any ?next= param so the user returns to their original page
-    // after clicking the magic link (e.g. /import?url=... after sharing from Android).
     const nextParam = new URLSearchParams(window.location.search).get('next') || '/'
     const { error } = await supabase.auth.signInWithOtp({
       email,
@@ -37,9 +40,18 @@ export default function LoginPage() {
     }
   }
 
+  const enterEmailPhase = (selectedMode: Mode) => {
+    setMode(selectedMode)
+    setPhase('email')
+    setEmail('')
+    setError('')
+    setSent(false)
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-amber-50 flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
+        {/* Branding — always visible */}
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
             <div className="bg-orange-500 rounded-2xl p-4">
@@ -50,7 +62,25 @@ export default function LoginPage() {
           <p className="text-gray-500 mt-2">Your personal recipe & meal planner</p>
         </div>
 
-        {sent ? (
+        {phase === 'landing' ? (
+          /* ── Landing: two CTAs ── */
+          <div className="flex flex-col gap-3">
+            <Button
+              onClick={() => enterEmailPhase('signup')}
+              className="w-full h-14 text-base font-semibold bg-orange-500 hover:bg-orange-600 text-white rounded-full"
+            >
+              Get started
+            </Button>
+            <Button
+              onClick={() => enterEmailPhase('signin')}
+              variant="outline"
+              className="w-full h-14 text-base font-semibold rounded-full border-gray-300 text-gray-700 hover:bg-white"
+            >
+              Already have an account? Sign in
+            </Button>
+          </div>
+        ) : sent ? (
+          /* ── Magic link sent ── */
           <div className="bg-white rounded-2xl shadow-sm border p-8 text-center">
             <div className="text-4xl mb-4">📬</div>
             <h2 className="text-xl font-semibold text-gray-900 mb-2">Check your email</h2>
@@ -65,7 +95,18 @@ export default function LoginPage() {
             </button>
           </div>
         ) : (
+          /* ── Email form ── */
           <div className="bg-white rounded-2xl shadow-sm border p-8">
+            <button
+              onClick={() => setPhase('landing')}
+              className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-5 -ml-1"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              Back
+            </button>
+            <h2 className="text-lg font-semibold text-gray-900 mb-5">
+              {mode === 'signup' ? 'Create your account' : 'Welcome back'}
+            </h2>
             <form onSubmit={handleLogin} className="space-y-4">
               <div>
                 <Label htmlFor="email" className="text-gray-700 font-medium">Email address</Label>
