@@ -361,6 +361,13 @@ export default function RecipeDetail({ recipe }: { recipe: RecipeWithDetails }) 
               <Trophy className="w-3.5 h-3.5" /> Ranked #{currentRank}
             </span>
           )}
+          {recipe.difficulty && (
+            <span className="flex items-center gap-0.5 text-white/90 text-sm" title={['Easy', 'Medium', 'Hard'][recipe.difficulty - 1]}>
+              {Array.from({ length: recipe.difficulty }, (_, i) => (
+                <span key={i}>🔪</span>
+              ))}
+            </span>
+          )}
         </div>
       </div>
 

@@ -53,6 +53,7 @@ export interface Database {
           cook_time_minutes: number | null
           servings: number
           instructions: string | null
+          difficulty: number | null
           image_url: string | null
           gallery_images: string[]
           tags: string[]
@@ -70,6 +71,7 @@ export interface Database {
           rank?: number | null
           recipe_type?: string | null
           gallery_images?: string[]
+          difficulty?: number | null
         }
         Update: Partial<Database['public']['Tables']['recipes']['Insert']>
         Relationships: []
@@ -179,6 +181,7 @@ export interface ExtractedRecipe {
   cook_time_minutes?: number
   servings?: number
   instructions?: string
+  difficulty?: number
   ingredients: ExtractedIngredient[]
   /** og:image or JSON-LD image — stored in recipes.image_url when saving */
   image_url?: string

@@ -46,6 +46,7 @@ export default function RecipeLibrary({ initialRecipes }: { initialRecipes: Reci
   const [search, setSearch] = useState('')
   const [selectedCuisine, setSelectedCuisine] = useState<string | null>(null)
   const [selectedType, setSelectedType] = useState<string | null>(null)
+  const [selectedTag, setSelectedTag] = useState<string | null>(null)
   const [recommendations, setRecommendations] = useState<Recommendation[]>([])
   const [loadingRecs, setLoadingRecs] = useState(false)
   const [showRecs, setShowRecs] = useState(false)
@@ -125,6 +126,10 @@ export default function RecipeLibrary({ initialRecipes }: { initialRecipes: Reci
     new Set(initialRecipes.map(r => r.cuisine?.toLowerCase()).filter(Boolean) as string[])
   )
 
+  const uniqueTags = Array.from(
+    new Set(initialRecipes.flatMap(r => r.tags || []))
+  ).sort()
+
   const filtered = initialRecipes.filter(r => {
     const matchesSearch =
       r.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -132,7 +137,8 @@ export default function RecipeLibrary({ initialRecipes }: { initialRecipes: Reci
       r.tags?.some(t => t.toLowerCase().includes(search.toLowerCase()))
     const matchesCuisine = !selectedCuisine || r.cuisine?.toLowerCase() === selectedCuisine
     const matchesType = !selectedType || r.recipe_type?.toLowerCase() === selectedType
-    return matchesSearch && matchesCuisine && matchesType
+    const matchesTag = !selectedTag || (r.tags || []).includes(selectedTag)
+    return matchesSearch && matchesCuisine && matchesType && matchesTag
   })
 
   const getRecommendations = async () => {
@@ -261,6 +267,38 @@ export default function RecipeLibrary({ initialRecipes }: { initialRecipes: Reci
                 }`}
               >
                 {getCuisineEmoji(cuisine)} {cuisine}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Tag filter chips */}
+      {uniqueTags.length > 0 && (
+        <div className="mb-4">
+          <p className="text-xs text-gray-400 font-medium mb-1.5 uppercase tracking-wide">Tags</p>
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide -mx-4 px-4">
+            <button
+              onClick={() => setSelectedTag(null)}
+              className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                selectedTag === null
+                  ? 'bg-orange-500 text-white'
+                  : 'bg-white border border-gray-200 text-gray-500 hover:border-orange-300'
+              }`}
+            >
+              All
+            </button>
+            {uniqueTags.map(tag => (
+              <button
+                key={tag}
+                onClick={() => setSelectedTag(selectedTag === tag ? null : tag)}
+                className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors whitespace-nowrap ${
+                  selectedTag === tag
+                    ? 'bg-orange-500 text-white'
+                    : 'bg-white border border-gray-200 text-gray-500 hover:border-orange-300'
+                }`}
+              >
+                {tag}
               </button>
             ))}
           </div>
