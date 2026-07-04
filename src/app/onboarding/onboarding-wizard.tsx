@@ -277,7 +277,11 @@ export default function OnboardingWizard() {
               Get started
             </button>
             <button
-              onClick={() => router.push('/login')}
+              onClick={async () => {
+                const supabase = (await import('@/lib/supabase/client')).createClient()
+                await supabase.auth.signOut()
+                window.location.href = '/login'
+              }}
               className="w-full h-14 rounded-full border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 text-base font-semibold transition-colors active:scale-[0.98]"
             >
               Already have an account? Sign in
