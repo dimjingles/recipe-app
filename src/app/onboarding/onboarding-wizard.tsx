@@ -2,7 +2,6 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import {
   Users, User, Heart, Clock, TrendingUp, DollarSign,
@@ -923,12 +922,6 @@ function renderStepContent(
 // ─── Welcome screen component ─────────────────────────────────────────────────
 
 function WelcomeScreen({ onGetStarted }: { onGetStarted: () => void }) {
-  useEffect(() => {
-    createClient().auth.getUser().then(({ data: { user } }) => {
-      if (user) window.location.href = '/'
-    })
-  }, [])
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-amber-50 flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
