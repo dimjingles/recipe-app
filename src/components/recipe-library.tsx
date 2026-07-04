@@ -43,6 +43,7 @@ export default function RecipeLibrary({ initialRecipes }: { initialRecipes: Reci
   const [showRecs, setShowRecs] = useState(false)
   const [onlineResults, setOnlineResults] = useState<OnlineResult[]>([])
   const [loadingOnline, setLoadingOnline] = useState(false)
+  const [pendingSearch, setPendingSearch] = useState(false)
   const [addingRecipe, setAddingRecipe] = useState<string | null>(null)
   const searchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -50,9 +51,12 @@ export default function RecipeLibrary({ initialRecipes }: { initialRecipes: Reci
     if (searchDebounce.current) clearTimeout(searchDebounce.current)
     if (!search.trim()) {
       setOnlineResults([])
+      setPendingSearch(false)
       return
     }
+    setPendingSearch(true)
     searchDebounce.current = setTimeout(async () => {
+      setPendingSearch(false)
       setLoadingOnline(true)
       try {
         const res = await fetch('/api/recipes/search', {
@@ -363,7 +367,7 @@ export default function RecipeLibrary({ initialRecipes }: { initialRecipes: Reci
                   <div className="h-px flex-1 bg-gray-100" />
                 </div>
 
-                {loadingOnline ? (
+                {pendingSearch || loadingOnline ? (
                   <div className="space-y-2">
                     {[1, 2, 3].map(i => (
                       <div key={i} className="bg-white rounded-2xl border border-gray-100 px-4 py-3 animate-pulse">
@@ -415,8 +419,8 @@ export default function RecipeLibrary({ initialRecipes }: { initialRecipes: Reci
                     })}
                   </div>
                 ) : (
-                  !loadingOnline && (
-                    <p className="text-center text-sm text-gray-400 py-4">No online results found</p>
+                  !pendingSearch && !loadingOnline && (
+                    <p className="text-center text-sm text-gray-400 py-4">No results found for &quot;{search}&quot;</p>
                   )
                 )}
               </div>
