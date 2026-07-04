@@ -15,7 +15,6 @@ Next.js 16 + Supabase + Claude AI, deployed to Vercel. PWA-installable on Androi
 
 ## Future ideas
 
-- [ ] Recipe photo uploads (Supabase Storage)
 - [ ] Share recipes with Emily
 - [ ] Serving size scaling on grocery list
 - [ ] Nutrition info via AI
