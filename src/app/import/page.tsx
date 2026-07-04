@@ -31,6 +31,8 @@ function extractedToEditorValues(r: ExtractedRecipe): RecipeEditorValues {
     servings: r.servings != null ? String(r.servings) : '4',
     instructions: (r.instructions ?? '') + sourceNote,
     ingredients: r.ingredients,
+    image_url: r.image_url,
+    gallery_images: r.gallery_images,
   }
 }
 

@@ -36,6 +36,7 @@ create table if not exists recipes (
   servings integer default 4,
   instructions text,
   image_url text,
+  gallery_images text[] default '{}',
   tags text[] default '{}',
   cooked_count integer default 0,
   last_cooked_at timestamptz,

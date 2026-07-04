@@ -1,9 +1,7 @@
-import Anthropic from '@anthropic-ai/sdk'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getProfile } from '@/lib/db/profile'
-
-const client = new Anthropic()
+import { anthropic, HAIKU } from '@/lib/anthropic'
 
 export async function POST(request: NextRequest) {
   try {
@@ -50,8 +48,8 @@ export async function POST(request: NextRequest) {
       ? `\n\nUser preferences from onboarding:\n${prefLines.join('\n')}`
       : ''
 
-    const message = await client.messages.create({
-      model: 'claude-haiku-4-5-20251001',
+    const message = await anthropic.messages.create({
+      model: HAIKU,
       max_tokens: 1024,
       messages: [
         {

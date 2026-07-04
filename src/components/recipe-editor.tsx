@@ -27,6 +27,8 @@ export interface RecipeEditorValues {
   instructions?: string
   tags?: string
   ingredients?: IngredientRow[]
+  image_url?: string
+  gallery_images?: string[]
 }
 
 const CATEGORIES = ['produce', 'dairy', 'meat', 'seafood', 'pantry', 'spices', 'bakery', 'frozen', 'other']
@@ -56,6 +58,8 @@ export default function RecipeEditor({ initialValues, showLookup, autoLookup }: 
   const [instructions, setInstructions] = useState(initialValues?.instructions ?? '')
   const [tags, setTags] = useState(initialValues?.tags ?? '')
   const [ingredients, setIngredients] = useState<IngredientRow[]>(initialValues?.ingredients ?? [])
+  const [imageUrl] = useState(initialValues?.image_url ?? '')
+  const [galleryImages] = useState<string[]>(initialValues?.gallery_images ?? [])
   const [lookupLoading, setLookupLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [looked, setLooked] = useState(false)
@@ -82,6 +86,7 @@ export default function RecipeEditor({ initialValues, showLookup, autoLookup }: 
       if (data.error) throw new Error(data.error)
       setIngredients(data.ingredients || [])
       if (data.cuisine) setCuisine(data.cuisine)
+      if (data.recipe_type) setRecipeType(data.recipe_type)
       if (data.cook_time_minutes) setCookTime(String(data.cook_time_minutes))
       if (data.servings) setServings(String(data.servings))
       if (data.description) setDescription(data.description)
@@ -123,6 +128,8 @@ export default function RecipeEditor({ initialValues, showLookup, autoLookup }: 
           instructions: instructions.trim() || undefined,
           tags: tags ? tags.split(',').map(t => t.trim()).filter(Boolean) : [],
           ingredients: ingredients.filter(i => i.name.trim()),
+          image_url: imageUrl || undefined,
+          gallery_images: galleryImages.length > 0 ? galleryImages : undefined,
         }),
       })
       const data = await res.json()
@@ -138,6 +145,13 @@ export default function RecipeEditor({ initialValues, showLookup, autoLookup }: 
 
   return (
     <div className="space-y-5">
+      {/* Imported image preview */}
+      {imageUrl && (
+        <div className="rounded-xl overflow-hidden aspect-video bg-gray-100">
+          <img src={imageUrl} alt={name} className="w-full h-full object-cover" />
+        </div>
+      )}
+
       {/* Name + optional AI Fill */}
       <div>
         <Label className="text-gray-700 font-medium">Recipe Name *</Label>

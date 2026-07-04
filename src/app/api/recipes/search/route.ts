@@ -1,7 +1,5 @@
-import Anthropic from '@anthropic-ai/sdk'
 import { NextRequest, NextResponse } from 'next/server'
-
-const client = new Anthropic()
+import { anthropic, HAIKU } from '@/lib/anthropic'
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,8 +8,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ results: [] })
     }
 
-    const message = await client.messages.create({
-      model: 'claude-haiku-4-5-20251001',
+    const message = await anthropic.messages.create({
+      model: HAIKU,
       max_tokens: 1024,
       messages: [
         {

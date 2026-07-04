@@ -1,7 +1,5 @@
-import Anthropic from '@anthropic-ai/sdk'
 import { NextRequest, NextResponse } from 'next/server'
-
-const client = new Anthropic()
+import { anthropic, HAIKU } from '@/lib/anthropic'
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,8 +8,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Recipe name is required' }, { status: 400 })
     }
 
-    const message = await client.messages.create({
-      model: 'claude-haiku-4-5-20251001',
+    const message = await anthropic.messages.create({
+      model: HAIKU,
       max_tokens: 1024,
       messages: [
         {
@@ -24,12 +22,13 @@ Return ONLY valid JSON with this exact structure (no markdown, no explanation):
     { "name": "ingredient name", "quantity": "amount", "unit": "unit of measure", "category": "produce|dairy|meat|seafood|pantry|spices|bakery|frozen|other" }
   ],
   "cuisine": "cuisine type",
+  "recipe_type": "appetizer|main|dessert|drink",
   "cook_time_minutes": 30,
   "servings": 4,
   "description": "1-2 sentence description of the dish"
 }
 
-Use realistic quantities for a home meal. Category must be one of: produce, dairy, meat, seafood, pantry, spices, bakery, frozen, other.`,
+Use realistic quantities for a home meal. Category must be one of: produce, dairy, meat, seafood, pantry, spices, bakery, frozen, other. recipe_type must be one of: appetizer, main, dessert, drink.`,
         },
       ],
     })

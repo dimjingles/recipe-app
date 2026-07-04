@@ -1,10 +1,7 @@
-import Anthropic from '@anthropic-ai/sdk'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { anthropic, HAIKU } from '@/lib/anthropic'
 import type { ExtractedRecipe, ExtractedIngredient } from '@/types/database'
-
-const anthropic = new Anthropic()
-const HAIKU = 'claude-haiku-4-5-20251001'
 
 // ── SSRF protection ───────────────────────────────────────────────────────────
 // Block requests to private/loopback/link-local IP ranges and localhost.
@@ -53,15 +50,23 @@ const MAX_BODY_BYTES = 500 * 1024 // 500 KB
 
 async function fetchHtml(url: string): Promise<string> {
   const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), 8000)
+  const timer = setTimeout(() => controller.abort(), 15000)
   try {
     const res = await fetch(url, {
       signal: controller.signal,
+      cache: 'no-store',
       headers: {
         'User-Agent':
           'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,*/*;q=0.9',
-        'Accept-Language': 'en-US,en;q=0.5',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none',
+        'Upgrade-Insecure-Requests': '1',
       },
       redirect: 'follow',
     })
@@ -271,6 +276,55 @@ Category must be one of: produce, dairy, meat, seafood, pantry, spices, bakery, 
   return { ...data, ingredients: data.ingredients ?? [], name: data.name ?? 'Untitled Recipe', source_url: sourceUrl }
 }
 
+// ── Gallery image extraction ──────────────────────────────────────────────────
+
+function normalizeForDedup(url: string): string {
+  try {
+    const u = new URL(url)
+    u.pathname = u.pathname.replace(/-\d+x\d+(\.[a-zA-Z]+)$/, '$1')
+    return u.origin + u.pathname
+  } catch { return url }
+}
+
+function extractGalleryImages(
+  ld: Record<string, unknown> | null,
+  coverUrl: string | undefined,
+): string[] {
+  const seenNorm = new Set<string>(coverUrl ? [normalizeForDedup(coverUrl)] : [])
+  const result: string[] = []
+
+  function tryAdd(raw: unknown) {
+    if (!raw || typeof raw !== 'string') return
+    const norm = normalizeForDedup(raw)
+    if (seenNorm.has(norm)) return
+    seenNorm.add(norm)
+    result.push(raw)
+  }
+
+  if (ld) {
+    // image array variants
+    const imgs = Array.isArray(ld.image) ? ld.image : ld.image ? [ld.image] : []
+    for (const img of imgs) {
+      if (typeof img === 'string') tryAdd(img)
+      else if (img && typeof img === 'object') tryAdd((img as Record<string, unknown>).url)
+    }
+
+    // step images
+    if (Array.isArray(ld.recipeInstructions)) {
+      for (const step of ld.recipeInstructions as unknown[]) {
+        if (!step || typeof step !== 'object') continue
+        const s = step as Record<string, unknown>
+        if (s.image) {
+          if (typeof s.image === 'string') tryAdd(s.image)
+          else if (typeof s.image === 'object') tryAdd((s.image as Record<string, unknown>).url)
+        }
+      }
+    }
+  }
+
+  return result.slice(0, 4)
+}
+
 // ── Route handler ─────────────────────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
@@ -305,10 +359,13 @@ export async function POST(request: NextRequest) {
     let html: string
     try {
       html = await fetchHtml(parsed.href)
-    } catch {
+    } catch (fetchErr: unknown) {
+      const msg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr)
+      console.error('[import] fetchHtml failed:', parsed.href, msg)
       return NextResponse.json({
         needsText: true,
         hint: "We couldn't load that page. Copy the recipe text and paste it below.",
+        ...(process.env.NODE_ENV === 'development' && { _debug: msg }),
       })
     }
 
@@ -318,7 +375,13 @@ export async function POST(request: NextRequest) {
       const rawIngredients = Array.isArray(ld.recipeIngredient)
         ? (ld.recipeIngredient as string[])
         : []
-      const ingredients = await categorizeIngredients(rawIngredients)
+      let ingredients: ExtractedIngredient[]
+      try {
+        ingredients = await categorizeIngredients(rawIngredients)
+      } catch (aiErr: unknown) {
+        console.error('[import] categorizeIngredients failed, using raw:', (aiErr as Error).message)
+        ingredients = rawIngredients.map(name => ({ name, quantity: '', unit: '', category: 'other' as const }))
+      }
       const cookTime =
         parseDurationToMinutes(ld.cookTime) ??
         parseDurationToMinutes(ld.totalTime)
@@ -326,7 +389,7 @@ export async function POST(request: NextRequest) {
       const recipe: ExtractedRecipe = {
         name: (ld.name as string) || 'Untitled Recipe',
         description: ld.description as string | undefined,
-        cuisine: ld.recipeCuisine as string | undefined,
+        cuisine: Array.isArray(ld.recipeCuisine) ? (ld.recipeCuisine as string[])[0] : ld.recipeCuisine as string | undefined,
         cook_time_minutes: cookTime,
         servings: parseServingsValue(ld.recipeYield),
         instructions: parseInstructions(ld.recipeInstructions),
@@ -334,7 +397,8 @@ export async function POST(request: NextRequest) {
         image_url: extractImageUrl(ld.image),
         source_url: parsed.href,
       }
-      return NextResponse.json(recipe)
+      const gallery = extractGalleryImages(ld, recipe.image_url)
+      return NextResponse.json({ ...recipe, gallery_images: gallery })
     }
 
     // ── 2b: Claude fallback (YouTube, social media, non-JSON-LD sites) ─────────
@@ -359,7 +423,8 @@ export async function POST(request: NextRequest) {
     try {
       const recipe = await extractFromText(contextText, parsed.href)
       if (ogImage && !recipe.image_url) recipe.image_url = ogImage
-      return NextResponse.json(recipe)
+      const gallery = extractGalleryImages(null, recipe.image_url)
+      return NextResponse.json({ ...recipe, gallery_images: gallery })
     } catch {
       return NextResponse.json({
         needsText: true,

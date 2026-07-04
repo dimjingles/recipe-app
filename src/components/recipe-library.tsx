@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { RecipeWithIngredients } from '@/types/database'
-import { Plus, Search, Sparkles, Clock, X, Globe, Link2, Loader2 } from 'lucide-react'
+import { Plus, Search, Sparkles, Clock, X, Globe, Link2, Loader2, PenLine } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
 
@@ -53,6 +53,7 @@ export default function RecipeLibrary({ initialRecipes }: { initialRecipes: Reci
   const [loadingOnline, setLoadingOnline] = useState(false)
   const [pendingSearch, setPendingSearch] = useState(false)
   const [addingRecipe, setAddingRecipe] = useState<string | null>(null)
+  const [addMenuOpen, setAddMenuOpen] = useState(false)
   const searchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
@@ -156,21 +157,35 @@ export default function RecipeLibrary({ initialRecipes }: { initialRecipes: Reci
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold text-gray-900">Recipes</h1>
-        <div className="flex items-center gap-2">
-          <Link
-            href="/import"
-            className="bg-white text-orange-500 border border-orange-200 rounded-full p-2.5 hover:bg-orange-50 active:scale-95 transition-all shadow-sm"
-            title="Import from link"
-          >
-            <Link2 className="w-5 h-5" />
-          </Link>
-          <Link
-            href="/recipes/new"
+        <div className="relative">
+          <button
+            onClick={() => setAddMenuOpen(o => !o)}
             className="bg-orange-500 text-white rounded-full p-2.5 hover:bg-orange-600 active:scale-95 transition-all shadow-md"
-            title="New recipe"
           >
             <Plus className="w-5 h-5" />
-          </Link>
+          </button>
+          {addMenuOpen && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setAddMenuOpen(false)} />
+              <div className="absolute right-0 top-full mt-2 z-20 bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden w-44">
+                <Link
+                  href="/import"
+                  onClick={() => setAddMenuOpen(false)}
+                  className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-gray-700 hover:bg-orange-50 hover:text-orange-600"
+                >
+                  <Link2 className="w-4 h-4 text-orange-400" /> Import recipe
+                </Link>
+                <div className="h-px bg-gray-100" />
+                <Link
+                  href="/recipes/new"
+                  onClick={() => setAddMenuOpen(false)}
+                  className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-gray-700 hover:bg-orange-50 hover:text-orange-600"
+                >
+                  <PenLine className="w-4 h-4 text-orange-400" /> Write recipe
+                </Link>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -341,7 +356,15 @@ export default function RecipeLibrary({ initialRecipes }: { initialRecipes: Reci
                         <span className="text-xs font-bold text-orange-500 bg-orange-50 rounded-full w-7 h-7 flex items-center justify-center shrink-0">
                           #{recipe.rank}
                         </span>
-                        <span className="text-2xl shrink-0">{getCuisineEmoji(recipe.cuisine)}</span>
+                        {recipe.image_url ? (
+                          <img
+                            src={recipe.image_url}
+                            alt={recipe.name}
+                            className="w-10 h-10 rounded-xl object-cover shrink-0"
+                          />
+                        ) : (
+                          <span className="text-2xl shrink-0">{getCuisineEmoji(recipe.cuisine)}</span>
+                        )}
                         <div className="flex-1 min-w-0">
                           <p className="font-semibold text-gray-900 text-sm truncate">{recipe.name}</p>
                           <div className="flex items-center gap-2 mt-0.5">
@@ -377,9 +400,18 @@ export default function RecipeLibrary({ initialRecipes }: { initialRecipes: Reci
                         <Link
                           key={recipe.id}
                           href={`/recipes/${recipe.id}`}
-                          className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 hover:shadow-md active:scale-[0.98] transition-all opacity-80"
+                          className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md active:scale-[0.98] transition-all opacity-80"
                         >
-                          <div className="text-3xl mb-2">{getCuisineEmoji(recipe.cuisine)}</div>
+                          {recipe.image_url ? (
+                            <img
+                              src={recipe.image_url}
+                              alt={recipe.name}
+                              className="w-full aspect-video object-cover"
+                            />
+                          ) : (
+                            <div className="px-4 pt-4 text-3xl">{getCuisineEmoji(recipe.cuisine)}</div>
+                          )}
+                          <div className="p-3">
                           <p className="font-semibold text-gray-900 text-sm line-clamp-2 leading-tight">{recipe.name}</p>
                           {recipe.cuisine && (
                             <p className="text-xs text-gray-400 mt-1 capitalize">{recipe.cuisine}</p>
@@ -400,6 +432,7 @@ export default function RecipeLibrary({ initialRecipes }: { initialRecipes: Reci
                               ))}
                             </div>
                           )}
+                          </div>
                         </Link>
                       ))}
                     </div>

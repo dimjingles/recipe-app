@@ -3,6 +3,8 @@ import Anthropic from '@anthropic-ai/sdk'
 /** Shared Anthropic client — reads ANTHROPIC_API_KEY from the environment. */
 export const anthropic = new Anthropic()
 
+export const HAIKU = 'claude-haiku-4-5-20251001'
+
 /** Extract the first JSON object `{…}` from an LLM text response. */
 export function extractJsonObject(text: string): unknown {
   const match = text.match(/\{[\s\S]*\}/)

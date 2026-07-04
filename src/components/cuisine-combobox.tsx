@@ -21,8 +21,9 @@ export default function CuisineCombobox({ value, onChange, placeholder = 'e.g. I
       .catch(() => {})
   }, [])
 
-  const filtered = value.trim()
-    ? suggestions.filter(s => s.includes(value.toLowerCase().trim()) && s !== value.toLowerCase().trim())
+  const safeValue = typeof value === 'string' ? value : ''
+  const filtered = safeValue.trim()
+    ? suggestions.filter(s => s.includes(safeValue.toLowerCase().trim()) && s !== safeValue.toLowerCase().trim())
     : suggestions
 
   // Close on outside click
@@ -40,7 +41,7 @@ export default function CuisineCombobox({ value, onChange, placeholder = 'e.g. I
     <div ref={containerRef} className="relative">
       <input
         type="text"
-        value={value}
+        value={safeValue}
         onChange={e => { onChange(e.target.value); setOpen(true) }}
         onFocus={() => setOpen(true)}
         placeholder={placeholder}

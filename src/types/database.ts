@@ -54,6 +54,7 @@ export interface Database {
           servings: number
           instructions: string | null
           image_url: string | null
+          gallery_images: string[]
           tags: string[]
           cooked_count: number
           last_cooked_at: string | null
@@ -61,13 +62,14 @@ export interface Database {
           recipe_type: string | null
           created_at: string
         }
-        Insert: Omit<Database['public']['Tables']['recipes']['Row'], 'id' | 'created_at' | 'cooked_count' | 'last_cooked_at' | 'rank' | 'recipe_type'> & {
+        Insert: Omit<Database['public']['Tables']['recipes']['Row'], 'id' | 'created_at' | 'cooked_count' | 'last_cooked_at' | 'rank' | 'recipe_type' | 'gallery_images'> & {
           id?: string
           created_at?: string
           cooked_count?: number
           last_cooked_at?: string | null
           rank?: number | null
           recipe_type?: string | null
+          gallery_images?: string[]
         }
         Update: Partial<Database['public']['Tables']['recipes']['Insert']>
         Relationships: []
@@ -180,6 +182,8 @@ export interface ExtractedRecipe {
   ingredients: ExtractedIngredient[]
   /** og:image or JSON-LD image — stored in recipes.image_url when saving */
   image_url?: string
+  /** Gallery images extracted from JSON-LD (beyond the cover) */
+  gallery_images?: string[]
   /** The original URL the recipe was imported from */
   source_url?: string
 }

@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
 import { RecipeWithDetails } from '@/types/database'
+import RecipeGallery from '@/components/recipe-gallery'
 
 const CATEGORY_EMOJI: Record<string, string> = {
   produce: '🥦', dairy: '🧀', meat: '🥩', seafood: '🐟',
@@ -295,21 +296,43 @@ export default function RecipeDetail({ recipe }: { recipe: RecipeWithDetails }) 
   return (
     <div className="max-w-lg mx-auto pb-8">
       {/* Hero header */}
-      <div className="bg-gradient-to-br from-orange-400 to-amber-500 px-4 pt-6 pb-8">
-        <div className="flex items-center justify-between mb-4">
-          <Link href="/recipes" className="text-white/80 hover:text-white p-1 -ml-1">
-            <ArrowLeft className="w-5 h-5" />
-          </Link>
-          <Link
-            href={`/recipes/${recipe.id}/edit`}
-            className="text-white/80 hover:text-white p-2"
-          >
-            <Edit className="w-4 h-4" />
-          </Link>
+      {recipe.image_url && (
+        <div className="relative">
+          <img
+            src={recipe.image_url}
+            alt={recipe.name}
+            className="w-full h-56 object-cover"
+          />
+          {/* Fade into the orange gradient below */}
+          <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-orange-400 to-transparent" />
+          {/* Back / edit buttons float over the image */}
+          <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-4 pt-5">
+            <Link href="/recipes" className="text-white/90 hover:text-white bg-black/20 rounded-full p-1.5">
+              <ArrowLeft className="w-5 h-5" />
+            </Link>
+            <Link href={`/recipes/${recipe.id}/edit`} className="text-white/90 hover:text-white bg-black/20 rounded-full p-1.5">
+              <Edit className="w-4 h-4" />
+            </Link>
+          </div>
         </div>
-        <div className="text-5xl mb-3">
-          {recipe.cuisine ? { italian:'🍝',japanese:'🍜',chinese:'🥢',mexican:'🌮',indian:'🍛',thai:'🌶️',french:'🥐',american:'🍔',mediterranean:'🫒',korean:'🍱',vietnamese:'🍲',greek:'🥗',spanish:'🥘' }[recipe.cuisine.toLowerCase()] ?? '🍽️' : '🍽️'}
-        </div>
+      )}
+
+      <div className={`bg-gradient-to-br from-orange-400 to-amber-500 px-4 pb-8 ${recipe.image_url ? 'pt-3' : 'pt-6'}`}>
+        {!recipe.image_url && (
+          <div className="flex items-center justify-between mb-4">
+            <Link href="/recipes" className="text-white/80 hover:text-white p-1 -ml-1">
+              <ArrowLeft className="w-5 h-5" />
+            </Link>
+            <Link href={`/recipes/${recipe.id}/edit`} className="text-white/80 hover:text-white p-2">
+              <Edit className="w-4 h-4" />
+            </Link>
+          </div>
+        )}
+        {!recipe.image_url && (
+          <div className="text-5xl mb-3">
+            {recipe.cuisine ? { italian:'🍝',japanese:'🍜',chinese:'🥢',mexican:'🌮',indian:'🍛',thai:'🌶️',french:'🥐',american:'🍔',mediterranean:'🫒',korean:'🍱',vietnamese:'🍲',greek:'🥗',spanish:'🥘' }[recipe.cuisine.toLowerCase()] ?? '🍽️' : '🍽️'}
+          </div>
+        )}
         <h1 className="text-2xl font-bold text-white leading-tight">{recipe.name}</h1>
         {recipe.description && (
           <p className="text-white/80 text-sm mt-2 leading-relaxed">{recipe.description}</p>
@@ -363,6 +386,12 @@ export default function RecipeDetail({ recipe }: { recipe: RecipeWithDetails }) 
             )}
           </div>
         )}
+
+        {/* Gallery */}
+        <RecipeGallery
+          recipeId={recipe.id}
+          initialImages={recipe.gallery_images ?? []}
+        />
 
         {/* Ingredients */}
         {grouped.length > 0 && (
