@@ -153,9 +153,9 @@ const GOAL_LABELS: Record<string, string> = {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function OnboardingWizard({ initialStep = -1 }: { initialStep?: number }) {
+export default function OnboardingWizard() {
   const router = useRouter()
-  const [step, setStep] = useState(initialStep)
+  const [step, setStep] = useState(0)
   const [answers, setAnswers] = useState<Answers>(INITIAL_ANSWERS)
 
   // Commit button state
@@ -248,17 +248,20 @@ export default function OnboardingWizard({ initialStep = -1 }: { initialStep?: n
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(answers),
     })
-      .then(() => { window.location.href = '/' })
-      .catch(() => {
-        toast.error('Something went wrong. Taking you home...')
-        setTimeout(() => { window.location.href = '/' }, 2000)
+      .then(async (res) => {
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}))
+          throw new Error(body.error || `Request failed (${res.status})`)
+        }
+        window.location.href = '/'
+      })
+      .catch((err: unknown) => {
+        const message = err instanceof Error ? err.message : 'Something went wrong'
+        toast.error(message + ' — please try again')
+        submittedRef.current = false
+        setStep(13)
       })
   }, [step]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ─── Welcome screen (step -1) ───────────────────────────────────────────────
-  if (step === -1) {
-    return <WelcomeScreen />
-  }
 
   // ─── Commit screen (step 14) ────────────────────────────────────────────────
   if (step === 14) {
@@ -917,38 +920,4 @@ function renderStepContent(
     default:
       return null
   }
-}
-
-// ─── Welcome screen component ─────────────────────────────────────────────────
-
-function WelcomeScreen() {
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-amber-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-sm">
-        <div className="text-center mb-10">
-          <div className="flex justify-center mb-4">
-            <div className="bg-orange-500 rounded-2xl p-4">
-              <ChefHat className="w-10 h-10 text-white" />
-            </div>
-          </div>
-          <h1 className="text-3xl font-bold text-gray-900">Mise en Place</h1>
-          <p className="text-gray-500 mt-2">Your personal recipe & meal planner</p>
-        </div>
-        <div className="flex flex-col gap-3">
-          <button
-            onClick={() => { window.location.href = '/login' }}
-            className="w-full h-14 rounded-full bg-orange-500 hover:bg-orange-600 text-white text-base font-semibold transition-colors active:scale-[0.98]"
-          >
-            Get started
-          </button>
-          <button
-            onClick={() => { window.location.href = '/login' }}
-            className="w-full h-14 rounded-full border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 text-base font-semibold transition-colors active:scale-[0.98]"
-          >
-            Already have an account? Sign in
-          </button>
-        </div>
-      </div>
-    </div>
-  )
 }
