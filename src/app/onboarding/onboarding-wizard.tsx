@@ -155,7 +155,7 @@ const GOAL_LABELS: Record<string, string> = {
 
 export default function OnboardingWizard() {
   const router = useRouter()
-  const [step, setStep] = useState(0)
+  const [step, setStep] = useState(-1)
   const [answers, setAnswers] = useState<Answers>(INITIAL_ANSWERS)
 
   // Commit button state
@@ -262,6 +262,31 @@ export default function OnboardingWizard() {
         setStep(13)
       })
   }, [step]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ─── Welcome screen (step -1) ───────────────────────────────────────────────
+  if (step === -1) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-amber-50 flex items-center justify-center p-4">
+        <div className="w-full max-w-sm">
+          <div className="text-center mb-10">
+            <div className="flex justify-center mb-4">
+              <div className="bg-orange-500 rounded-2xl p-4">
+                <ChefHat className="w-10 h-10 text-white" />
+              </div>
+            </div>
+            <h1 className="text-3xl font-bold text-gray-900">Mise en Place</h1>
+            <p className="text-gray-500 mt-2">Your personal recipe & meal planner</p>
+          </div>
+          <button
+            onClick={() => setStep(0)}
+            className="w-full h-14 rounded-full bg-orange-500 hover:bg-orange-600 text-white text-base font-semibold transition-colors active:scale-[0.98]"
+          >
+            Get started
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   // ─── Commit screen (step 14) ────────────────────────────────────────────────
   if (step === 14) {
