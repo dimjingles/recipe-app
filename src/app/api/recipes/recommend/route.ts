@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { getProfile } from '@/lib/db/profile'
 
 const client = new Anthropic()
 
@@ -12,15 +13,42 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { data: recipes } = await supabase
-      .from('recipes')
-      .select('name, cuisine, tags, cooked_count')
-      .eq('user_id', user.id)
-      .order('cooked_count', { ascending: false })
+    const [recipesResult, profile] = await Promise.all([
+      supabase
+        .from('recipes')
+        .select('name, cuisine, tags, cooked_count')
+        .eq('user_id', user.id)
+        .order('cooked_count', { ascending: false }),
+      getProfile(),
+    ])
 
-    const recipeList = recipes?.map(r =>
+    const recipeList = recipesResult.data?.map(r =>
       `${r.name} (${r.cuisine || 'various'}, cooked ${r.cooked_count}x${r.tags?.length ? ', tags: ' + r.tags.join(', ') : ''})`
     ).join('\n') || 'No recipes yet'
+
+    // Build personalization context from onboarding answers
+    const prefLines: string[] = []
+    if (profile?.diet && profile.diet !== 'balanced') {
+      prefLines.push(`Diet: ${profile.diet.replace('_', '-')}`)
+    }
+    if (profile?.favorite_cuisines?.length) {
+      prefLines.push(`Favourite cuisines: ${profile.favorite_cuisines.join(', ')}`)
+    }
+    if (profile?.allergies?.length && !profile.allergies.includes('none')) {
+      prefLines.push(`Allergies / avoid: ${profile.allergies.join(', ')}`)
+    }
+    if (profile?.primary_goal) {
+      prefLines.push(`Cooking goal: ${profile.primary_goal.replace('_', ' ')}`)
+    }
+    if (profile?.skill_level) {
+      prefLines.push(`Skill level: ${profile.skill_level.replace('_', ' ')}`)
+    }
+    if (profile?.household_size) {
+      prefLines.push(`Cooking for: ${profile.household_size.replace('_', ' ')}`)
+    }
+    const prefSection = prefLines.length
+      ? `\n\nUser preferences from onboarding:\n${prefLines.join('\n')}`
+      : ''
 
     const message = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',
@@ -31,15 +59,15 @@ export async function POST(request: NextRequest) {
           content: `You are a culinary expert helping someone discover new recipes they'd enjoy at home.
 
 Based on these recipes they already cook:
-${recipeList}
+${recipeList}${prefSection}
 
-Suggest 5 new recipes they would likely enjoy. Return ONLY valid JSON array (no markdown, no explanation):
+Suggest 5 new recipes they would likely enjoy. Respect dietary restrictions and allergies strictly — never suggest something they avoid. Return ONLY valid JSON array (no markdown, no explanation):
 [
   {
     "name": "Recipe Name",
     "cuisine": "cuisine type",
     "description": "2-3 sentence description",
-    "why": "one sentence explaining why they'd enjoy this based on their existing recipes",
+    "why": "one sentence explaining why they'd enjoy this based on their existing recipes and preferences",
     "cook_time_minutes": 30
   }
 ]

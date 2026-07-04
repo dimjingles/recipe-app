@@ -3,6 +3,7 @@ import { Geist } from 'next/font/google'
 import './globals.css'
 import BottomNav from '@/components/bottom-nav'
 import { Toaster } from '@/components/ui/sonner'
+import ServiceWorkerRegister from '@/components/service-worker-register'
 
 const geist = Geist({ subsets: ['latin'] })
 
@@ -28,7 +29,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <head>
-        <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+        <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
       </head>
       <body className={`${geist.className} bg-gray-50 min-h-screen`}>
         <main className="pb-20 min-h-screen">
@@ -36,6 +37,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </main>
         <BottomNav />
         <Toaster position="top-center" richColors />
+        <ServiceWorkerRegister />
       </body>
     </html>
   )

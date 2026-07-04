@@ -9,6 +9,40 @@ export type Json =
 export interface Database {
   public: {
     Tables: {
+      profiles: {
+        Row: {
+          id: string
+          onboarding_completed: boolean
+          household_size: string | null
+          cook_frequency: string | null
+          referral_source: string | null
+          primary_goal: string | null
+          diet: string | null
+          allergies: string[]
+          favorite_cuisines: string[]
+          skill_level: string | null
+          meal_reminders: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id: string
+          onboarding_completed?: boolean
+          household_size?: string | null
+          cook_frequency?: string | null
+          referral_source?: string | null
+          primary_goal?: string | null
+          diet?: string | null
+          allergies?: string[]
+          favorite_cuisines?: string[]
+          skill_level?: string | null
+          meal_reminders?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['profiles']['Insert']>
+        Relationships: []
+      }
       recipes: {
         Row: {
           id: string
@@ -24,14 +58,16 @@ export interface Database {
           cooked_count: number
           last_cooked_at: string | null
           rank: number | null
+          recipe_type: string | null
           created_at: string
         }
-        Insert: Omit<Database['public']['Tables']['recipes']['Row'], 'id' | 'created_at' | 'cooked_count' | 'last_cooked_at' | 'rank'> & {
+        Insert: Omit<Database['public']['Tables']['recipes']['Row'], 'id' | 'created_at' | 'cooked_count' | 'last_cooked_at' | 'rank' | 'recipe_type'> & {
           id?: string
           created_at?: string
           cooked_count?: number
           last_cooked_at?: string | null
           rank?: number | null
+          recipe_type?: string | null
         }
         Update: Partial<Database['public']['Tables']['recipes']['Insert']>
         Relationships: []
@@ -96,6 +132,7 @@ export interface Database {
   }
 }
 
+export type Profile = Database['public']['Tables']['profiles']['Row']
 export type Recipe = Database['public']['Tables']['recipes']['Row']
 export type Ingredient = Database['public']['Tables']['ingredients']['Row']
 export type CookingLog = Database['public']['Tables']['cooking_log']['Row']
@@ -117,4 +154,32 @@ export type SlotWithRecipe = WeeklyPlanSlot & {
 
 export type PlanWithSlots = WeeklyPlan & {
   weekly_plan_slots: SlotWithRecipe[]
+}
+
+// ── Recipe import / extraction types ─────────────────────────────────────────
+
+export interface ExtractedIngredient {
+  name: string
+  quantity: string
+  unit: string
+  category: string
+}
+
+/**
+ * Structured recipe returned by the /api/recipes/import extraction endpoint.
+ * Does NOT correspond to a saved DB row — it is a preview the user reviews
+ * and edits before saving through the standard POST /api/recipes route.
+ */
+export interface ExtractedRecipe {
+  name: string
+  description?: string
+  cuisine?: string
+  cook_time_minutes?: number
+  servings?: number
+  instructions?: string
+  ingredients: ExtractedIngredient[]
+  /** og:image or JSON-LD image — stored in recipes.image_url when saving */
+  image_url?: string
+  /** The original URL the recipe was imported from */
+  source_url?: string
 }

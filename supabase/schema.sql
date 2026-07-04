@@ -3,6 +3,28 @@
 -- Run this in your Supabase SQL Editor (Database > SQL Editor)
 -- ============================================================
 
+-- PROFILES (onboarding answers + first-run flag)
+create table if not exists profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  onboarding_completed boolean not null default false,
+  household_size   text,        -- 'just_me' | 'couple' | 'family'
+  cook_frequency   text,        -- '0-2' | '3-5' | '6+'
+  referral_source  text,
+  primary_goal     text,        -- 'healthier'|'save_time'|'save_money'|'learn'|'reduce_waste'
+  diet             text,        -- 'balanced'|'whole_food'|'mediterranean'|'flexitarian'|'pescatarian'|'vegetarian'|'vegan'|'low_carb'
+  allergies        text[] default '{}',
+  favorite_cuisines text[] default '{}',
+  skill_level      text,        -- 'beginner'|'getting_there'|'confident'|'pro'
+  meal_reminders   boolean default false,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+alter table profiles enable row level security;
+create policy "own profile - select" on profiles for select using (auth.uid() = id);
+create policy "own profile - insert" on profiles for insert with check (auth.uid() = id);
+create policy "own profile - update" on profiles for update using (auth.uid() = id);
+
 -- RECIPES
 create table if not exists recipes (
   id uuid primary key default gen_random_uuid(),
@@ -18,6 +40,7 @@ create table if not exists recipes (
   cooked_count integer default 0,
   last_cooked_at timestamptz,
   rank integer,
+  recipe_type text,
   created_at timestamptz default now()
 );
 

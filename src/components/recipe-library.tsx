@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { RecipeWithIngredients } from '@/types/database'
-import { Plus, Search, Sparkles, Clock, X, Globe, Loader2 } from 'lucide-react'
+import { Plus, Search, Sparkles, Clock, X, Globe, Link2, Loader2 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
 
@@ -13,6 +13,13 @@ const CUISINE_EMOJI: Record<string, string> = {
   thai: '🌶️', french: '🥐', american: '🍔', mediterranean: '🫒', korean: '🍱',
   vietnamese: '🍲', greek: '🥗', spanish: '🥘', middle_eastern: '🧆',
 }
+
+const RECIPE_TYPES = [
+  { value: 'appetizer', label: 'Appetizer', emoji: '🥗' },
+  { value: 'main', label: 'Main', emoji: '🍽️' },
+  { value: 'dessert', label: 'Dessert', emoji: '🍰' },
+  { value: 'drink', label: 'Drink', emoji: '🍹' },
+]
 
 function getCuisineEmoji(cuisine: string | null) {
   if (!cuisine) return '🍽️'
@@ -38,6 +45,7 @@ export default function RecipeLibrary({ initialRecipes }: { initialRecipes: Reci
   const router = useRouter()
   const [search, setSearch] = useState('')
   const [selectedCuisine, setSelectedCuisine] = useState<string | null>(null)
+  const [selectedType, setSelectedType] = useState<string | null>(null)
   const [recommendations, setRecommendations] = useState<Recommendation[]>([])
   const [loadingRecs, setLoadingRecs] = useState(false)
   const [showRecs, setShowRecs] = useState(false)
@@ -122,7 +130,8 @@ export default function RecipeLibrary({ initialRecipes }: { initialRecipes: Reci
       r.cuisine?.toLowerCase().includes(search.toLowerCase()) ||
       r.tags?.some(t => t.toLowerCase().includes(search.toLowerCase()))
     const matchesCuisine = !selectedCuisine || r.cuisine?.toLowerCase() === selectedCuisine
-    return matchesSearch && matchesCuisine
+    const matchesType = !selectedType || r.recipe_type?.toLowerCase() === selectedType
+    return matchesSearch && matchesCuisine && matchesType
   })
 
   const getRecommendations = async () => {
@@ -147,12 +156,22 @@ export default function RecipeLibrary({ initialRecipes }: { initialRecipes: Reci
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold text-gray-900">Recipes</h1>
-        <Link
-          href="/recipes/new"
-          className="bg-orange-500 text-white rounded-full p-2.5 hover:bg-orange-600 active:scale-95 transition-all shadow-md"
-        >
-          <Plus className="w-5 h-5" />
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/import"
+            className="bg-white text-orange-500 border border-orange-200 rounded-full p-2.5 hover:bg-orange-50 active:scale-95 transition-all shadow-sm"
+            title="Import from link"
+          >
+            <Link2 className="w-5 h-5" />
+          </Link>
+          <Link
+            href="/recipes/new"
+            className="bg-orange-500 text-white rounded-full p-2.5 hover:bg-orange-600 active:scale-95 transition-all shadow-md"
+            title="New recipe"
+          >
+            <Plus className="w-5 h-5" />
+          </Link>
+        </div>
       </div>
 
       {/* Search */}
@@ -171,32 +190,65 @@ export default function RecipeLibrary({ initialRecipes }: { initialRecipes: Reci
         )}
       </div>
 
-      {/* Cuisine filter chips */}
-      {cuisines.length > 0 && (
-        <div className="flex gap-2 overflow-x-auto pb-1 mb-4 scrollbar-hide -mx-4 px-4">
+      {/* Type filter chips */}
+      <div className="mb-3">
+        <p className="text-xs text-gray-400 font-medium mb-1.5 uppercase tracking-wide">Type</p>
+        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide -mx-4 px-4">
           <button
-            onClick={() => setSelectedCuisine(null)}
+            onClick={() => setSelectedType(null)}
             className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
-              selectedCuisine === null
+              selectedType === null
                 ? 'bg-orange-500 text-white'
                 : 'bg-white border border-gray-200 text-gray-500 hover:border-orange-300'
             }`}
           >
             All
           </button>
-          {cuisines.map(cuisine => (
+          {RECIPE_TYPES.map(t => (
             <button
-              key={cuisine}
-              onClick={() => setSelectedCuisine(selectedCuisine === cuisine ? null : cuisine)}
-              className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors capitalize ${
-                selectedCuisine === cuisine
+              key={t.value}
+              onClick={() => setSelectedType(selectedType === t.value ? null : t.value)}
+              className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                selectedType === t.value
                   ? 'bg-orange-500 text-white'
                   : 'bg-white border border-gray-200 text-gray-500 hover:border-orange-300'
               }`}
             >
-              {getCuisineEmoji(cuisine)} {cuisine}
+              {t.emoji} {t.label}
             </button>
           ))}
+        </div>
+      </div>
+
+      {/* Cuisine filter chips */}
+      {cuisines.length > 0 && (
+        <div className="mb-4">
+          <p className="text-xs text-gray-400 font-medium mb-1.5 uppercase tracking-wide">Cuisine</p>
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide -mx-4 px-4">
+            <button
+              onClick={() => setSelectedCuisine(null)}
+              className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                selectedCuisine === null
+                  ? 'bg-orange-500 text-white'
+                  : 'bg-white border border-gray-200 text-gray-500 hover:border-orange-300'
+              }`}
+            >
+              All
+            </button>
+            {cuisines.map(cuisine => (
+              <button
+                key={cuisine}
+                onClick={() => setSelectedCuisine(selectedCuisine === cuisine ? null : cuisine)}
+                className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors capitalize ${
+                  selectedCuisine === cuisine
+                    ? 'bg-orange-500 text-white'
+                    : 'bg-white border border-gray-200 text-gray-500 hover:border-orange-300'
+                }`}
+              >
+                {getCuisineEmoji(cuisine)} {cuisine}
+              </button>
+            ))}
+          </div>
         </div>
       )}
 

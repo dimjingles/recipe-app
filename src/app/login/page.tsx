@@ -19,10 +19,13 @@ export default function LoginPage() {
     setError('')
 
     const supabase = createClient()
+    // Preserve any ?next= param so the user returns to their original page
+    // after clicking the magic link (e.g. /import?url=... after sharing from Android).
+    const nextParam = new URLSearchParams(window.location.search).get('next') || '/'
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextParam)}`,
       },
     })
 

@@ -1,6 +1,8 @@
+import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getRecipes } from '@/lib/db/recipes'
 import { getWeekPlan, getWeekStart } from '@/lib/db/planner'
+import { getProfile } from '@/lib/db/profile'
 import Link from 'next/link'
 import { ChefHat, CalendarDays, Clock, Plus } from 'lucide-react'
 import { format, addDays } from 'date-fns'
@@ -20,6 +22,14 @@ function getCuisineEmoji(cuisine: string | null) {
 export default async function HomePage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
+
+  // Gate: send new users to onboarding
+  if (user) {
+    const profile = await getProfile()
+    if (!profile?.onboarding_completed) {
+      redirect('/onboarding')
+    }
+  }
 
   const weekStart = getWeekStart()
   const [recipes, plan] = await Promise.all([
