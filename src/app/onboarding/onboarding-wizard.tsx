@@ -923,19 +923,11 @@ function renderStepContent(
 // ─── Welcome screen component ─────────────────────────────────────────────────
 
 function WelcomeScreen({ onGetStarted }: { onGetStarted: () => void }) {
-  const [checking, setChecking] = useState(true)
-
   useEffect(() => {
     createClient().auth.getUser().then(({ data: { user } }) => {
-      if (user) {
-        window.location.href = '/'
-      } else {
-        setChecking(false)
-      }
+      if (user) window.location.href = '/'
     })
   }, [])
-
-  if (checking) return null
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-amber-50 flex items-center justify-center p-4">
