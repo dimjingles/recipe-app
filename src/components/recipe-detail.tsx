@@ -421,13 +421,18 @@ export default function RecipeDetail({ recipe }: { recipe: RecipeWithDetails }) 
             <h2 className="font-bold text-gray-900 text-lg mb-3">Cooking History</h2>
             <div className="space-y-2">
               {logs.map(log => (
-                <div key={log.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3 flex items-start justify-between gap-2">
+                <div
+                  key={log.id}
+                  onClick={() => editingLogId !== log.id && setEditingLogId(log.id)}
+                  className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3 flex items-center justify-between gap-2 cursor-pointer hover:border-orange-200 active:scale-[0.99] transition-all"
+                >
                   <div className="flex-1 min-w-0">
                     {editingLogId === log.id ? (
                       <input
                         type="date"
                         defaultValue={format(new Date(log.cooked_at), 'yyyy-MM-dd')}
                         autoFocus
+                        onClick={e => e.stopPropagation()}
                         onBlur={e => handleUpdateLogDate(log.id, e.target.value)}
                         onKeyDown={e => {
                           if (e.key === 'Enter') handleUpdateLogDate(log.id, (e.target as HTMLInputElement).value)
@@ -436,18 +441,13 @@ export default function RecipeDetail({ recipe }: { recipe: RecipeWithDetails }) 
                         className="text-sm text-gray-600 border border-orange-300 rounded-lg px-2 py-0.5 focus:outline-none focus:ring-2 focus:ring-orange-400"
                       />
                     ) : (
-                      <button
-                        onClick={() => setEditingLogId(log.id)}
-                        className="text-sm text-gray-600 hover:text-orange-500 transition-colors text-left"
-                      >
-                        {format(new Date(log.cooked_at), 'MMM d, yyyy')}
-                      </button>
+                      <p className="text-sm text-gray-600">{format(new Date(log.cooked_at), 'MMM d, yyyy')}</p>
                     )}
                     {log.notes && <p className="text-xs text-gray-400 mt-0.5">{log.notes}</p>}
                   </div>
                   <button
-                    onClick={() => handleDeleteLog(log.id)}
-                    className="text-gray-300 hover:text-red-400 transition-colors shrink-0 mt-0.5"
+                    onClick={e => { e.stopPropagation(); handleDeleteLog(log.id) }}
+                    className="text-gray-300 hover:text-red-400 transition-colors shrink-0"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
