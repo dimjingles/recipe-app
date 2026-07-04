@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,8 +12,16 @@ type Phase = 'landing' | 'email'
 type Mode = 'signup' | 'signin'
 
 export default function LoginPage() {
+  const router = useRouter()
   const [phase, setPhase] = useState<Phase>('landing')
   const [mode, setMode] = useState<Mode>('signup')
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) window.location.href = '/'
+    })
+  }, [])
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [sent, setSent] = useState(false)
