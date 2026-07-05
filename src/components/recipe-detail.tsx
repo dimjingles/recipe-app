@@ -3,12 +3,13 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Clock, Users, Edit, ChefHat, Trophy, X } from 'lucide-react'
+import { ArrowLeft, Clock, Users, Edit, ChefHat, Trophy, X, BookOpen, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { BottomSheet } from '@/components/ui/bottom-sheet'
+import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
-import { RecipeWithDetails } from '@/types/database'
+import { RecipeWithDetails, Cookbook } from '@/types/database'
 import RecipeGallery from '@/components/recipe-gallery'
 import { getCuisineEmoji } from '@/lib/cuisine-emoji'
 
@@ -219,14 +220,169 @@ function ComparisonDialog({ thisRecipe, onClose, onRanked }: ComparisonDialogPro
   )
 }
 
+// ─── Cookbook Dialog ──────────────────────────────────────────────────────────
+
+interface CookbookDialogProps {
+  recipeId: string
+  allCookbooks: Cookbook[]
+  initialSelectedIds: string[]
+  onClose: () => void
+  onSaved: (newIds: string[]) => void
+  onCookbookCreated: (cookbook: Cookbook) => void
+}
+
+function CookbookDialog({
+  recipeId,
+  allCookbooks,
+  initialSelectedIds,
+  onClose,
+  onSaved,
+  onCookbookCreated,
+}: CookbookDialogProps) {
+  const [selectedIds, setSelectedIds] = useState<string[]>(initialSelectedIds)
+  const [showNewInput, setShowNewInput] = useState(false)
+  const [newName, setNewName] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [creatingNew, setCreatingNew] = useState(false)
+
+  const toggle = (id: string) =>
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+
+  const createNew = async () => {
+    if (!newName.trim()) return
+    setCreatingNew(true)
+    try {
+      const res = await fetch('/api/cookbooks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newName.trim() }),
+      })
+      const data = await res.json()
+      if (data.error) throw new Error(data.error)
+      onCookbookCreated(data)
+      setSelectedIds(prev => [...prev, data.id])
+      setNewName('')
+      setShowNewInput(false)
+      toast.success(`"${data.name}" created!`)
+    } catch (e: any) {
+      toast.error(e.message || 'Could not create cookbook')
+    } finally {
+      setCreatingNew(false)
+    }
+  }
+
+  const save = async () => {
+    setSaving(true)
+    try {
+      const res = await fetch(`/api/recipes/${recipeId}/cookbooks`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cookbook_ids: selectedIds }),
+      })
+      if (!res.ok) throw new Error('Failed')
+      toast.success('Cookbooks updated')
+      onSaved(selectedIds)
+      onClose()
+    } catch {
+      toast.error('Could not update cookbooks')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <BottomSheet open onClose={onClose} zIndex="elevated" maxHeight="80vh">
+      <div className="px-6 pb-8">
+        <h3 className="font-heading text-lg font-bold text-foreground mb-4">Add to Cookbook</h3>
+
+        {allCookbooks.length === 0 && !showNewInput && (
+          <p className="text-sm text-muted-foreground mb-4">No cookbooks yet. Create one below.</p>
+        )}
+
+        {allCookbooks.length > 0 && (
+          <div className="space-y-1 mb-4 max-h-60 overflow-y-auto -mx-1 px-1">
+            {allCookbooks.map(cb => (
+              <button
+                key={cb.id}
+                onClick={() => toggle(cb.id)}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors ${
+                  selectedIds.includes(cb.id) ? 'bg-brand-subtle text-brand' : 'hover:bg-muted text-foreground'
+                }`}
+              >
+                <span className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${
+                  selectedIds.includes(cb.id) ? 'bg-brand border-brand' : 'border-border'
+                }`}>
+                  {selectedIds.includes(cb.id) && (
+                    <span className="text-brand-foreground text-[10px] font-bold">✓</span>
+                  )}
+                </span>
+                <span className="flex-1 text-left">{cb.name}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {showNewInput ? (
+          <div className="flex gap-2 mb-4">
+            <Input
+              value={newName}
+              onChange={e => setNewName(e.target.value)}
+              placeholder="Cookbook name"
+              autoFocus
+              className="flex-1 bg-card"
+              onKeyDown={e => {
+                if (e.key === 'Enter') createNew()
+                if (e.key === 'Escape') { setShowNewInput(false); setNewName('') }
+              }}
+            />
+            <button
+              onClick={createNew}
+              disabled={creatingNew || !newName.trim()}
+              className="bg-brand text-brand-foreground rounded-xl px-3 py-2 text-sm font-medium disabled:opacity-50 shrink-0"
+            >
+              {creatingNew ? '...' : 'Add'}
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setShowNewInput(true)}
+            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-brand hover:bg-brand-subtle rounded-xl transition-colors mb-4"
+          >
+            <Plus className="w-4 h-4" /> New cookbook
+          </button>
+        )}
+
+        <Button
+          onClick={save}
+          disabled={saving}
+          className="w-full bg-brand hover:bg-brand/90 text-brand-foreground h-12 text-base"
+        >
+          {saving ? 'Saving...' : 'Save'}
+        </Button>
+      </div>
+    </BottomSheet>
+  )
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export default function RecipeDetail({ recipe }: { recipe: RecipeWithDetails }) {
+export default function RecipeDetail({
+  recipe,
+  initialCookbooks,
+}: {
+  recipe: RecipeWithDetails
+  initialCookbooks: Cookbook[]
+}) {
   const router = useRouter()
   const [showCook, setShowCook] = useState(false)
   const [showRank, setShowRank] = useState(false)
+  const [showCookbook, setShowCookbook] = useState(false)
   const [cookedCount, setCookedCount] = useState(recipe.cooked_count)
   const [currentRank, setCurrentRank] = useState<number | null>(recipe.rank)
+  const [cookbooks, setCookbooks] = useState<Cookbook[]>(initialCookbooks)
+  const [cookbookIds, setCookbookIds] = useState<string[]>(
+    (recipe.cookbook_recipes || []).map(cr => cr.cookbook_id)
+  )
   const [logs, setLogs] = useState(
     (recipe.cooking_log || [])
       .sort((a, b) => new Date(b.cooked_at).getTime() - new Date(a.cooked_at).getTime())
@@ -403,26 +559,35 @@ export default function RecipeDetail({ recipe }: { recipe: RecipeWithDetails }) 
       {/* ── Content (pulled up over gradient, or flush after warm header) ── */}
       <div className={`px-4 ${recipe.image_url ? '-mt-4' : 'mt-4'}`}>
         {/* Action buttons */}
-        {(cookedCount === 0 || currentRank !== null) && (
-          <div className="flex gap-2 mb-6">
-            {cookedCount === 0 && (
-              <Button
-                onClick={() => setShowCook(true)}
-                className="flex-1 bg-card text-brand hover:bg-brand-subtle border border-brand/30 font-semibold h-12 rounded-2xl shadow-md active:scale-[0.98] transition-all"
-              >
-                🍳 Mark as Cooked
-              </Button>
-            )}
-            {currentRank !== null && (
-              <Button
-                onClick={() => setShowRank(true)}
-                className="bg-card text-brand hover:bg-brand-subtle border border-brand/30 font-semibold h-12 rounded-2xl shadow-md px-4 active:scale-[0.98] transition-all"
-              >
-                <Trophy className="w-4 h-4" />
-              </Button>
-            )}
-          </div>
-        )}
+        <div className="flex gap-2 mb-6">
+          {cookedCount === 0 && (
+            <Button
+              onClick={() => setShowCook(true)}
+              className="flex-1 bg-card text-brand hover:bg-brand-subtle border border-brand/30 font-semibold h-12 rounded-2xl shadow-md active:scale-[0.98] transition-all"
+            >
+              🍳 Mark as Cooked
+            </Button>
+          )}
+          {currentRank !== null && (
+            <Button
+              onClick={() => setShowRank(true)}
+              className="bg-card text-brand hover:bg-brand-subtle border border-brand/30 font-semibold h-12 rounded-2xl shadow-md px-4 active:scale-[0.98] transition-all"
+            >
+              <Trophy className="w-4 h-4" />
+            </Button>
+          )}
+          <Button
+            onClick={() => setShowCookbook(true)}
+            className={`bg-card border font-semibold h-12 rounded-2xl shadow-md px-4 active:scale-[0.98] transition-all ${
+              cookbookIds.length > 0
+                ? 'text-brand border-brand/30 hover:bg-brand-subtle'
+                : 'text-muted-foreground border-border hover:border-brand hover:text-brand'
+            }`}
+            title={cookbookIds.length > 0 ? `In ${cookbookIds.length} cookbook${cookbookIds.length > 1 ? 's' : ''}` : 'Add to cookbook'}
+          >
+            <BookOpen className="w-4 h-4" />
+          </Button>
+        </div>
 
         {/* Gallery */}
         <RecipeGallery
@@ -539,6 +704,20 @@ export default function RecipeDetail({ recipe }: { recipe: RecipeWithDetails }) 
           thisRecipe={{ id: recipe.id, name: recipe.name }}
           onClose={() => setShowRank(false)}
           onRanked={handleRanked}
+        />
+      )}
+
+      {showCookbook && (
+        <CookbookDialog
+          recipeId={recipe.id}
+          allCookbooks={cookbooks}
+          initialSelectedIds={cookbookIds}
+          onClose={() => setShowCookbook(false)}
+          onSaved={(newIds) => {
+            setCookbookIds(newIds)
+            router.refresh()
+          }}
+          onCookbookCreated={(cb) => setCookbooks(prev => [...prev, cb])}
         />
       )}
     </div>

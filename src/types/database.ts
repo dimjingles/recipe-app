@@ -130,6 +130,34 @@ export interface Database {
         Update: Partial<Database['public']['Tables']['weekly_plan_slots']['Insert']>
         Relationships: []
       }
+      cookbooks: {
+        Row: {
+          id: string
+          user_id: string
+          name: string
+          created_at: string
+        }
+        Insert: Omit<Database['public']['Tables']['cookbooks']['Row'], 'id' | 'created_at'> & {
+          id?: string
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['cookbooks']['Insert']>
+        Relationships: []
+      }
+      cookbook_recipes: {
+        Row: {
+          id: string
+          cookbook_id: string
+          recipe_id: string
+          created_at: string
+        }
+        Insert: Omit<Database['public']['Tables']['cookbook_recipes']['Row'], 'id' | 'created_at'> & {
+          id?: string
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['cookbook_recipes']['Insert']>
+        Relationships: []
+      }
     }
     Views: Record<string, never>
     Functions: Record<string, never>
@@ -142,14 +170,26 @@ export type Ingredient = Database['public']['Tables']['ingredients']['Row']
 export type CookingLog = Database['public']['Tables']['cooking_log']['Row']
 export type WeeklyPlan = Database['public']['Tables']['weekly_plans']['Row']
 export type WeeklyPlanSlot = Database['public']['Tables']['weekly_plan_slots']['Row']
+export type Cookbook = Database['public']['Tables']['cookbooks']['Row']
+export type CookbookRecipe = Database['public']['Tables']['cookbook_recipes']['Row']
 
 export type RecipeWithIngredients = Recipe & {
   ingredients: Ingredient[]
+  cookbook_recipes?: { cookbook_id: string }[]
 }
 
 export type RecipeWithDetails = Recipe & {
   ingredients: Ingredient[]
   cooking_log: CookingLog[]
+  cookbook_recipes?: { cookbook_id: string }[]
+}
+
+export type CookbookWithCount = Cookbook & {
+  cookbook_recipes: { recipe_id: string }[]
+}
+
+export type CookbookWithRecipes = Cookbook & {
+  cookbook_recipes: { recipe: Recipe }[]
 }
 
 export type SlotWithRecipe = WeeklyPlanSlot & {
