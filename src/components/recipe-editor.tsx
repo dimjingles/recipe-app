@@ -112,8 +112,8 @@ export default function RecipeEditor({ initialValues, showLookup, autoLookup }: 
       if (data.description) setDescription(data.description)
       setLooked(true)
       toast.success('Ingredients loaded!')
-    } catch {
-      toast.error('Could not load ingredients. Try again.')
+    } catch (e: unknown) {
+      toast.error((e as Error).message || 'Could not load ingredients. Try again.')
     } finally {
       setLookupLoading(false)
     }
