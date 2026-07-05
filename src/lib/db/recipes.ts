@@ -8,7 +8,7 @@ export async function getRecipes() {
 
   const { data, error } = await supabase
     .from('recipes')
-    .select('*, ingredients(*)')
+    .select('*, ingredients(*), cookbook_recipes(cookbook_id)')
     .eq('user_id', user.id)
     .order('rank', { ascending: true, nullsFirst: false })
     .order('created_at', { ascending: false })

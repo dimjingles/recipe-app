@@ -2,13 +2,14 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Sparkles, Plus, X, Loader2, ChefHat } from 'lucide-react'
+import { Sparkles, Plus, X, Loader2, ChefHat, Link2 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
 import CuisineCombobox from '@/components/cuisine-combobox'
+import type { ExtractedRecipe } from '@/types/database'
 
 export interface IngredientRow {
   name: string
@@ -85,12 +86,86 @@ export default function RecipeEditor({ initialValues, showLookup, autoLookup }: 
   const [looked, setLooked] = useState(false)
   const [instructionsLoading, setInstructionsLoading] = useState(false)
 
+  // Import panel state
+  const [showImport, setShowImport] = useState(false)
+  const [importUrl, setImportUrl] = useState('')
+  const [importLoading, setImportLoading] = useState(false)
+  const [importNeedsText, setImportNeedsText] = useState(false)
+  const [importHint, setImportHint] = useState('')
+  const [importPasteText, setImportPasteText] = useState('')
+  const [importTextLoading, setImportTextLoading] = useState(false)
+
   // Auto-trigger AI lookup when the editor is pre-populated with a name
   useEffect(() => {
     if (autoLookup && showLookup && initialValues?.name) {
       handleLookup(initialValues.name)
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const applyImport = (r: ExtractedRecipe) => {
+    if (r.name) setName(r.name)
+    if (r.description) setDescription(r.description)
+    if (r.cuisine) setCuisine(r.cuisine)
+    if (r.cook_time_minutes != null) setCookTime(String(r.cook_time_minutes))
+    if (r.servings != null) setServings(String(r.servings))
+    if (r.instructions) {
+      const sourceNote = r.source_url ? `\n\nSource: ${r.source_url}` : ''
+      setInstructions(r.instructions + sourceNote)
+    }
+    if (r.ingredients?.length) setIngredients(r.ingredients)
+    setShowImport(false)
+    setImportUrl('')
+    setImportPasteText('')
+    setImportNeedsText(false)
+    toast.success('Recipe imported!')
+  }
+
+  const handleImportUrl = async () => {
+    if (!importUrl.trim()) return
+    setImportLoading(true)
+    try {
+      const res = await fetch('/api/recipes/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: importUrl.trim() }),
+      })
+      const data = await res.json()
+      if (data.needsText) {
+        setImportHint(data.hint || "We couldn't read that page. Paste the recipe text below.")
+        setImportNeedsText(true)
+      } else if (data.error) {
+        toast.error(data.error)
+      } else {
+        applyImport(data as ExtractedRecipe)
+      }
+    } catch {
+      toast.error('Import failed. Check the URL and try again.')
+    } finally {
+      setImportLoading(false)
+    }
+  }
+
+  const handleImportText = async () => {
+    if (!importPasteText.trim()) return
+    setImportTextLoading(true)
+    try {
+      const res = await fetch('/api/recipes/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: importPasteText }),
+      })
+      const data = await res.json()
+      if (data.error) {
+        toast.error(data.error)
+      } else {
+        applyImport(data as ExtractedRecipe)
+      }
+    } catch {
+      toast.error('Import failed. Please try again.')
+    } finally {
+      setImportTextLoading(false)
+    }
+  }
 
   const handleLookup = async (recipeName?: string) => {
     const n = (recipeName || name).trim()
@@ -219,7 +294,7 @@ export default function RecipeEditor({ initialValues, showLookup, autoLookup }: 
         </div>
       )}
 
-      {/* Name + optional AI Fill */}
+      {/* Name + AI Fill + Import */}
       <div>
         <Label className="text-gray-700 font-medium">Recipe Name *</Label>
         <div className="flex gap-2 mt-1.5">
@@ -231,21 +306,108 @@ export default function RecipeEditor({ initialValues, showLookup, autoLookup }: 
             onKeyDown={e => { if (e.key === 'Enter' && showLookup) handleLookup() }}
           />
           {showLookup && (
-            <Button
-              onClick={() => handleLookup()}
-              disabled={!name.trim() || lookupLoading}
-              className="bg-orange-500 hover:bg-orange-600 text-white shrink-0"
-            >
-              {lookupLoading
-                ? <Loader2 className="w-4 h-4 animate-spin" />
-                : <><Sparkles className="w-4 h-4 mr-1" /> Fill</>}
-            </Button>
+            <>
+              <Button
+                onClick={() => handleLookup()}
+                disabled={!name.trim() || lookupLoading}
+                className="bg-orange-500 hover:bg-orange-600 text-white shrink-0"
+              >
+                {lookupLoading
+                  ? <Loader2 className="w-4 h-4 animate-spin" />
+                  : <><Sparkles className="w-4 h-4 mr-1" /> Fill</>}
+              </Button>
+              <Button
+                onClick={() => setShowImport(v => !v)}
+                variant="outline"
+                className="shrink-0 border-gray-200 text-gray-600 hover:text-brand hover:border-brand"
+              >
+                <Link2 className="w-4 h-4 mr-1" /> Import
+              </Button>
+            </>
           )}
         </div>
-        {showLookup && !looked && (
+        {showLookup && !looked && !showImport && (
           <p className="text-xs text-gray-400 mt-1.5">
             Type a recipe name and tap Fill to auto-load ingredients with AI.
           </p>
+        )}
+
+        {/* Inline import panel */}
+        {showImport && (
+          <div className="mt-3 bg-gray-50 border border-gray-200 rounded-xl p-3 space-y-3">
+            {importNeedsText ? (
+              <>
+                <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                  {importHint}
+                </p>
+                <Textarea
+                  value={importPasteText}
+                  onChange={e => setImportPasteText(e.target.value)}
+                  placeholder="Paste the recipe caption, description, or full recipe text here…"
+                  className="h-32 resize-none"
+                  autoFocus
+                />
+                <div className="flex gap-2">
+                  <Button
+                    onClick={handleImportText}
+                    disabled={!importPasteText.trim() || importTextLoading}
+                    className="flex-1 bg-brand hover:bg-brand/90 text-white h-10"
+                  >
+                    {importTextLoading
+                      ? <><Loader2 className="w-4 h-4 animate-spin mr-2" /> Extracting…</>
+                      : 'Extract Recipe'}
+                  </Button>
+                  <button
+                    onClick={() => { setImportNeedsText(false); setImportHint('') }}
+                    className="text-sm text-gray-400 hover:text-gray-600 px-2"
+                  >
+                    ← Back
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="text-xs text-gray-500">
+                  Paste a link to any recipe website, YouTube video, or social media post.
+                </p>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Input
+                      value={importUrl}
+                      onChange={e => setImportUrl(e.target.value)}
+                      placeholder="https://..."
+                      className="pl-9"
+                      autoFocus
+                      onKeyDown={e => { if (e.key === 'Enter') handleImportUrl() }}
+                      disabled={importLoading}
+                    />
+                  </div>
+                  <Button
+                    onClick={handleImportUrl}
+                    disabled={!importUrl.trim() || importLoading}
+                    className="bg-brand hover:bg-brand/90 text-white shrink-0"
+                  >
+                    {importLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Import'}
+                  </Button>
+                </div>
+                {importLoading && (
+                  <p className="text-xs text-gray-400 flex items-center gap-1.5">
+                    <Loader2 className="w-3 h-3 animate-spin" /> Fetching and extracting recipe…
+                  </p>
+                )}
+                <button
+                  onClick={() => {
+                    setImportHint("Paste the recipe text, caption, or instructions below.")
+                    setImportNeedsText(true)
+                  }}
+                  className="text-xs text-gray-400 hover:text-brand transition-colors"
+                >
+                  Paste recipe text instead →
+                </button>
+              </>
+            )}
+          </div>
         )}
       </div>
 

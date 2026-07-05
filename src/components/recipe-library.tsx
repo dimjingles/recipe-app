@@ -3,9 +3,11 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { RecipeWithIngredients } from '@/types/database'
-import { Plus, Search, Clock, X, Globe, Link2, Loader2, PenLine, ChevronDown } from 'lucide-react'
+import { RecipeWithIngredients, CookbookWithCount } from '@/types/database'
+import { Plus, Search, Clock, X, Globe, ChevronDown, BookOpen, Loader2 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+import { BottomSheet } from '@/components/ui/bottom-sheet'
 import { toast } from 'sonner'
 import { getCuisineEmoji } from '@/lib/cuisine-emoji'
 import { RecipeCard } from '@/components/recipe-card'
@@ -26,18 +28,32 @@ interface OnlineResult {
   description: string
 }
 
-export default function RecipeLibrary({ initialRecipes }: { initialRecipes: RecipeWithIngredients[] }) {
+export default function RecipeLibrary({
+  initialRecipes,
+  initialCookbooks,
+}: {
+  initialRecipes: RecipeWithIngredients[]
+  initialCookbooks: CookbookWithCount[]
+}) {
   const router = useRouter()
   const [search, setSearch] = useState('')
   const [selectedCuisine, setSelectedCuisine] = useState<string | null>(null)
   const [selectedType, setSelectedType] = useState<string | null>(null)
   const [selectedTag, setSelectedTag] = useState<string | null>(null)
+  const [selectedCookbook, setSelectedCookbook] = useState<string | null>(null)
+  const [cookbooks, setCookbooks] = useState<CookbookWithCount[]>(initialCookbooks)
   const [onlineResults, setOnlineResults] = useState<OnlineResult[]>([])
   const [loadingOnline, setLoadingOnline] = useState(false)
   const [pendingSearch, setPendingSearch] = useState(false)
   const [addingRecipe, setAddingRecipe] = useState<string | null>(null)
-  const [addMenuOpen, setAddMenuOpen] = useState(false)
-  const [openDropdown, setOpenDropdown] = useState<'type' | 'cuisine' | null>(null)
+  const [openDropdown, setOpenDropdown] = useState<'type' | 'cuisine' | 'cookbook' | null>(null)
+
+  // Create cookbook sheet
+  const [showCreateCookbook, setShowCreateCookbook] = useState(false)
+  const [newCookbookName, setNewCookbookName] = useState('')
+  const [newCookbookRecipes, setNewCookbookRecipes] = useState<string[]>([])
+  const [creatingCookbook, setCreatingCookbook] = useState(false)
+
   const searchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
@@ -104,6 +120,47 @@ export default function RecipeLibrary({ initialRecipes }: { initialRecipes: Reci
     }
   }
 
+  const openCreateCookbook = () => {
+    setOpenDropdown(null)
+    setShowCreateCookbook(true)
+  }
+
+  const closeCreateCookbook = () => {
+    setShowCreateCookbook(false)
+    setNewCookbookName('')
+    setNewCookbookRecipes([])
+  }
+
+  const toggleNewCookbookRecipe = (id: string) =>
+    setNewCookbookRecipes(prev => prev.includes(id) ? prev.filter(r => r !== id) : [...prev, id])
+
+  const createCookbook = async () => {
+    if (!newCookbookName.trim()) return
+    setCreatingCookbook(true)
+    try {
+      const res = await fetch('/api/cookbooks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newCookbookName.trim(), recipe_ids: newCookbookRecipes }),
+      })
+      const data = await res.json()
+      if (data.error) throw new Error(data.error)
+      const newCookbook: CookbookWithCount = {
+        ...data,
+        cookbook_recipes: newCookbookRecipes.map(id => ({ recipe_id: id })),
+      }
+      toast.success(`"${newCookbookName.trim()}" created!`)
+      setCookbooks(prev => [...prev, newCookbook])
+      setSelectedCookbook(data.id)
+      closeCreateCookbook()
+      router.refresh()
+    } catch (e: any) {
+      toast.error(e.message || 'Could not create cookbook')
+    } finally {
+      setCreatingCookbook(false)
+    }
+  }
+
   // Unique cuisines from the user's own recipes
   const cuisines = Array.from(
     new Set(initialRecipes.map(r => r.cuisine?.toLowerCase()).filter(Boolean) as string[])
@@ -121,15 +178,16 @@ export default function RecipeLibrary({ initialRecipes }: { initialRecipes: Reci
     const matchesCuisine = !selectedCuisine || r.cuisine?.toLowerCase() === selectedCuisine
     const matchesType = !selectedType || r.recipe_type?.toLowerCase() === selectedType
     const matchesTag = !selectedTag || (r.tags || []).includes(selectedTag)
-    return matchesSearch && matchesCuisine && matchesType && matchesTag
+    const matchesCookbook = !selectedCookbook ||
+      (r.cookbook_recipes || []).some(cr => cr.cookbook_id === selectedCookbook)
+    return matchesSearch && matchesCuisine && matchesType && matchesTag && matchesCookbook
   })
 
   /* ── Chip style helpers ─────────────────────────────────────────── */
-  // "All" chip: quiet neutral state (it means "no filter"). Selected filter: solid brand.
   const allChipClass = (isNullSelected: boolean) =>
     `shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors active:scale-[0.95] ${
       isNullSelected
-        ? 'bg-muted text-muted-foreground border border-border'     // clear/none state — quiet
+        ? 'bg-muted text-muted-foreground border border-border'
         : 'bg-card border border-border text-foreground hover:border-brand'
     }`
 
@@ -140,41 +198,13 @@ export default function RecipeLibrary({ initialRecipes }: { initialRecipes: Reci
         : 'bg-card border border-border text-foreground hover:border-brand'
     }`
 
+  const selectedCookbookName = cookbooks.find(c => c.id === selectedCookbook)?.name
+
   return (
     <div className="max-w-lg mx-auto px-4 pt-6">
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="mb-4">
         <h1 className="font-heading text-2xl font-bold text-foreground">Recipes</h1>
-        <div className="relative">
-          <button
-            onClick={() => setAddMenuOpen(o => !o)}
-            className="bg-brand text-brand-foreground rounded-full p-2.5 hover:bg-brand/90 active:scale-[0.95] transition-all shadow-md"
-          >
-            <Plus className="w-5 h-5" />
-          </button>
-          {addMenuOpen && (
-            <>
-              <div className="fixed inset-0 z-10" onClick={() => setAddMenuOpen(false)} />
-              <div className="absolute right-0 top-full mt-2 z-20 bg-card rounded-2xl shadow-lg border border-border overflow-hidden w-44">
-                <Link
-                  href="/import"
-                  onClick={() => setAddMenuOpen(false)}
-                  className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-foreground hover:bg-brand-subtle hover:text-brand"
-                >
-                  <Link2 className="w-4 h-4 text-brand" /> Import recipe
-                </Link>
-                <div className="h-px bg-border" />
-                <Link
-                  href="/recipes/new"
-                  onClick={() => setAddMenuOpen(false)}
-                  className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-foreground hover:bg-brand-subtle hover:text-brand"
-                >
-                  <PenLine className="w-4 h-4 text-brand" /> Write recipe
-                </Link>
-              </div>
-            </>
-          )}
-        </div>
       </div>
 
       {/* Search */}
@@ -194,7 +224,7 @@ export default function RecipeLibrary({ initialRecipes }: { initialRecipes: Reci
       </div>
 
       {/* Filter dropdowns */}
-      <div className="flex gap-2 mb-4">
+      <div className="flex gap-2 mb-4 flex-wrap">
         {/* Type dropdown */}
         <div className="relative">
           <button
@@ -269,6 +299,66 @@ export default function RecipeLibrary({ initialRecipes }: { initialRecipes: Reci
                       {getCuisineEmoji(cuisine)} {cuisine}
                     </button>
                   ))}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Cookbook filter (or Add Cookbook button if none exist) */}
+        {cookbooks.length === 0 ? (
+          <button
+            onClick={openCreateCookbook}
+            className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium border border-dashed border-border text-muted-foreground hover:border-brand hover:text-brand transition-colors active:scale-[0.95]"
+          >
+            <Plus className="w-3.5 h-3.5" /> Add Cookbook
+          </button>
+        ) : (
+          <div className="relative">
+            <button
+              onClick={() => setOpenDropdown(openDropdown === 'cookbook' ? null : 'cookbook')}
+              className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium border transition-colors active:scale-[0.95] ${
+                selectedCookbook
+                  ? 'bg-brand text-brand-foreground border-transparent'
+                  : 'bg-card border-border text-foreground hover:border-brand'
+              }`}
+            >
+              {selectedCookbook ? selectedCookbookName : 'Cookbooks'}
+              <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-150 ${openDropdown === 'cookbook' ? 'rotate-180' : ''}`} />
+            </button>
+            {openDropdown === 'cookbook' && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setOpenDropdown(null)} />
+                <div className="absolute left-0 top-full mt-1.5 z-20 bg-card rounded-2xl shadow-lg border border-border overflow-hidden min-w-[180px]">
+                  <button
+                    onClick={() => { setSelectedCookbook(null); setOpenDropdown(null) }}
+                    className={`w-full text-left px-4 py-2.5 text-sm font-medium transition-colors ${!selectedCookbook ? 'text-brand bg-brand-subtle' : 'text-foreground hover:bg-muted'}`}
+                  >
+                    All cookbooks
+                  </button>
+                  {cookbooks.map(cb => (
+                    <button
+                      key={cb.id}
+                      onClick={() => { setSelectedCookbook(cb.id); setOpenDropdown(null) }}
+                      className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${selectedCookbook === cb.id ? 'text-brand bg-brand-subtle font-medium' : 'text-foreground hover:bg-muted'}`}
+                    >
+                      <span className="truncate">{cb.name}</span>
+                      <span className="text-xs text-muted-foreground ml-1.5">({cb.cookbook_recipes.length})</span>
+                    </button>
+                  ))}
+                  <div className="h-px bg-border" />
+                  <button
+                    onClick={openCreateCookbook}
+                    className="w-full text-left px-4 py-2.5 text-sm text-brand hover:bg-brand-subtle transition-colors flex items-center gap-2"
+                  >
+                    <Plus className="w-3.5 h-3.5 shrink-0" /> Add Cookbook
+                  </button>
+                  <button
+                    onClick={() => { setOpenDropdown(null); router.push('/cookbooks') }}
+                    className="w-full text-left px-4 py-2.5 text-sm text-muted-foreground hover:bg-muted transition-colors flex items-center gap-2"
+                  >
+                    <BookOpen className="w-3.5 h-3.5 shrink-0" /> View cookbooks
+                  </button>
                 </div>
               </>
             )}
@@ -447,6 +537,66 @@ export default function RecipeLibrary({ initialRecipes }: { initialRecipes: Reci
           </div>
         )
       })()}
+
+      {/* Create Cookbook Bottom Sheet */}
+      <BottomSheet open={showCreateCookbook} onClose={closeCreateCookbook} maxHeight="85vh">
+        <div className="px-6 pb-8">
+          <h3 className="font-heading text-lg font-bold text-foreground mb-4">New Cookbook</h3>
+
+          <div className="mb-4">
+            <p className="text-sm font-medium text-foreground mb-2">Name</p>
+            <Input
+              value={newCookbookName}
+              onChange={e => setNewCookbookName(e.target.value)}
+              placeholder="e.g. Quick Weeknight Dinners"
+              autoFocus
+              onKeyDown={e => e.key === 'Enter' && createCookbook()}
+              className="bg-card"
+            />
+          </div>
+
+          {initialRecipes.length > 0 && (
+            <div className="mb-6">
+              <p className="text-sm font-medium text-foreground mb-2">
+                Add recipes <span className="text-muted-foreground font-normal">(optional)</span>
+              </p>
+              <div className="space-y-1 max-h-56 overflow-y-auto -mx-1 px-1">
+                {initialRecipes.map(r => (
+                  <button
+                    key={r.id}
+                    onClick={() => toggleNewCookbookRecipe(r.id)}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors ${
+                      newCookbookRecipes.includes(r.id)
+                        ? 'bg-brand-subtle text-brand'
+                        : 'hover:bg-muted text-foreground'
+                    }`}
+                  >
+                    <span className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${
+                      newCookbookRecipes.includes(r.id) ? 'bg-brand border-brand' : 'border-border'
+                    }`}>
+                      {newCookbookRecipes.includes(r.id) && (
+                        <span className="text-brand-foreground text-[10px] font-bold">✓</span>
+                      )}
+                    </span>
+                    <span className="flex-1 text-left truncate">{r.name}</span>
+                    {r.cuisine && (
+                      <span className="text-xs text-muted-foreground capitalize shrink-0">{r.cuisine}</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <Button
+            onClick={createCookbook}
+            disabled={creatingCookbook || !newCookbookName.trim()}
+            className="w-full bg-brand hover:bg-brand/90 text-brand-foreground h-12 text-base"
+          >
+            {creatingCookbook ? 'Creating...' : 'Create Cookbook'}
+          </Button>
+        </div>
+      </BottomSheet>
     </div>
   )
 }
