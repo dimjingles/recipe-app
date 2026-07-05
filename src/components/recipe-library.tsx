@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { RecipeWithIngredients } from '@/types/database'
-import { Plus, Search, Sparkles, Clock, X, Globe, Link2, Loader2, PenLine } from 'lucide-react'
+import { Plus, Search, Sparkles, Clock, X, Globe, Link2, Loader2, PenLine, ChevronDown } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
 import { getCuisineEmoji } from '@/lib/cuisine-emoji'
@@ -48,6 +48,7 @@ export default function RecipeLibrary({ initialRecipes }: { initialRecipes: Reci
   const [pendingSearch, setPendingSearch] = useState(false)
   const [addingRecipe, setAddingRecipe] = useState<string | null>(null)
   const [addMenuOpen, setAddMenuOpen] = useState(false)
+  const [openDropdown, setOpenDropdown] = useState<'type' | 'cuisine' | null>(null)
   const searchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
@@ -219,51 +220,88 @@ export default function RecipeLibrary({ initialRecipes }: { initialRecipes: Reci
         )}
       </div>
 
-      {/* Type filter chips */}
-      <div className="mb-3">
-        <p className="text-xs text-muted-foreground font-medium mb-1.5 uppercase tracking-wide">Type</p>
-        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide -mx-4 px-4">
+      {/* Filter dropdowns */}
+      <div className="flex gap-2 mb-4">
+        {/* Type dropdown */}
+        <div className="relative">
           <button
-            onClick={() => setSelectedType(null)}
-            className={allChipClass(selectedType === null)}
+            onClick={() => setOpenDropdown(openDropdown === 'type' ? null : 'type')}
+            className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium border transition-colors active:scale-[0.95] ${
+              selectedType
+                ? 'bg-brand text-brand-foreground border-transparent'
+                : 'bg-card border-border text-foreground hover:border-brand'
+            }`}
           >
-            All
+            {selectedType
+              ? <>{RECIPE_TYPES.find(t => t.value === selectedType)?.emoji} {RECIPE_TYPES.find(t => t.value === selectedType)?.label}</>
+              : 'Type'}
+            <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-150 ${openDropdown === 'type' ? 'rotate-180' : ''}`} />
           </button>
-          {RECIPE_TYPES.map(t => (
-            <button
-              key={t.value}
-              onClick={() => setSelectedType(selectedType === t.value ? null : t.value)}
-              className={filterChipClass(selectedType === t.value)}
-            >
-              {t.emoji} {t.label}
-            </button>
-          ))}
+          {openDropdown === 'type' && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setOpenDropdown(null)} />
+              <div className="absolute left-0 top-full mt-1.5 z-20 bg-card rounded-2xl shadow-lg border border-border overflow-hidden min-w-[152px]">
+                <button
+                  onClick={() => { setSelectedType(null); setOpenDropdown(null) }}
+                  className={`w-full text-left px-4 py-2.5 text-sm font-medium transition-colors ${!selectedType ? 'text-brand bg-brand-subtle' : 'text-foreground hover:bg-muted'}`}
+                >
+                  All types
+                </button>
+                {RECIPE_TYPES.map(t => (
+                  <button
+                    key={t.value}
+                    onClick={() => { setSelectedType(t.value); setOpenDropdown(null) }}
+                    className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${selectedType === t.value ? 'text-brand bg-brand-subtle font-medium' : 'text-foreground hover:bg-muted'}`}
+                  >
+                    {t.emoji} {t.label}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
         </div>
-      </div>
 
-      {/* Cuisine filter chips */}
-      {cuisines.length > 0 && (
-        <div className="mb-4">
-          <p className="text-xs text-muted-foreground font-medium mb-1.5 uppercase tracking-wide">Cuisine</p>
-          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide -mx-4 px-4">
+        {/* Cuisine dropdown */}
+        {cuisines.length > 0 && (
+          <div className="relative">
             <button
-              onClick={() => setSelectedCuisine(null)}
-              className={allChipClass(selectedCuisine === null)}
+              onClick={() => setOpenDropdown(openDropdown === 'cuisine' ? null : 'cuisine')}
+              className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium border transition-colors active:scale-[0.95] ${
+                selectedCuisine
+                  ? 'bg-brand text-brand-foreground border-transparent'
+                  : 'bg-card border-border text-foreground hover:border-brand'
+              }`}
             >
-              All
+              {selectedCuisine
+                ? <><span>{getCuisineEmoji(selectedCuisine)}</span> <span className="capitalize">{selectedCuisine}</span></>
+                : 'Cuisine'}
+              <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-150 ${openDropdown === 'cuisine' ? 'rotate-180' : ''}`} />
             </button>
-            {cuisines.map(cuisine => (
-              <button
-                key={cuisine}
-                onClick={() => setSelectedCuisine(selectedCuisine === cuisine ? null : cuisine)}
-                className={`${filterChipClass(selectedCuisine === cuisine)} capitalize`}
-              >
-                {getCuisineEmoji(cuisine)} {cuisine}
-              </button>
-            ))}
+            {openDropdown === 'cuisine' && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setOpenDropdown(null)} />
+                <div className="absolute left-0 top-full mt-1.5 z-20 bg-card rounded-2xl shadow-lg border border-border overflow-hidden min-w-[160px]">
+                  <button
+                    onClick={() => { setSelectedCuisine(null); setOpenDropdown(null) }}
+                    className={`w-full text-left px-4 py-2.5 text-sm font-medium transition-colors ${!selectedCuisine ? 'text-brand bg-brand-subtle' : 'text-foreground hover:bg-muted'}`}
+                  >
+                    All cuisines
+                  </button>
+                  {cuisines.map(cuisine => (
+                    <button
+                      key={cuisine}
+                      onClick={() => { setSelectedCuisine(cuisine); setOpenDropdown(null) }}
+                      className={`w-full text-left px-4 py-2.5 text-sm capitalize transition-colors ${selectedCuisine === cuisine ? 'text-brand bg-brand-subtle font-medium' : 'text-foreground hover:bg-muted'}`}
+                    >
+                      {getCuisineEmoji(cuisine)} {cuisine}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Tag filter chips */}
       {uniqueTags.length > 0 && (
