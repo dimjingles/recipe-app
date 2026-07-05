@@ -1,11 +1,18 @@
 import type { Metadata, Viewport } from 'next'
-import { Geist } from 'next/font/google'
+import { Fraunces, Geist } from 'next/font/google'
 import './globals.css'
 import BottomNav from '@/components/bottom-nav'
 import { Toaster } from '@/components/ui/sonner'
 import ServiceWorkerRegister from '@/components/service-worker-register'
+import { PageTransition } from '@/components/page-transition'
 
-const geist = Geist({ subsets: ['latin'] })
+const geist = Geist({ subsets: ['latin'], variable: '--font-sans' })
+
+const fraunces = Fraunces({
+  subsets: ['latin'],
+  variable: '--font-heading',
+  display: 'swap',
+})
 
 export const metadata: Metadata = {
   title: 'Mise en Place',
@@ -27,13 +34,13 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" className={`${geist.variable} ${fraunces.variable}`}>
       <head>
         <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
       </head>
-      <body className={`${geist.className} bg-gray-50 min-h-screen`}>
+      <body className="min-h-screen">
         <main className="pb-20 min-h-screen">
-          {children}
+          <PageTransition>{children}</PageTransition>
         </main>
         <BottomNav />
         <Toaster position="top-center" richColors />

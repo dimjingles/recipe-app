@@ -4,118 +4,204 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* ─── Custom keyframes ───────────────────────────────────────────────────── */
+
+@keyframes shimmer {
+  from { background-position: 200% center; }
+  to   { background-position: -200% center; }
+}
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ─── Tailwind v4 token → CSS-var bridges ───────────────────────────────── */
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
+
+  /* Fonts */
+  --font-sans:    var(--font-sans);
+  --font-mono:    var(--font-geist-mono);
+  --font-heading: var(--font-heading);          /* fixed — was pointing at --font-sans */
+
+  /* Sidebar */
+  --color-sidebar-ring:               var(--sidebar-ring);
+  --color-sidebar-border:             var(--sidebar-border);
+  --color-sidebar-accent-foreground:  var(--sidebar-accent-foreground);
+  --color-sidebar-accent:             var(--sidebar-accent);
   --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
+  --color-sidebar-primary:            var(--sidebar-primary);
+  --color-sidebar-foreground:         var(--sidebar-foreground);
+  --color-sidebar:                    var(--sidebar);
+
+  /* Charts */
   --color-chart-5: var(--chart-5);
   --color-chart-4: var(--chart-4);
   --color-chart-3: var(--chart-3);
   --color-chart-2: var(--chart-2);
   --color-chart-1: var(--chart-1);
-  --color-ring: var(--ring);
-  --color-input: var(--input);
-  --color-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
+
+  /* Base shadcn palette */
+  --color-ring:                var(--ring);
+  --color-input:               var(--input);
+  --color-border:              var(--border);
+  --color-destructive:         var(--destructive);
+  --color-accent-foreground:   var(--accent-foreground);
+  --color-accent:              var(--accent);
+  --color-muted-foreground:    var(--muted-foreground);
+  --color-muted:               var(--muted);
   --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
-  --color-card: var(--card);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
+  --color-secondary:           var(--secondary);
+  --color-primary-foreground:  var(--primary-foreground);
+  --color-primary:             var(--primary);
+  --color-popover-foreground:  var(--popover-foreground);
+  --color-popover:             var(--popover);
+  --color-card-foreground:     var(--card-foreground);
+  --color-card:                var(--card);
+
+  /* ── Brand palette (orange) ── */
+  --color-brand:            var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-brand-subtle:     var(--brand-subtle);
+
+  /* ── Sage (ingredients section) ── */
+  --color-sage:             var(--sage);
+  --color-sage-foreground:  var(--sage-foreground);
+  --color-sage-subtle:      var(--sage-subtle);
+
+  /* ── Cooking / amber (history section) ── */
+  --color-cooking:             var(--cooking);
+  --color-cooking-foreground:  var(--cooking-foreground);
+  --color-cooking-subtle:      var(--cooking-subtle);
+
+  /* Radius scale */
+  --radius-sm:  calc(var(--radius) * 0.6);
+  --radius-md:  calc(var(--radius) * 0.8);
+  --radius-lg:  var(--radius);
+  --radius-xl:  calc(var(--radius) * 1.4);
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* Custom animations */
+  --animate-shimmer:    shimmer 1.5s linear infinite;
+  --animate-fade-in-up: fade-in-up 0.3s ease-out both;
+  --animate-fade-in:    fade-in 0.25s ease-out both;
 }
+
+/* ─── Light mode tokens ─────────────────────────────────────────────────── */
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
+  /* Warm neutrals — tiny chroma on a warm hue, replacing cold grays */
+  --background:           oklch(0.987 0.004 75);   /* warm cream */
+  --foreground:           oklch(0.145 0 0);
+  --card:                 oklch(1 0 0);             /* pure white — pops vs cream bg */
+  --card-foreground:      oklch(0.145 0 0);
+  --popover:              oklch(1 0 0);
+  --popover-foreground:   oklch(0.145 0 0);
+  --primary:              oklch(0.205 0 0);          /* shadcn ui components use this */
+  --primary-foreground:   oklch(0.985 0 0);
+  --secondary:            oklch(0.974 0.005 75);    /* warm muted */
   --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
+  --muted:                oklch(0.974 0.005 75);
+  --muted-foreground:     oklch(0.500 0 0);
+  --accent:               oklch(0.974 0.005 75);
+  --accent-foreground:    oklch(0.205 0 0);
+  --destructive:          oklch(0.577 0.245 27.325);
+  --border:               oklch(0.920 0.004 75);    /* warm border */
+  --input:                oklch(0.920 0.004 75);
+  --ring:                 oklch(0.702 0.183 46.6);  /* brand orange for focus rings */
+  --chart-1:              oklch(0.87 0 0);
+  --chart-2:              oklch(0.556 0 0);
+  --chart-3:              oklch(0.439 0 0);
+  --chart-4:              oklch(0.371 0 0);
+  --chart-5:              oklch(0.269 0 0);
   --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar:                     oklch(0.985 0.004 75);
+  --sidebar-foreground:          oklch(0.145 0 0);
+  --sidebar-primary:             oklch(0.205 0 0);
+  --sidebar-primary-foreground:  oklch(0.985 0 0);
+  --sidebar-accent:              oklch(0.974 0.005 75);
+  --sidebar-accent-foreground:   oklch(0.205 0 0);
+  --sidebar-border:              oklch(0.920 0.004 75);
+  --sidebar-ring:                oklch(0.702 0.183 46.6);
+
+  /* Brand — orange ≈ orange-500 */
+  --brand:            oklch(0.702 0.183 46.6);
+  --brand-foreground: oklch(1 0 0);
+  --brand-subtle:     oklch(0.967 0.030 68);        /* pale peach */
+
+  /* Sage — ingredients */
+  --sage:             oklch(0.540 0.085 158);        /* muted olive-sage */
+  --sage-foreground:  oklch(1 0 0);
+  --sage-subtle:      oklch(0.967 0.018 158);        /* pale sage */
+
+  /* Cooking / amber — cooking history */
+  --cooking:             oklch(0.750 0.120 72);      /* warm amber */
+  --cooking-foreground:  oklch(0.200 0 0);           /* dark text on amber */
+  --cooking-subtle:      oklch(0.975 0.022 80);      /* pale amber */
 }
 
+/* ─── Dark mode tokens (authored; ThemeProvider wiring deferred) ─────────── */
+
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
+  --background:           oklch(0.145 0 0);
+  --foreground:           oklch(0.985 0 0);
+  --card:                 oklch(0.205 0 0);
+  --card-foreground:      oklch(0.985 0 0);
+  --popover:              oklch(0.205 0 0);
+  --popover-foreground:   oklch(0.985 0 0);
+  --primary:              oklch(0.922 0 0);
+  --primary-foreground:   oklch(0.205 0 0);
+  --secondary:            oklch(0.269 0 0);
   --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --muted:                oklch(0.269 0 0);
+  --muted-foreground:     oklch(0.708 0 0);
+  --accent:               oklch(0.269 0 0);
+  --accent-foreground:    oklch(0.985 0 0);
+  --destructive:          oklch(0.704 0.191 22.216);
+  --border:               oklch(1 0 0 / 10%);
+  --input:                oklch(1 0 0 / 15%);
+  --ring:                 oklch(0.750 0.180 46.6);
+  --chart-1:              oklch(0.87 0 0);
+  --chart-2:              oklch(0.556 0 0);
+  --chart-3:              oklch(0.439 0 0);
+  --chart-4:              oklch(0.371 0 0);
+  --chart-5:              oklch(0.269 0 0);
+  --sidebar:                     oklch(0.205 0 0);
+  --sidebar-foreground:          oklch(0.985 0 0);
+  --sidebar-primary:             oklch(0.750 0.180 46.6);
+  --sidebar-primary-foreground:  oklch(0.145 0 0);
+  --sidebar-accent:              oklch(0.269 0 0);
+  --sidebar-accent-foreground:   oklch(0.985 0 0);
+  --sidebar-border:              oklch(1 0 0 / 10%);
+  --sidebar-ring:                oklch(0.750 0.180 46.6);
+
+  /* Brand — dark */
+  --brand:            oklch(0.750 0.180 46.6);
+  --brand-foreground: oklch(0.145 0 0);
+  --brand-subtle:     oklch(0.260 0.050 46);
+
+  /* Sage — dark */
+  --sage:             oklch(0.680 0.090 158);
+  --sage-foreground:  oklch(0.145 0 0);
+  --sage-subtle:      oklch(0.220 0.040 158);
+
+  /* Cooking / amber — dark */
+  --cooking:             oklch(0.800 0.120 72);
+  --cooking-foreground:  oklch(0.145 0 0);
+  --cooking-subtle:      oklch(0.220 0.040 72);
 }
+
+/* ─── Base layer ────────────────────────────────────────────────────────── */
 
 @layer base {
   * {
@@ -126,5 +212,33 @@
   }
   html {
     @apply font-sans;
+  }
+
+  /* Respect reduced-motion preferences */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* ─── Custom utilities ──────────────────────────────────────────────────── */
+
+@layer utilities {
+  /* Branded shimmer — use on skeleton loading states */
+  .bg-shimmer {
+    background: linear-gradient(
+      90deg,
+      var(--muted) 25%,
+      var(--brand-subtle) 50%,
+      var(--muted) 75%
+    );
+    background-size: 400% 100%;
+    animation: var(--animate-shimmer);
   }
 }
