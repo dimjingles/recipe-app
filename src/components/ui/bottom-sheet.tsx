@@ -1,6 +1,7 @@
 'use client'
 
-import { ReactNode } from 'react'
+import { ReactNode, useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 
 interface BottomSheetProps {
   open: boolean
@@ -24,9 +25,12 @@ export function BottomSheet({
   maxHeight,
   zIndex = 'default',
 }: BottomSheetProps) {
-  if (!open) return null
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
 
-  return (
+  if (!open || !mounted) return null
+
+  return createPortal(
     <div
       className={`fixed inset-0 flex items-end justify-center bg-black/40 ${zMap[zIndex]}`}
       onClick={onClose}
@@ -42,6 +46,7 @@ export function BottomSheet({
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
