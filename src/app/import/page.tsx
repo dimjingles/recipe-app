@@ -168,7 +168,7 @@ export default function ImportPage({
           <Button
             onClick={handleTextImport}
             disabled={!pasteText.trim() || textSubmitting}
-            className="w-full bg-orange-500 hover:bg-orange-600 text-white h-11"
+            className="w-full bg-brand hover:bg-brand/90 text-white h-11"
           >
             {textSubmitting
               ? <><Loader2 className="w-4 h-4 animate-spin mr-2" /> Extracting…</>
@@ -204,7 +204,7 @@ export default function ImportPage({
             <Button
               onClick={handleImportClick}
               disabled={!url.trim() || importState === 'loading'}
-              className="bg-orange-500 hover:bg-orange-600 text-white shrink-0"
+              className="bg-brand hover:bg-brand/90 text-white shrink-0"
             >
               {importState === 'loading'
                 ? <Loader2 className="w-4 h-4 animate-spin" />
@@ -214,7 +214,7 @@ export default function ImportPage({
 
           {importState === 'loading' && (
             <div className="flex items-center justify-center gap-2 py-6 text-gray-500">
-              <Loader2 className="w-5 h-5 animate-spin text-orange-500" />
+              <Loader2 className="w-5 h-5 animate-spin text-brand" />
               <span className="text-sm">Fetching and extracting recipe…</span>
             </div>
           )}
@@ -238,7 +238,7 @@ export default function ImportPage({
                     setHint("Paste the recipe text, caption, or instructions below.")
                     setImportState('needsText')
                   }}
-                  className="w-full text-sm text-gray-500 hover:text-orange-600 py-2 transition-colors"
+                  className="w-full text-sm text-gray-500 hover:text-brand py-2 transition-colors"
                 >
                   Paste recipe text instead →
                 </button>

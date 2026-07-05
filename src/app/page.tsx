@@ -6,18 +6,10 @@ import { getProfile } from '@/lib/db/profile'
 import Link from 'next/link'
 import { ChefHat, CalendarDays, Clock, Plus, LogOut } from 'lucide-react'
 import { format, addDays } from 'date-fns'
+import { getCuisineEmoji } from '@/lib/cuisine-emoji'
+import { EmptyState, RecipeBookIllustration } from '@/components/ui/empty-state'
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-const CUISINE_EMOJI: Record<string, string> = {
-  italian: '🍝', japanese: '🍜', chinese: '🥢', mexican: '🌮', indian: '🍛',
-  thai: '🌶️', french: '🥐', american: '🍔', mediterranean: '🫒', korean: '🍱',
-  vietnamese: '🍲', greek: '🥗', spanish: '🥘', middle_eastern: '🧆',
-}
-
-function getCuisineEmoji(cuisine: string | null) {
-  if (!cuisine) return '🍽️'
-  return CUISINE_EMOJI[cuisine.toLowerCase()] ?? '🍽️'
-}
 
 export default async function HomePage() {
   const supabase = await createClient()
@@ -52,10 +44,10 @@ export default async function HomePage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <div className="flex items-center gap-2">
-            <ChefHat className="w-6 h-6 text-orange-500" />
-            <h1 className="text-2xl font-bold text-gray-900">Mise en Place</h1>
+            <ChefHat className="w-6 h-6 text-brand" />
+            <h1 className="font-heading text-2xl font-bold text-foreground">Mise en Place</h1>
           </div>
-          <p className="text-sm text-gray-500 mt-0.5">
+          <p className="text-sm text-muted-foreground mt-0.5">
             {format(new Date(), 'EEEE, MMMM d')}
           </p>
         </div>
@@ -64,14 +56,14 @@ export default async function HomePage() {
             <button
               type="submit"
               title="Sign out"
-              className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 active:scale-95 transition-all"
+              className="w-10 h-10 rounded-full bg-muted flex items-center justify-center hover:bg-border active:scale-[0.95] transition-all"
             >
-              <LogOut className="w-4 h-4 text-gray-500" />
+              <LogOut className="w-4 h-4 text-muted-foreground" />
             </button>
           </form>
           <Link
             href="/recipes/new"
-            className="bg-orange-500 text-white rounded-full p-3 shadow-md hover:bg-orange-600 active:scale-95 transition-all"
+            className="bg-brand text-brand-foreground rounded-full p-3 shadow-md hover:bg-brand/90 active:scale-[0.95] transition-all"
           >
             <Plus className="w-5 h-5" />
           </Link>
@@ -79,13 +71,13 @@ export default async function HomePage() {
       </div>
 
       {/* This week's plan */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-6">
+      <div className="bg-card rounded-2xl shadow-sm border border-border p-4 mb-6">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="font-semibold text-gray-900 flex items-center gap-1.5">
-            <CalendarDays className="w-4 h-4 text-orange-500" />
+          <h2 className="font-semibold text-foreground flex items-center gap-1.5">
+            <CalendarDays className="w-4 h-4 text-brand" />
             This Week
           </h2>
-          <Link href="/planner" className="text-sm text-orange-500 font-medium">
+          <Link href="/planner" className="text-sm text-brand font-medium">
             Edit plan →
           </Link>
         </div>
@@ -94,16 +86,16 @@ export default async function HomePage() {
             const isToday = format(date, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd')
             return (
               <div key={day} className="text-center">
-                <p className={`text-xs font-medium mb-1 ${isToday ? 'text-orange-500' : 'text-gray-400'}`}>{day}</p>
+                <p className={`text-xs font-medium mb-1 ${isToday ? 'text-brand' : 'text-muted-foreground'}`}>{day}</p>
                 <div className={`rounded-lg h-14 flex items-center justify-center text-center p-1 ${
-                  isToday ? 'bg-orange-50 border border-orange-200' : 'bg-gray-50'
+                  isToday ? 'bg-brand-subtle border border-brand/30' : 'bg-muted'
                 }`}>
                   {slot?.recipe ? (
-                    <p className="text-xs text-gray-700 leading-tight line-clamp-3 font-medium">
+                    <p className="text-xs text-foreground leading-tight line-clamp-3 font-medium">
                       {getCuisineEmoji((slot.recipe as any).cuisine)} {(slot.recipe as any).name}
                     </p>
                   ) : (
-                    <Link href="/planner" className="text-gray-300 hover:text-orange-400 text-lg">+</Link>
+                    <Link href="/planner" className="text-muted-foreground hover:text-brand text-lg transition-colors">+</Link>
                   )}
                 </div>
               </div>
@@ -113,7 +105,7 @@ export default async function HomePage() {
         {slots.length > 0 && (
           <Link
             href="/planner/grocery"
-            className="mt-3 flex items-center justify-center gap-2 w-full bg-orange-50 hover:bg-orange-100 text-orange-600 font-medium text-sm rounded-xl py-2.5 transition-colors"
+            className="mt-3 flex items-center justify-center gap-2 w-full bg-brand-subtle hover:bg-brand/20 text-brand font-medium text-sm rounded-xl py-2.5 transition-colors"
           >
             🛒 View grocery list
           </Link>
@@ -123,44 +115,61 @@ export default async function HomePage() {
       {/* Recent recipes */}
       <div>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="font-semibold text-gray-900">My Recipes</h2>
-          <Link href="/recipes" className="text-sm text-orange-500 font-medium">
+          <h2 className="font-heading font-semibold text-foreground">My Recipes</h2>
+          <Link href="/recipes" className="text-sm text-brand font-medium">
             See all →
           </Link>
         </div>
         {recentRecipes.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-dashed border-gray-200 p-8 text-center">
-            <div className="text-4xl mb-3">🧑‍🍳</div>
-            <p className="text-gray-500 mb-4">No recipes yet. Add your first one!</p>
-            <Link
-              href="/recipes/new"
-              className="inline-flex items-center gap-2 bg-orange-500 text-white rounded-xl px-4 py-2.5 text-sm font-medium hover:bg-orange-600 transition-colors"
-            >
-              <Plus className="w-4 h-4" /> Add recipe
-            </Link>
-          </div>
+          <EmptyState
+            illustration={<RecipeBookIllustration />}
+            title="No recipes yet"
+            description="Add your first one to get started!"
+            variant="dashed"
+            action={
+              <Link
+                href="/recipes/new"
+                className="inline-flex items-center gap-2 bg-brand text-brand-foreground rounded-xl px-4 py-2.5 text-sm font-medium hover:bg-brand/90 transition-colors"
+              >
+                <Plus className="w-4 h-4" /> Add recipe
+              </Link>
+            }
+          />
         ) : (
           <div className="grid grid-cols-2 gap-3">
-            {recentRecipes.map(recipe => (
+            {recentRecipes.map((recipe, i) => (
               <Link
                 key={recipe.id}
                 href={`/recipes/${recipe.id}`}
-                className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 hover:shadow-md active:scale-98 transition-all"
+                className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden hover:shadow-md active:scale-[0.97] transition-all"
+                style={{ animationDelay: `${i * 40}ms` }}
               >
-                <div className="text-3xl mb-2">{getCuisineEmoji(recipe.cuisine)}</div>
-                <p className="font-semibold text-gray-900 text-sm line-clamp-2 leading-tight">{recipe.name}</p>
-                {recipe.cuisine && (
-                  <p className="text-xs text-gray-400 mt-1 capitalize">{recipe.cuisine}</p>
+                {/* Square image or emoji */}
+                {recipe.image_url ? (
+                  <div className="aspect-square overflow-hidden">
+                    <img
+                      src={recipe.image_url}
+                      alt={recipe.name}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                ) : (
+                  <div className="aspect-square flex items-center justify-center bg-brand-subtle">
+                    <span className="text-4xl">{getCuisineEmoji(recipe.cuisine)}</span>
+                  </div>
                 )}
-                <div className="flex items-center gap-1 mt-2">
-                  {recipe.cook_time_minutes && (
-                    <span className="text-xs text-gray-400 flex items-center gap-0.5">
-                      <Clock className="w-3 h-3" /> {recipe.cook_time_minutes}m
-                    </span>
-                  )}
-                  {recipe.cooked_count > 0 && (
-                    <span className="text-xs text-gray-400 ml-auto">🍳 ×{recipe.cooked_count}</span>
-                  )}
+                <div className="p-3">
+                  <p className="font-semibold text-foreground text-sm line-clamp-2 leading-tight">{recipe.name}</p>
+                  <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                    {recipe.cuisine && (
+                      <span className="text-xs text-muted-foreground capitalize">{recipe.cuisine}</span>
+                    )}
+                    {recipe.cook_time_minutes && (
+                      <span className="text-xs text-muted-foreground flex items-center gap-0.5">
+                        <Clock className="w-3 h-3" /> {recipe.cook_time_minutes}m
+                      </span>
+                    )}
+                  </div>
                 </div>
               </Link>
             ))}

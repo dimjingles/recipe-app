@@ -21,16 +21,16 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-amber-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-brand-subtle to-cooking-subtle flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
-            <div className="bg-orange-500 rounded-2xl p-4">
-              <ChefHat className="w-10 h-10 text-white" />
+            <div className="bg-brand rounded-2xl p-4">
+              <ChefHat className="w-10 h-10 text-brand-foreground" />
             </div>
           </div>
-          <h1 className="text-3xl font-bold text-gray-900">Mise en Place</h1>
-          <p className="text-gray-500 mt-2">Your personal recipe &amp; meal planner</p>
+          <h1 className="font-heading text-3xl font-bold text-foreground">Mise en Place</h1>
+          <p className="text-muted-foreground mt-2">Your personal recipe &amp; meal planner</p>
         </div>
 
         <button

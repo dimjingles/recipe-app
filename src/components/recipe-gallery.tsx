@@ -3,6 +3,8 @@
 import { useState, useRef } from 'react'
 import { Plus, X, Link2, Upload, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { BottomSheet } from '@/components/ui/bottom-sheet'
+import { CameraIllustration } from '@/components/ui/empty-state'
 
 interface Props {
   recipeId: string
@@ -84,10 +86,10 @@ export default function RecipeGallery({ recipeId, initialImages }: Props) {
     <>
       <div className="mb-6">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="font-bold text-gray-900 text-lg">Photos</h2>
+          <h2 className="font-heading font-bold text-foreground text-lg">Photos</h2>
           <button
             onClick={() => setShowSheet(true)}
-            className="flex items-center gap-1 text-sm text-orange-500 font-medium hover:text-orange-600"
+            className="flex items-center gap-1 text-sm text-brand font-medium hover:text-brand/80 active:scale-[0.95] transition-all"
           >
             <Plus className="w-4 h-4" /> Add
           </button>
@@ -96,9 +98,10 @@ export default function RecipeGallery({ recipeId, initialImages }: Props) {
         {images.length === 0 ? (
           <button
             onClick={() => setShowSheet(true)}
-            className="flex items-center gap-2 w-full justify-center border-2 border-dashed border-gray-200 rounded-2xl py-6 text-sm text-gray-400 hover:border-orange-300 hover:text-orange-400 transition-colors"
+            className="flex flex-col items-center gap-3 w-full justify-center border-2 border-dashed border-border rounded-2xl py-8 text-sm text-muted-foreground hover:border-brand hover:text-brand transition-colors active:scale-[0.99]"
           >
-            <Plus className="w-4 h-4" /> Add photos
+            <CameraIllustration />
+            <span>Add photos</span>
           </button>
         ) : (
           <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
@@ -107,7 +110,7 @@ export default function RecipeGallery({ recipeId, initialImages }: Props) {
                 <img
                   src={url}
                   alt=""
-                  className="w-32 h-24 rounded-xl object-cover cursor-pointer"
+                  className="w-32 h-24 rounded-xl object-cover cursor-pointer active:scale-[0.97] transition-all"
                   onClick={() => setLightbox(url)}
                 />
                 <button
@@ -126,80 +129,79 @@ export default function RecipeGallery({ recipeId, initialImages }: Props) {
       </div>
 
       {/* Add photo sheet */}
-      {showSheet && (
-        <div
-          className="fixed inset-0 z-[60] flex items-end justify-center bg-black/40"
-          onClick={() => setShowSheet(false)}
-        >
-          <div
-            className="bg-white w-full max-w-lg rounded-t-3xl p-6 pb-10 shadow-xl"
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="text-lg font-bold text-gray-900">Add Photo</h3>
-              <button onClick={() => setShowSheet(false)} className="text-gray-400 hover:text-gray-600">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Tabs */}
-            <div className="flex gap-1 bg-gray-100 rounded-xl p-1 mb-5">
-              <button
-                onClick={() => setTab('url')}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-medium transition-colors ${tab === 'url' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}
-              >
-                <Link2 className="w-3.5 h-3.5" /> Paste URL
-              </button>
-              <button
-                onClick={() => setTab('upload')}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-medium transition-colors ${tab === 'upload' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}
-              >
-                <Upload className="w-3.5 h-3.5" /> Upload
-              </button>
-            </div>
-
-            {tab === 'url' ? (
-              <div className="space-y-3">
-                <input
-                  type="url"
-                  value={urlInput}
-                  onChange={e => setUrlInput(e.target.value)}
-                  placeholder="https://..."
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
-                  onKeyDown={e => { if (e.key === 'Enter') addUrl(urlInput) }}
-                  autoFocus
-                />
-                <button
-                  onClick={() => addUrl(urlInput)}
-                  disabled={!urlInput.trim() || adding}
-                  className="w-full bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white rounded-xl py-3 text-sm font-semibold flex items-center justify-center gap-2"
-                >
-                  {adding ? <><Loader2 className="w-4 h-4 animate-spin" /> Adding…</> : 'Add Photo'}
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f) }}
-                />
-                <button
-                  onClick={() => fileRef.current?.click()}
-                  disabled={uploading}
-                  className="w-full border-2 border-dashed border-gray-200 hover:border-orange-300 rounded-xl py-8 flex flex-col items-center gap-2 text-gray-400 hover:text-orange-400 transition-colors disabled:opacity-50"
-                >
-                  {uploading
-                    ? <><Loader2 className="w-6 h-6 animate-spin" /><span className="text-sm">Uploading…</span></>
-                    : <><Upload className="w-6 h-6" /><span className="text-sm font-medium">Tap to choose a photo</span><span className="text-xs">JPG, PNG, WebP — max 10 MB</span></>}
-                </button>
-              </div>
-            )}
+      <BottomSheet open={showSheet} onClose={() => setShowSheet(false)} zIndex="elevated">
+        <div className="px-6 pb-10">
+          <div className="flex items-center justify-between mb-5">
+            <h3 className="font-heading text-lg font-bold text-foreground">Add Photo</h3>
+            <button
+              onClick={() => setShowSheet(false)}
+              className="text-muted-foreground hover:text-foreground active:scale-[0.95] transition-all"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
+
+          {/* Tabs */}
+          <div className="flex gap-1 bg-muted rounded-xl p-1 mb-5">
+            <button
+              onClick={() => setTab('url')}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-medium transition-colors ${
+                tab === 'url' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground'
+              }`}
+            >
+              <Link2 className="w-3.5 h-3.5" /> Paste URL
+            </button>
+            <button
+              onClick={() => setTab('upload')}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-medium transition-colors ${
+                tab === 'upload' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground'
+              }`}
+            >
+              <Upload className="w-3.5 h-3.5" /> Upload
+            </button>
+          </div>
+
+          {tab === 'url' ? (
+            <div className="space-y-3">
+              <input
+                type="url"
+                value={urlInput}
+                onChange={e => setUrlInput(e.target.value)}
+                placeholder="https://..."
+                className="w-full border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand/50 bg-card"
+                onKeyDown={e => { if (e.key === 'Enter') addUrl(urlInput) }}
+                autoFocus
+              />
+              <button
+                onClick={() => addUrl(urlInput)}
+                disabled={!urlInput.trim() || adding}
+                className="w-full bg-brand hover:bg-brand/90 disabled:opacity-50 text-brand-foreground rounded-xl py-3 text-sm font-semibold flex items-center justify-center gap-2 active:scale-[0.98] transition-all"
+              >
+                {adding ? <><Loader2 className="w-4 h-4 animate-spin" /> Adding…</> : 'Add Photo'}
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f) }}
+              />
+              <button
+                onClick={() => fileRef.current?.click()}
+                disabled={uploading}
+                className="w-full border-2 border-dashed border-border hover:border-brand rounded-xl py-8 flex flex-col items-center gap-2 text-muted-foreground hover:text-brand transition-colors disabled:opacity-50 active:scale-[0.99]"
+              >
+                {uploading
+                  ? <><Loader2 className="w-6 h-6 animate-spin" /><span className="text-sm">Uploading…</span></>
+                  : <><Upload className="w-6 h-6" /><span className="text-sm font-medium">Tap to choose a photo</span><span className="text-xs">JPG, PNG, WebP — max 10 MB</span></>}
+              </button>
+            </div>
+          )}
         </div>
-      )}
+      </BottomSheet>
 
       {/* Lightbox */}
       {lightbox && (
@@ -207,7 +209,7 @@ export default function RecipeGallery({ recipeId, initialImages }: Props) {
           className="fixed inset-0 z-[70] bg-black/90 flex items-center justify-center p-4"
           onClick={() => setLightbox(null)}
         >
-          <button className="absolute top-4 right-4 text-white/70 hover:text-white">
+          <button className="absolute top-4 right-4 text-white/70 hover:text-white active:scale-[0.95] transition-all">
             <X className="w-6 h-6" />
           </button>
           <img
