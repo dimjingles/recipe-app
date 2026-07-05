@@ -140,6 +140,7 @@ export default function RecipeLibrary({ initialRecipes }: { initialRecipes: Reci
     try {
       const res = await fetch('/api/recipes/recommend', { method: 'POST' })
       const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to get recommendations')
       if (data.recommendations) setRecommendations(data.recommendations)
     } catch {
       toast.error('Could not get recommendations')

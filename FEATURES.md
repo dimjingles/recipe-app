@@ -6,7 +6,24 @@ Planned features that haven't been built yet. Move to Done when shipped.
 
 ## Pending
 
-*(No pending features)*
+### Chef AI — interactive cooking coach
+
+A chattable AI agent that walks the user through a recipe step by step. Launchable from any recipe detail page. Maintains conversational context so the user can ask clarifying questions mid-cook (e.g. "what does fold mean?", "can I substitute butter?") and get answers grounded in the specific recipe.
+
+**Core behaviour:**
+- Session starts with full recipe context loaded (name, ingredients, instructions)
+- Agent proactively guides step by step — waits for the user to confirm each step before advancing
+- User can ask free-form questions at any point; agent answers in context before resuming guidance
+- Session is ephemeral (no persistence needed for v1)
+
+**Entry point:** "Cook with Chef AI" button on the recipe detail page
+
+**UI:** Slide-up chat drawer or dedicated `/recipes/[id]/cook` route with a chat interface
+
+**Implementation notes:**
+- Claude API (streaming preferred for responsiveness)
+- System prompt includes full recipe; conversation history maintained client-side for the session
+- No new DB columns needed for v1
 
 ---
 

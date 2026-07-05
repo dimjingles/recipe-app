@@ -246,7 +246,7 @@ export default function OnboardingWizard({ isAuthenticated }: { isAuthenticated:
       // OAuth wasn't completed (user closed the Google popup / cancelled) → show account step
       setAnswers(stored.answers)
       setStep(16)
-    } else if (stored?.step >= 0 && stored.step <= 13) {
+    } else if (stored !== null && stored !== undefined && stored.step >= 0 && stored.step <= 13) {
       // Mid-flow page refresh → restore progress
       setAnswers(stored.answers)
       setStep(stored.step)
