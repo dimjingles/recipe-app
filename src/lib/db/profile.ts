@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
-import { Profile } from '@/types/database'
+import { Profile, SkillProfile } from '@/types/database'
+import { normalizeSkillProfile } from '@/lib/skills'
 
 export async function getProfile(): Promise<Profile | null> {
   const supabase = await createClient()
@@ -56,4 +57,37 @@ export async function completeOnboarding(answers: {
     )
 
   if (error) throw error
+}
+
+export async function updateSkillProfile(userId: string, updates: {
+  newMasteredKeys?: string[]
+  newSeenKeys?: string[]
+  lastStretchTechnique?: string | null
+}): Promise<SkillProfile> {
+  const supabase = await createClient()
+  const { data: profile, error: readError } = await supabase
+    .from('profiles')
+    .select('skill_profile, skill_level')
+    .eq('id', userId)
+    .single()
+
+  if (readError) throw readError
+
+  const current = normalizeSkillProfile(profile?.skill_profile as SkillProfile | null, profile?.skill_level)
+  const next: SkillProfile = {
+    ...current,
+    techniques_mastered: Array.from(new Set([...current.techniques_mastered, ...(updates.newMasteredKeys || [])])),
+    techniques_seen: Array.from(new Set([...current.techniques_seen, ...(updates.newSeenKeys || [])])),
+    last_stretch_technique: updates.lastStretchTechnique !== undefined
+      ? updates.lastStretchTechnique
+      : current.last_stretch_technique,
+  }
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({ skill_profile: next, updated_at: new Date().toISOString() })
+    .eq('id', userId)
+
+  if (error) throw error
+  return next
 }

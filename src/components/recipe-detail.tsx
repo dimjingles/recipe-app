@@ -9,8 +9,10 @@ import { BottomSheet } from '@/components/ui/bottom-sheet'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
-import { RecipeWithDetails, Cookbook } from '@/types/database'
+import { RecipeWithDetails, Cookbook, SkillProfile, Technique } from '@/types/database'
 import RecipeGallery from '@/components/recipe-gallery'
+import ChefAiChat from '@/components/chef-ai-chat'
+import { resolveTechniqueState } from '@/lib/skills'
 import { getCuisineEmoji } from '@/lib/cuisine-emoji'
 
 const CATEGORY_EMOJI: Record<string, string> = {
@@ -369,14 +371,19 @@ function CookbookDialog({
 export default function RecipeDetail({
   recipe,
   initialCookbooks,
+  skillProfile,
+  techniques,
 }: {
   recipe: RecipeWithDetails
   initialCookbooks: Cookbook[]
+  skillProfile?: SkillProfile | null
+  techniques?: Technique[]
 }) {
   const router = useRouter()
   const [showCook, setShowCook] = useState(false)
   const [showRank, setShowRank] = useState(false)
   const [showCookbook, setShowCookbook] = useState(false)
+  const [showChefAi, setShowChefAi] = useState(false)
   const [cookedCount, setCookedCount] = useState(recipe.cooked_count)
   const [currentRank, setCurrentRank] = useState<number | null>(recipe.rank)
   const [cookbooks, setCookbooks] = useState<Cookbook[]>(initialCookbooks)
@@ -390,6 +397,8 @@ export default function RecipeDetail({
   )
   const [editingLogId, setEditingLogId] = useState<string | null>(null)
   const grouped = groupIngredients(recipe.ingredients || [])
+  const techniquesMap = new Map((techniques || []).map(t => [t.key, t]))
+  const masteredTechniques = skillProfile?.techniques_mastered ?? []
 
   const handleCookSaved = (triggerRanking: boolean) => {
     setCookedCount(c => c + 1)
@@ -577,6 +586,12 @@ export default function RecipeDetail({
             </Button>
           )}
           <Button
+            onClick={() => setShowChefAi(true)}
+            className="flex-1 bg-cooking text-cooking-foreground hover:bg-cooking/90 font-semibold h-12 rounded-2xl shadow-md active:scale-[0.98] transition-all"
+          >
+            <ChefHat className="w-4 h-4" /> Cook with Chef AI
+          </Button>
+          <Button
             onClick={() => setShowCookbook(true)}
             className={`bg-card border font-semibold h-12 rounded-2xl shadow-md px-4 active:scale-[0.98] transition-all ${
               cookbookIds.length > 0
@@ -592,8 +607,39 @@ export default function RecipeDetail({
         {/* Gallery */}
         <RecipeGallery
           recipeId={recipe.id}
+          recipeName={recipe.name}
           initialImages={recipe.gallery_images ?? []}
         />
+
+        {/* Techniques */}
+        {recipe.techniques && recipe.techniques.length > 0 && techniquesMap.size > 0 && (
+          <div className="mb-6">
+            <h2 className="font-heading font-bold text-foreground text-lg mb-3">Techniques</h2>
+            <div className="flex flex-wrap gap-2">
+              {recipe.techniques.map(key => {
+                const technique = techniquesMap.get(key)
+                if (!technique) return null
+                const state = resolveTechniqueState(key, technique.prerequisites, masteredTechniques)
+                const className = state === 'mastered'
+                  ? 'bg-sage-subtle text-sage border-sage/30'
+                  : state === 'unlocked'
+                    ? 'bg-cooking-subtle text-cooking border-cooking/30'
+                    : 'bg-muted text-muted-foreground border-border opacity-70'
+                const prefix = state === 'mastered' ? '✓ ' : state === 'unlocked' ? '○ ' : '🔒 '
+                return (
+                  <Link
+                    key={key}
+                    href={`/skills#${key}`}
+                    className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium ${className}`}
+                    title={state === 'mastered' ? 'You know this' : state === 'unlocked' ? 'Ready to learn' : 'Locked - learn prerequisites first'}
+                  >
+                    {prefix}{technique.label}
+                  </Link>
+                )
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Ingredients — sage accent */}
         {grouped.length > 0 && (
@@ -706,6 +752,8 @@ export default function RecipeDetail({
           onRanked={handleRanked}
         />
       )}
+
+      <ChefAiChat recipeId={recipe.id} open={showChefAi} onClose={() => setShowChefAi(false)} />
 
       {showCookbook && (
         <CookbookDialog

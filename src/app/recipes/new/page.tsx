@@ -9,11 +9,16 @@ import type { RecipeEditorValues } from '@/components/recipe-editor'
 export default function NewRecipePage({
   searchParams,
 }: {
-  searchParams: Promise<{ name?: string }>
+  searchParams: Promise<{ name?: string; cuisine?: string; description?: string; cook_time_minutes?: string }>
 }) {
   const params = use(searchParams)
-  const initialValues: RecipeEditorValues = params.name ? { name: params.name } : {}
-  const autoLookup = !!params.name
+  const initialValues: RecipeEditorValues = {
+    name: params.name,
+    cuisine: params.cuisine,
+    description: params.description,
+    cookTime: params.cook_time_minutes,
+  }
+  const autoLookup = !!params.name && !params.description
 
   return (
     <div className="max-w-lg mx-auto px-4 pt-6 pb-8">

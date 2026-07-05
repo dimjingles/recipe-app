@@ -16,6 +16,7 @@ create table if not exists profiles (
   favorite_cuisines text[] default '{}',
   skill_level      text,        -- 'beginner'|'getting_there'|'confident'|'pro'
   meal_reminders   boolean default false,
+  skill_profile jsonb default '{}'::jsonb,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
@@ -24,6 +25,18 @@ alter table profiles enable row level security;
 create policy "own profile - select" on profiles for select using (auth.uid() = id);
 create policy "own profile - insert" on profiles for insert with check (auth.uid() = id);
 create policy "own profile - update" on profiles for update using (auth.uid() = id);
+
+-- TECHNIQUES
+create table if not exists techniques (
+  key text primary key,
+  label text not null,
+  category text not null,
+  description text not null,
+  prerequisites text[] default '{}'
+);
+
+alter table techniques enable row level security;
+create policy "techniques are public read" on techniques for select using (true);
 
 -- RECIPES
 create table if not exists recipes (
@@ -38,6 +51,7 @@ create table if not exists recipes (
   image_url text,
   gallery_images text[] default '{}',
   tags text[] default '{}',
+  techniques text[] default '{}',
   cooked_count integer default 0,
   last_cooked_at timestamptz,
   rank integer,

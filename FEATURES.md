@@ -27,18 +27,18 @@ win, then the Chef AI and technique tracks in dependency order.
 
 ---
 
-## Pending features
+## Implemented feature batch
 
-| # | Spec file | What it builds | Depends on |
-|---|-----------|---------------|------------|
-| 00 | [features/00-shared-ai-infra.md](features/00-shared-ai-infra.md) | Streaming foundations + SONNET model constant | — |
-| 07 | [features/07-image-search.md](features/07-image-search.md) | "Search online" third tab in the image picker | — |
-| 01 | [features/01-chef-ai-chat.md](features/01-chef-ai-chat.md) | Streaming step-by-step cooking coach chat | 00 |
-| 02 | [features/02-chef-ai-recommend.md](features/02-chef-ai-recommend.md) | Surface existing recommendation route in Chef AI | 00 |
-| 03 | [features/03-technique-taxonomy.md](features/03-technique-taxonomy.md) | Curated technique catalogue + recipe classification | — |
-| 04 | [features/04-recipe-technique-breakdown.md](features/04-recipe-technique-breakdown.md) | Technique mastery badges on the recipe detail page | 03, 05 |
-| 05 | [features/05-skill-progression.md](features/05-skill-progression.md) | Chef AI stretches user toward harder techniques | 00, 03 |
-| 06 | [features/06-gamified-skill-map.md](features/06-gamified-skill-map.md) | "My Skills" gamified skill tree page | 03, 05 |
+| # | Spec file | What it builds | Depends on | Status |
+|---|-----------|---------------|------------|--------|
+| 00 | [features/00-shared-ai-infra.md](features/00-shared-ai-infra.md) | Streaming foundations + SONNET model constant | — | Built |
+| 07 | [features/07-image-search.md](features/07-image-search.md) | "Search online" third tab in the image picker | — | Built |
+| 01 | [features/01-chef-ai-chat.md](features/01-chef-ai-chat.md) | Streaming step-by-step cooking coach chat | 00 | Built |
+| 02 | [features/02-chef-ai-recommend.md](features/02-chef-ai-recommend.md) | Surface existing recommendation route in Chef AI | 00 | Built |
+| 03 | [features/03-technique-taxonomy.md](features/03-technique-taxonomy.md) | Curated technique catalogue + recipe classification | — | Built |
+| 04 | [features/04-recipe-technique-breakdown.md](features/04-recipe-technique-breakdown.md) | Technique mastery badges on the recipe detail page | 03, 05 | Built |
+| 05 | [features/05-skill-progression.md](features/05-skill-progression.md) | Chef AI stretches user toward harder techniques | 00, 03 | Built |
+| 06 | [features/06-gamified-skill-map.md](features/06-gamified-skill-map.md) | "My Skills" gamified skill tree page | 03, 05 | Built |
 
 ---
 

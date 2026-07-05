@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { RecipeWithIngredients, CookbookWithCount } from '@/types/database'
-import { Plus, Search, Clock, X, Globe, ChevronDown, BookOpen, Loader2 } from 'lucide-react'
+import { Plus, Search, Clock, X, Globe, ChevronDown, BookOpen, Loader2, Sparkles } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { BottomSheet } from '@/components/ui/bottom-sheet'
@@ -28,6 +28,14 @@ interface OnlineResult {
   description: string
 }
 
+interface Recommendation {
+  name: string
+  cuisine: string
+  cook_time_minutes: number
+  description: string
+  why: string
+}
+
 export default function RecipeLibrary({
   initialRecipes,
   initialCookbooks,
@@ -46,6 +54,10 @@ export default function RecipeLibrary({
   const [loadingOnline, setLoadingOnline] = useState(false)
   const [pendingSearch, setPendingSearch] = useState(false)
   const [addingRecipe, setAddingRecipe] = useState<string | null>(null)
+  const [showRecommendations, setShowRecommendations] = useState(false)
+  const [recommendations, setRecommendations] = useState<Recommendation[]>([])
+  const [recommendationsLoading, setRecommendationsLoading] = useState(false)
+  const [recommendationsError, setRecommendationsError] = useState('')
   const [openDropdown, setOpenDropdown] = useState<'type' | 'cuisine' | 'cookbook' | null>(null)
 
   // Create cookbook sheet
@@ -83,6 +95,32 @@ export default function RecipeLibrary({
     }, 600)
     return () => { if (searchDebounce.current) clearTimeout(searchDebounce.current) }
   }, [search])
+
+  const fetchRecommendations = async () => {
+    setShowRecommendations(true)
+    setRecommendationsLoading(true)
+    setRecommendationsError('')
+    try {
+      const res = await fetch('/api/recipes/recommend', { method: 'POST' })
+      const data = await res.json()
+      if (data.error) throw new Error(data.error)
+      setRecommendations(data.recommendations || [])
+    } catch (e: any) {
+      setRecommendations([])
+      setRecommendationsError(e.message || 'Could not load recommendations')
+    } finally {
+      setRecommendationsLoading(false)
+    }
+  }
+
+  const addRecommendation = (result: Recommendation) => {
+    const params = new URLSearchParams()
+    params.set('name', result.name)
+    if (result.cuisine) params.set('cuisine', result.cuisine)
+    if (result.description) params.set('description', result.description)
+    if (result.cook_time_minutes) params.set('cook_time_minutes', String(result.cook_time_minutes))
+    router.push(`/recipes/new?${params.toString()}`)
+  }
 
   const addOnlineRecipe = async (result: OnlineResult) => {
     setAddingRecipe(result.name)
@@ -203,8 +241,11 @@ export default function RecipeLibrary({
   return (
     <div className="max-w-lg mx-auto px-4 pt-6">
       {/* Header */}
-      <div className="mb-4">
+      <div className="mb-4 flex items-center justify-between gap-3">
         <h1 className="font-heading text-2xl font-bold text-foreground">Recipes</h1>
+        <Button onClick={fetchRecommendations} variant="outline" className="shrink-0 rounded-xl border-brand/30 text-brand hover:bg-brand-subtle">
+          <Sparkles className="w-4 h-4 mr-1" /> Suggest
+        </Button>
       </div>
 
       {/* Search */}
@@ -537,6 +578,62 @@ export default function RecipeLibrary({
           </div>
         )
       })()}
+
+      {/* Recommendations Bottom Sheet */}
+      <BottomSheet open={showRecommendations} onClose={() => setShowRecommendations(false)} maxHeight="85vh">
+        <div className="px-6 pb-8">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="font-heading text-lg font-bold text-foreground">Chef AI suggestions</h3>
+              <p className="text-sm text-muted-foreground">Based on your library and preferences.</p>
+            </div>
+            <button onClick={() => setShowRecommendations(false)} className="text-muted-foreground hover:text-foreground active:scale-[0.95] transition-all">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {recommendationsLoading ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="bg-card rounded-2xl border border-border p-4 space-y-2">
+                  <Shimmer className="h-4 w-2/3" />
+                  <Shimmer className="h-3 w-full" />
+                  <Shimmer className="h-3 w-1/2" />
+                </div>
+              ))}
+            </div>
+          ) : recommendationsError ? (
+            <div className="text-center py-8">
+              <p className="text-sm text-muted-foreground mb-4">{recommendationsError}</p>
+              <Button onClick={fetchRecommendations} variant="outline">Try again</Button>
+            </div>
+          ) : recommendations.length > 0 ? (
+            <div className="space-y-3">
+              {recommendations.map((result, i) => (
+                <div key={`${result.name}-${i}`} className="bg-card rounded-2xl border border-border p-4 shadow-sm">
+                  <div className="flex items-start gap-3">
+                    <span className="text-2xl shrink-0">{getCuisineEmoji(result.cuisine)}</span>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-heading font-bold text-foreground">{result.name}</h4>
+                      <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                        {result.cuisine && <span className="capitalize">{result.cuisine}</span>}
+                        {result.cook_time_minutes > 0 && <span className="flex items-center gap-0.5"><Clock className="w-3 h-3" /> {result.cook_time_minutes}m</span>}
+                      </div>
+                      {result.description && <p className="text-sm text-muted-foreground mt-2">{result.description}</p>}
+                      {result.why && <p className="text-xs text-brand mt-2">Why: {result.why}</p>}
+                    </div>
+                  </div>
+                  <button onClick={() => addRecommendation(result)} className="mt-3 w-full bg-brand text-brand-foreground rounded-xl py-2.5 text-sm font-semibold hover:bg-brand/90 active:scale-[0.98] transition-all">
+                    Add to library
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground text-center py-8">No suggestions yet.</p>
+          )}
+        </div>
+      </BottomSheet>
 
       {/* Create Cookbook Bottom Sheet */}
       <BottomSheet open={showCreateCookbook} onClose={closeCreateCookbook} maxHeight="85vh">

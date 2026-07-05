@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, BookOpen, CalendarDays, ShoppingCart, Plus } from 'lucide-react'
+import { Home, BookOpen, CalendarDays, ShoppingCart, Plus, Trophy } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const LEFT_NAV = [
@@ -11,6 +11,7 @@ const LEFT_NAV = [
 ]
 
 const RIGHT_NAV = [
+  { href: '/skills', label: 'Skills', icon: Trophy },
   { href: '/planner', label: 'Planner', icon: CalendarDays },
   { href: '/planner/grocery', label: 'Grocery', icon: ShoppingCart },
 ]

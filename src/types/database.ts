@@ -6,6 +6,13 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
+export interface SkillProfile {
+  techniques_mastered: string[]
+  techniques_seen: string[]
+  difficulty_ceiling: 1 | 2 | 3
+  last_stretch_technique: string | null
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -22,6 +29,7 @@ export interface Database {
           favorite_cuisines: string[]
           skill_level: string | null
           meal_reminders: boolean
+          skill_profile: SkillProfile | null
           created_at: string
           updated_at: string
         }
@@ -37,6 +45,7 @@ export interface Database {
           favorite_cuisines?: string[]
           skill_level?: string | null
           meal_reminders?: boolean
+          skill_profile?: SkillProfile | null
           created_at?: string
           updated_at?: string
         }
@@ -57,13 +66,14 @@ export interface Database {
           image_url: string | null
           gallery_images: string[]
           tags: string[]
+          techniques: string[]
           cooked_count: number
           last_cooked_at: string | null
           rank: number | null
           recipe_type: string | null
           created_at: string
         }
-        Insert: Omit<Database['public']['Tables']['recipes']['Row'], 'id' | 'created_at' | 'cooked_count' | 'last_cooked_at' | 'rank' | 'recipe_type' | 'gallery_images'> & {
+        Insert: Omit<Database['public']['Tables']['recipes']['Row'], 'id' | 'created_at' | 'cooked_count' | 'last_cooked_at' | 'rank' | 'recipe_type' | 'gallery_images' | 'techniques'> & {
           id?: string
           created_at?: string
           cooked_count?: number
@@ -72,8 +82,21 @@ export interface Database {
           recipe_type?: string | null
           gallery_images?: string[]
           difficulty?: number | null
+          techniques?: string[]
         }
         Update: Partial<Database['public']['Tables']['recipes']['Insert']>
+        Relationships: []
+      }
+      techniques: {
+        Row: {
+          key: string
+          label: string
+          category: string
+          description: string
+          prerequisites: string[]
+        }
+        Insert: Database['public']['Tables']['techniques']['Row']
+        Update: Partial<Database['public']['Tables']['techniques']['Insert']>
         Relationships: []
       }
       ingredients: {
@@ -166,6 +189,7 @@ export interface Database {
 
 export type Profile = Database['public']['Tables']['profiles']['Row']
 export type Recipe = Database['public']['Tables']['recipes']['Row']
+export type Technique = Database['public']['Tables']['techniques']['Row']
 export type Ingredient = Database['public']['Tables']['ingredients']['Row']
 export type CookingLog = Database['public']['Tables']['cooking_log']['Row']
 export type WeeklyPlan = Database['public']['Tables']['weekly_plans']['Row']
