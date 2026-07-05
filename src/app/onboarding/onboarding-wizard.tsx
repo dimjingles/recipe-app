@@ -401,11 +401,11 @@ export default function OnboardingWizard({ isAuthenticated }: { isAuthenticated:
   // ─── Welcome screen (step -1) ───────────────────────────────────────────────
   if (step === -1) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-amber-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-brand-subtle to-cooking-subtle flex items-center justify-center p-4">
         <div className="w-full max-w-sm">
           <div className="text-center mb-10">
             <div className="flex justify-center mb-4">
-              <div className="bg-orange-500 rounded-2xl p-4">
+              <div className="bg-brand rounded-2xl p-4">
                 <ChefHat className="w-10 h-10 text-white" />
               </div>
             </div>
@@ -415,7 +415,7 @@ export default function OnboardingWizard({ isAuthenticated }: { isAuthenticated:
           <div className="flex flex-col gap-3">
             <button
               onClick={() => setStep(0)}
-              className="w-full h-14 rounded-full bg-orange-500 hover:bg-orange-600 text-white text-base font-semibold transition-colors active:scale-[0.98]"
+              className="w-full h-14 rounded-full bg-brand hover:bg-brand/90 text-white text-base font-semibold transition-colors active:scale-[0.98]"
             >
               Get started
             </button>
@@ -541,7 +541,7 @@ export default function OnboardingWizard({ isAuthenticated }: { isAuthenticated:
                   {/* Center icon */}
                   <foreignObject x="35" y="35" width="50" height="50">
                     <div className="w-full h-full flex items-center justify-center">
-                      <ChefHat className="w-8 h-8 text-orange-500" />
+                      <ChefHat className="w-8 h-8 text-brand" />
                     </div>
                   </foreignObject>
                 </svg>
@@ -564,11 +564,11 @@ export default function OnboardingWizard({ isAuthenticated }: { isAuthenticated:
   // ─── Create account screen (step 16) ────────────────────────────────────────
   if (step === 16) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-amber-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-brand-subtle to-cooking-subtle flex items-center justify-center p-4">
         <div className="w-full max-w-sm">
           <div className="text-center mb-8">
             <div className="flex justify-center mb-4">
-              <div className="bg-orange-500 rounded-2xl p-4">
+              <div className="bg-brand rounded-2xl p-4">
                 <ChefHat className="w-10 h-10 text-white" />
               </div>
             </div>
@@ -600,7 +600,7 @@ export default function OnboardingWizard({ isAuthenticated }: { isAuthenticated:
           <p className="text-red-400 text-base">{submitError}</p>
           <button
             onClick={() => setForceRetry(c => c + 1)}
-            className="h-14 px-8 rounded-full bg-orange-500 hover:bg-orange-600 text-white font-semibold text-base active:scale-[0.98] transition-all"
+            className="h-14 px-8 rounded-full bg-brand hover:bg-brand/90 text-white font-semibold text-base active:scale-[0.98] transition-all"
           >
             Try again
           </button>
@@ -752,7 +752,7 @@ function renderStepContent(
             {/* Legend */}
             <div className="flex gap-4 text-xs text-gray-500 mb-1">
               <div className="flex items-center gap-1.5">
-                <div className="w-3 h-0.5 rounded-full bg-orange-500" />
+                <div className="w-3 h-0.5 rounded-full bg-brand" />
                 Home cooked
               </div>
               <div className="flex items-center gap-1.5">
@@ -932,7 +932,7 @@ function renderStepContent(
     case 10:
       return (
         <div className="flex flex-col items-center text-center pt-8">
-          <div className="w-36 h-36 rounded-full bg-gradient-to-br from-orange-100 to-amber-100 flex items-center justify-center mb-8 shadow-inner">
+          <div className="w-36 h-36 rounded-full bg-gradient-to-br from-brand/10 to-cooking/10 flex items-center justify-center mb-8 shadow-inner">
             <div className="w-28 h-28 rounded-full bg-white flex items-center justify-center shadow-sm">
               <span className="text-5xl">🤝</span>
             </div>
@@ -972,7 +972,7 @@ function renderStepContent(
               </button>
               <button
                 onClick={handleNotificationRequest}
-                className="flex-1 py-3.5 text-center text-orange-500 font-semibold text-sm hover:bg-orange-50 transition-colors"
+                className="flex-1 py-3.5 text-center text-brand font-semibold text-sm hover:bg-brand-subtle transition-colors"
               >
                 Allow
               </button>
@@ -990,13 +990,13 @@ function renderStepContent(
           </h1>
           {/* Stats row */}
           <div className="flex gap-4 mb-6">
-            <div className="flex-1 bg-orange-50 rounded-2xl p-4 text-center">
-              <p className="text-2xl font-bold text-orange-500">4.9</p>
+            <div className="flex-1 bg-brand-subtle rounded-2xl p-4 text-center">
+              <p className="text-2xl font-bold text-brand">4.9</p>
               <div className="text-yellow-400 text-sm mb-1">★★★★★</div>
               <p className="text-xs text-gray-500">App rating</p>
             </div>
-            <div className="flex-1 bg-orange-50 rounded-2xl p-4 text-center">
-              <p className="text-2xl font-bold text-orange-500">10K+</p>
+            <div className="flex-1 bg-brand-subtle rounded-2xl p-4 text-center">
+              <p className="text-2xl font-bold text-brand">10K+</p>
               <div className="text-lg mb-1">👨‍🍳</div>
               <p className="text-xs text-gray-500">Home cooks</p>
             </div>
@@ -1029,9 +1029,9 @@ function renderStepContent(
 
           {/* Side-by-side header */}
           <div className="grid grid-cols-2 gap-3 mb-4">
-            <div className="bg-orange-50 border-2 border-orange-200 rounded-2xl p-4 text-center">
+            <div className="bg-brand-subtle border-2 border-brand/30 rounded-2xl p-4 text-center">
               <div className="text-3xl mb-1">🏠</div>
-              <p className="font-bold text-orange-700 text-sm">Home Cooked</p>
+              <p className="font-bold text-brand text-sm">Home Cooked</p>
             </div>
             <div className="bg-gray-50 border-2 border-gray-200 rounded-2xl p-4 text-center">
               <div className="text-3xl mb-1">🥡</div>
@@ -1101,11 +1101,11 @@ function renderStepContent(
           ))}
 
           {/* Bottom callout */}
-          <div className="mt-5 bg-orange-500 rounded-2xl px-5 py-4 text-center">
+          <div className="mt-5 bg-brand rounded-2xl px-5 py-4 text-center">
             <p className="text-white font-bold text-lg leading-tight">
               Cook 5×/week → save $3,360/year
             </p>
-            <p className="text-orange-100 text-sm mt-1">
+            <p className="text-brand-subtle text-sm mt-1">
               That&apos;s a vacation. Or a very good knife set.
             </p>
           </div>
