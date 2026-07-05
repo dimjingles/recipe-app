@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { RecipeWithIngredients } from '@/types/database'
-import { Plus, Search, Sparkles, Clock, X, Globe, Link2, Loader2, PenLine, ChevronDown } from 'lucide-react'
+import { Plus, Search, Clock, X, Globe, Link2, Loader2, PenLine, ChevronDown } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
 import { getCuisineEmoji } from '@/lib/cuisine-emoji'
@@ -19,14 +19,6 @@ const RECIPE_TYPES = [
   { value: 'drink', label: 'Drink', emoji: '🍹' },
 ]
 
-interface Recommendation {
-  name: string
-  cuisine: string
-  description: string
-  why: string
-  cook_time_minutes: number
-}
-
 interface OnlineResult {
   name: string
   cuisine: string
@@ -40,9 +32,6 @@ export default function RecipeLibrary({ initialRecipes }: { initialRecipes: Reci
   const [selectedCuisine, setSelectedCuisine] = useState<string | null>(null)
   const [selectedType, setSelectedType] = useState<string | null>(null)
   const [selectedTag, setSelectedTag] = useState<string | null>(null)
-  const [recommendations, setRecommendations] = useState<Recommendation[]>([])
-  const [loadingRecs, setLoadingRecs] = useState(false)
-  const [showRecs, setShowRecs] = useState(false)
   const [onlineResults, setOnlineResults] = useState<OnlineResult[]>([])
   const [loadingOnline, setLoadingOnline] = useState(false)
   const [pendingSearch, setPendingSearch] = useState(false)
@@ -134,22 +123,6 @@ export default function RecipeLibrary({ initialRecipes }: { initialRecipes: Reci
     const matchesTag = !selectedTag || (r.tags || []).includes(selectedTag)
     return matchesSearch && matchesCuisine && matchesType && matchesTag
   })
-
-  const getRecommendations = async () => {
-    setLoadingRecs(true)
-    setShowRecs(true)
-    try {
-      const res = await fetch('/api/recipes/recommend', { method: 'POST' })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Failed to get recommendations')
-      if (data.recommendations) setRecommendations(data.recommendations)
-    } catch {
-      toast.error('Could not get recommendations')
-      setShowRecs(false)
-    } finally {
-      setLoadingRecs(false)
-    }
-  }
 
   /* ── Chip style helpers ─────────────────────────────────────────── */
   // "All" chip: quiet neutral state (it means "no filter"). Selected filter: solid brand.
@@ -327,66 +300,6 @@ export default function RecipeLibrary({ initialRecipes }: { initialRecipes: Reci
         </div>
       )}
 
-      {/* AI Recommendations */}
-      <div className="mb-5">
-        {!showRecs ? (
-          <button
-            onClick={getRecommendations}
-            className="flex items-center gap-2 text-sm text-brand font-medium hover:text-brand/80"
-          >
-            <Sparkles className="w-4 h-4" />
-            Get AI recipe ideas
-          </button>
-        ) : (
-          <div className="bg-brand-subtle rounded-2xl border border-brand/20 p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold text-foreground flex items-center gap-1.5">
-                <Sparkles className="w-4 h-4 text-brand" /> Recipe Ideas
-              </h3>
-              <button onClick={() => setShowRecs(false)} className="text-muted-foreground hover:text-foreground">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            {loadingRecs ? (
-              <div className="space-y-3">
-                {[1, 2, 3].map(i => (
-                  <div key={i} className="bg-card rounded-xl p-3 space-y-2">
-                    <Shimmer className="h-4 w-3/4" />
-                    <Shimmer className="h-3 w-full" />
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {recommendations.map((rec, i) => (
-                  <div key={i} className="bg-card rounded-xl p-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-foreground text-sm">
-                          {getCuisineEmoji(rec.cuisine)} {rec.name}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{rec.why}</p>
-                      </div>
-                      <Link
-                        href={`/recipes/new?name=${encodeURIComponent(rec.name)}`}
-                        className="shrink-0 bg-brand text-brand-foreground rounded-lg px-2 py-1 text-xs font-medium hover:bg-brand/90"
-                      >
-                        Add
-                      </Link>
-                    </div>
-                  </div>
-                ))}
-                <button
-                  onClick={getRecommendations}
-                  className="text-xs text-brand font-medium hover:underline mt-1"
-                >
-                  Refresh ideas
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
 
       {/* Recipe list */}
       {filtered.length === 0 && !search ? (
