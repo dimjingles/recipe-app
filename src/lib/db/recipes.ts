@@ -37,6 +37,7 @@ export async function createRecipe(recipe: {
   cook_time_minutes?: number
   servings?: number
   instructions?: string
+  difficulty?: number
   image_url?: string
   tags?: string[]
   ingredients: Array<{ name: string; quantity?: string; unit?: string; category?: string }>
@@ -57,6 +58,7 @@ export async function createRecipe(recipe: {
       cook_time_minutes: recipeData.cook_time_minutes ?? null,
       servings: recipeData.servings ?? 4,
       instructions: recipeData.instructions ?? null,
+      difficulty: recipeData.difficulty ?? null,
       image_url: recipeData.image_url ?? null,
       tags: recipeData.tags ?? [],
     })

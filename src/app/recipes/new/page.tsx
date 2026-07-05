@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { use } from 'react'
 import { ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 import RecipeEditor from '@/components/recipe-editor'
@@ -11,21 +11,9 @@ export default function NewRecipePage({
 }: {
   searchParams: Promise<{ name?: string }>
 }) {
-  // Resolve the async searchParams (Next.js 16) before mounting RecipeEditor
-  // so its initial state is correct from the start.
-  const [initialValues, setInitialValues] = useState<RecipeEditorValues | undefined>()
-  const [autoLookup, setAutoLookup] = useState(false)
-
-  useEffect(() => {
-    searchParams.then(params => {
-      setInitialValues(params.name ? { name: params.name } : {})
-      setAutoLookup(!!params.name)
-    })
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Hold render until params are resolved to ensure RecipeEditor initialises
-  // with the correct name (avoids the editor ignoring a late-arriving prop).
-  if (initialValues === undefined) return null
+  const params = use(searchParams)
+  const initialValues: RecipeEditorValues = params.name ? { name: params.name } : {}
+  const autoLookup = !!params.name
 
   return (
     <div className="max-w-lg mx-auto px-4 pt-6 pb-8">
