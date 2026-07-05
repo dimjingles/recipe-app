@@ -45,8 +45,11 @@ Use realistic quantities for a home meal. Category must be one of: produce, dair
 
     const recipeData = JSON.parse(jsonMatch[0])
     return NextResponse.json(recipeData)
-  } catch (error) {
+  } catch (error: any) {
     console.error('Recipe lookup error:', error)
-    return NextResponse.json({ error: 'Failed to lookup recipe' }, { status: 500 })
+    const msg = error?.status
+      ? `AI error ${error.status}: ${error.message}`
+      : (error?.message || 'Failed to lookup recipe')
+    return NextResponse.json({ error: msg }, { status: 500 })
   }
 }
