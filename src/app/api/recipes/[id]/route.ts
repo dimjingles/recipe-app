@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { classifyTechniques, getTechniqueKeys } from '@/lib/ai/classify-techniques'
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -10,6 +11,10 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     const body = await request.json()
     const { ingredients, ...recipeData } = body
+    if (recipeData.instructions && !recipeData.techniques?.length) {
+      const keys = await getTechniqueKeys(supabase)
+      recipeData.techniques = await classifyTechniques(recipeData.name || 'Recipe', recipeData.instructions, keys)
+    }
 
     const { data: recipe, error } = await supabase
       .from('recipes')

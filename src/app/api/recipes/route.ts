@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { classifyTechniques, getTechniqueKeys } from '@/lib/ai/classify-techniques'
 
 export async function POST(request: NextRequest) {
   try {
@@ -23,6 +24,15 @@ export async function POST(request: NextRequest) {
         .from('ingredients')
         .insert(ingredients.map((i: any) => ({ ...i, recipe_id: recipe.id })))
       if (ingError) throw ingError
+    }
+
+    if (!recipeData.techniques?.length && recipeData.instructions) {
+      const keys = await getTechniqueKeys(supabase)
+      const techniques = await classifyTechniques(recipeData.name, recipeData.instructions, keys)
+      if (techniques.length) {
+        await supabase.from('recipes').update({ techniques }).eq('id', recipe.id).eq('user_id', user.id)
+        recipe.techniques = techniques
+      }
     }
 
     return NextResponse.json(recipe)

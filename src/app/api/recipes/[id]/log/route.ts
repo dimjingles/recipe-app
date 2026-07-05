@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { updateSkillProfile } from '@/lib/db/profile'
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -17,11 +18,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       cooked_at: cooked_at || new Date().toISOString(),
     })
 
-    const { data: recipe } = await supabase.from('recipes').select('cooked_count').eq('id', id).single()
+    const { data: recipe } = await supabase.from('recipes').select('cooked_count, techniques').eq('id', id).single()
     await supabase.from('recipes').update({
       cooked_count: (recipe?.cooked_count ?? 0) + 1,
       last_cooked_at: cooked_at || new Date().toISOString(),
     }).eq('id', id)
+
+    if (recipe?.techniques?.length) {
+      await updateSkillProfile(user.id, { newMasteredKeys: recipe.techniques })
+    }
 
     return NextResponse.json({ success: true })
   } catch (error: any) {

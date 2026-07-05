@@ -4,6 +4,7 @@ import Anthropic from '@anthropic-ai/sdk'
 export const anthropic = new Anthropic()
 
 export const HAIKU = 'claude-haiku-4-5-20251001'
+export const SONNET = 'claude-sonnet-4-6'
 
 /** Extract the first JSON object `{…}` from an LLM text response. */
 export function extractJsonObject(text: string): unknown {
