@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { classifyTechniques, getTechniqueKeys } from '@/lib/ai/classify-techniques'
+import { structureInstructions } from '@/lib/ai/structure-instructions'
 
 export async function POST(request: NextRequest) {
   try {
@@ -26,12 +27,23 @@ export async function POST(request: NextRequest) {
       if (ingError) throw ingError
     }
 
-    if (!recipeData.techniques?.length && recipeData.instructions) {
-      const keys = await getTechniqueKeys(supabase)
-      const techniques = await classifyTechniques(recipeData.name, recipeData.instructions, keys)
-      if (techniques.length) {
-        await supabase.from('recipes').update({ techniques }).eq('id', recipe.id).eq('user_id', user.id)
-        recipe.techniques = techniques
+    if (recipeData.instructions) {
+      const [techniques, instruction_steps] = await Promise.all([
+        recipeData.techniques?.length
+          ? Promise.resolve(recipeData.techniques as string[])
+          : getTechniqueKeys(supabase).then(keys =>
+              classifyTechniques(recipeData.name, recipeData.instructions, keys)
+            ),
+        structureInstructions(recipeData.name, recipeData.instructions),
+      ])
+      if (techniques.length || instruction_steps.length) {
+        const updatePayload = {
+          ...(techniques.length ? { techniques } : {}),
+          ...(instruction_steps.length ? { instruction_steps } : {}),
+        }
+        await supabase.from('recipes').update(updatePayload).eq('id', recipe.id).eq('user_id', user.id)
+        if (techniques.length) recipe.techniques = techniques
+        if (instruction_steps.length) recipe.instruction_steps = instruction_steps
       }
     }
 

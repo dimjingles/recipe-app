@@ -8,12 +8,26 @@ import { Textarea } from '@/components/ui/textarea'
 
 type ChatMessage = { role: 'user' | 'assistant'; content: string }
 
-export default function ChefAiChat({ recipeId, open, onClose }: { recipeId: string; open: boolean; onClose: () => void }) {
+interface ChefAiChatProps {
+  recipeId: string
+  open: boolean
+  onClose: () => void
+  /**
+   * When set, the coach opens pre-seeded with this user message so the user
+   * sees their question in the transcript and the coach answers it first.
+   * When undefined the coach starts with the default "give me step 1" prompt.
+   */
+  initialPrompt?: string
+}
+
+export default function ChefAiChat({ recipeId, open, onClose, initialPrompt }: ChefAiChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const [streaming, setStreaming] = useState(false)
   const [waitingFirstChunk, setWaitingFirstChunk] = useState(false)
-  const startedRef = useRef(false)
+  // Track the initialPrompt that was active when the session started so we
+  // restart cleanly when the user taps "Ask" on a different step.
+  const sessionKeyRef = useRef<string | undefined>(undefined)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -24,14 +38,24 @@ export default function ChefAiChat({ recipeId, open, onClose }: { recipeId: stri
     if (!open) {
       setMessages([])
       setInput('')
-      startedRef.current = false
+      sessionKeyRef.current = undefined
       return
     }
-    if (!startedRef.current) {
-      startedRef.current = true
-      streamReply([])
+    // Start a new session if we haven't started one yet OR if the initialPrompt
+    // changed (user tapped "Ask" on a different step).
+    if (sessionKeyRef.current !== initialPrompt) {
+      sessionKeyRef.current = initialPrompt
+      if (initialPrompt) {
+        // Pre-seed with the user's question so it appears in the transcript;
+        // streamReply will set messages itself (same content) then stream the answer.
+        const seed: ChatMessage[] = [{ role: 'user', content: initialPrompt }]
+        streamReply(seed)
+      } else {
+        // Default: let the route inject the "Start cooking" first-user message
+        streamReply([])
+      }
     }
-  }, [open])
+  }, [open, initialPrompt])
 
   async function streamReply(nextMessages: ChatMessage[]) {
     setStreaming(true)

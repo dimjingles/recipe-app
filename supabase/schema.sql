@@ -48,6 +48,7 @@ create table if not exists recipes (
   cook_time_minutes integer,
   servings integer default 4,
   instructions text,
+  instruction_steps jsonb,
   image_url text,
   gallery_images text[] default '{}',
   tags text[] default '{}',

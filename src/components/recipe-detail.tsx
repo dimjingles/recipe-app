@@ -9,9 +9,10 @@ import { BottomSheet } from '@/components/ui/bottom-sheet'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
-import { RecipeWithDetails, Cookbook, SkillProfile, Technique } from '@/types/database'
+import { RecipeWithDetails, Cookbook, SkillProfile, Technique, InstructionStep } from '@/types/database'
 import RecipeGallery from '@/components/recipe-gallery'
 import ChefAiChat from '@/components/chef-ai-chat'
+import InstructionSteps from '@/components/instruction-steps'
 import { resolveTechniqueState } from '@/lib/skills'
 import { getCuisineEmoji } from '@/lib/cuisine-emoji'
 
@@ -384,6 +385,7 @@ export default function RecipeDetail({
   const [showRank, setShowRank] = useState(false)
   const [showCookbook, setShowCookbook] = useState(false)
   const [showChefAi, setShowChefAi] = useState(false)
+  const [chefInitialPrompt, setChefInitialPrompt] = useState<string | undefined>(undefined)
   const [cookedCount, setCookedCount] = useState(recipe.cooked_count)
   const [currentRank, setCurrentRank] = useState<number | null>(recipe.rank)
   const [cookbooks, setCookbooks] = useState<Cookbook[]>(initialCookbooks)
@@ -586,7 +588,7 @@ export default function RecipeDetail({
             </Button>
           )}
           <Button
-            onClick={() => setShowChefAi(true)}
+            onClick={() => { setChefInitialPrompt(undefined); setShowChefAi(true) }}
             className="flex-1 bg-cooking text-cooking-foreground hover:bg-cooking/90 font-semibold h-12 rounded-2xl shadow-md active:scale-[0.98] transition-all"
           >
             <ChefHat className="w-4 h-4" /> Cook with Chef AI
@@ -676,9 +678,17 @@ export default function RecipeDetail({
         {recipe.instructions && (
           <div className="mb-6">
             <h2 className="font-heading font-bold text-foreground text-lg mb-3">Instructions</h2>
-            <div className="bg-card rounded-2xl border border-border shadow-sm p-4">
-              <p className="text-foreground text-sm leading-relaxed whitespace-pre-wrap">{recipe.instructions}</p>
-            </div>
+            <InstructionSteps
+              steps={recipe.instruction_steps as InstructionStep[] | null}
+              rawInstructions={recipe.instructions}
+              ingredients={recipe.ingredients}
+              onAskChef={(step) => {
+                setChefInitialPrompt(
+                  `I'm on step ${step.n} and I need help understanding it. Can you explain it clearly?\n\nStep ${step.n}: ${step.text}`
+                )
+                setShowChefAi(true)
+              }}
+            />
           </div>
         )}
 
@@ -753,7 +763,12 @@ export default function RecipeDetail({
         />
       )}
 
-      <ChefAiChat recipeId={recipe.id} open={showChefAi} onClose={() => setShowChefAi(false)} />
+      <ChefAiChat
+        recipeId={recipe.id}
+        open={showChefAi}
+        onClose={() => setShowChefAi(false)}
+        initialPrompt={chefInitialPrompt}
+      />
 
       {showCookbook && (
         <CookbookDialog

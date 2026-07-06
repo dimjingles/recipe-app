@@ -6,6 +6,27 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
+// ── Instruction step types ────────────────────────────────────────────────────
+/** Discriminated token types used to highlight critical cooking info inline. */
+export type StepTokenType = 'text' | 'time' | 'temp' | 'quantity' | 'doneness' | 'ingredient'
+
+/** A single span within a step's text. Concatenating all `value` strings
+ *  in a step reproduces `text` exactly. */
+export interface StepToken {
+  type: StepTokenType
+  value: string
+}
+
+/** One numbered instruction step with typed inline highlights. */
+export interface InstructionStep {
+  /** 1-indexed step number */
+  n: number
+  /** Full human-readable text of the step (join of all token values) */
+  text: string
+  /** Tokenised spans — render these for highlighted display */
+  tokens: StepToken[]
+}
+
 export interface SkillProfile {
   techniques_mastered: string[]
   techniques_seen: string[]
@@ -62,6 +83,7 @@ export interface Database {
           cook_time_minutes: number | null
           servings: number
           instructions: string | null
+          instruction_steps: InstructionStep[] | null
           difficulty: number | null
           image_url: string | null
           gallery_images: string[]
@@ -73,7 +95,7 @@ export interface Database {
           recipe_type: string | null
           created_at: string
         }
-        Insert: Omit<Database['public']['Tables']['recipes']['Row'], 'id' | 'created_at' | 'cooked_count' | 'last_cooked_at' | 'rank' | 'recipe_type' | 'gallery_images' | 'techniques'> & {
+        Insert: Omit<Database['public']['Tables']['recipes']['Row'], 'id' | 'created_at' | 'cooked_count' | 'last_cooked_at' | 'rank' | 'recipe_type' | 'gallery_images' | 'techniques' | 'instruction_steps'> & {
           id?: string
           created_at?: string
           cooked_count?: number
@@ -83,6 +105,7 @@ export interface Database {
           gallery_images?: string[]
           difficulty?: number | null
           techniques?: string[]
+          instruction_steps?: InstructionStep[] | null
         }
         Update: Partial<Database['public']['Tables']['recipes']['Insert']>
         Relationships: []
