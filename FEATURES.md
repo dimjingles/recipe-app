@@ -53,6 +53,7 @@ Cookbooks are accessible from the Recipes library (filter + create inline).
 - Chef AI Chat — streaming cooking coach you can talk to while cooking
 - "I cooked this" — log a cooking session with optional notes
 - Head-to-head ranking — after the first cook log, new recipes are ranked against existing ones
+- Household-aware rankings - shared household recipes can have different ranks per member
 - Add to / remove from cookbooks
 
 **Recipe Editor** (`/recipes/new`, `/recipes/[id]/edit`)
@@ -167,7 +168,7 @@ win, then the Chef AI and technique tracks in dependency order.
 | 04 | [features/04-recipe-technique-breakdown.md](features/04-recipe-technique-breakdown.md) | Technique mastery badges on the recipe detail page | 03, 05 | Built |
 | 05 | [features/05-skill-progression.md](features/05-skill-progression.md) | Chef AI stretches user toward harder techniques | 00, 03 | Built |
 | 06 | [features/06-gamified-skill-map.md](features/06-gamified-skill-map.md) | "My Skills" gamified skill tree page | 03, 05 | Built |
-| 09 | [features/09-social-friends.md](features/09-social-friends.md) | Friends, shared collections & activity feed | — | Pending |
+| 09 | [features/09-social-friends.md](features/09-social-friends.md) | Friends, households, shared recipe libraries & activity feed | — | Pending |
 
 ---
 
@@ -283,39 +284,45 @@ data source (manual entry or supermarket API where available).
 
 **Priority: 1 (specced and ready) — see [`features/09-social-friends.md`](features/09-social-friends.md) for the full spec**
 
-- **Mutual friends** — request/accept graph with pending/accepted/blocked state machine.
-- **Browse collections** — friends can see each other's cookbooks and recipes by default;
+- **Mutual friends** - request/accept graph with pending/accepted/blocked state machine.
+- **Households** - partner/couple accounts can join one household, share the same recipe
+  library and cookbooks, and keep separate per-person recipe rankings.
+- **Browse collections** - friends can see each other's cookbooks and recipes by default;
   per-item private toggle to hide anything.
-- **Activity feed** — home screen feed showing what friends are cooking and creating.
-- **Discovery** — username search, invite link/QR, email lookup.
+- **Activity feed** - home screen feed showing what friends and household members are cooking
+  and creating.
+- **Discovery** - username search, invite link/QR, email lookup, household invite link/QR.
 
-Built in four vertical slices: Identity → Graph → Visibility + Browse → Feed.
+Built in five vertical slices: Identity → Graph → Household Library → Visibility + Browse → Feed.
 
-**Depends on:** nothing in the existing feature chain. Lays groundwork for feature 11.
-**New data:** `friendships`, `activity`, `visibility` columns, `public_profiles` view,
-`are_friends()` / mutation RPCs, identity columns on `profiles`.
+**Depends on:** nothing in the existing feature chain. Partially absorbs feature 11's shared
+recipe-library use case while leaving shared planner/grocery sync for feature 11.
+**New data:** `friendships`, `households`, `household_members`, `recipe_rankings`, `activity`,
+`visibility`/`owner_scope` columns, `public_profiles` view, `are_friends()` / `same_household()`
+/ mutation RPCs, identity columns on `profiles`.
 
 ---
 
 ### 11 — Household / Partner Sharing
 
-**Priority: 2 — huge segment (couples cooking together) completely unserved by competitors**
+**Priority: 2 - huge segment (couples cooking together) completely unserved by competitors**
 **Note:** builds on the social identity + friendship infrastructure from feature 09.
 
 - **Invite partner** — user sends an invite link; partner joins the same household.
 - **Shared meal plan** — both users see and edit the same weekly plan in real time.
 - **Shared grocery list** — both can check off items while shopping; changes sync live
   (walking through the store, one person adds milk, the other sees it immediately).
-- **Shared recipe library** — optional per-cookbook permission: keep personal collections
-  private but share a "Family Favourites" cookbook.
+- **Shared recipe library** - handled in feature 09. Household members can share the same
+  recipes and cookbooks while each person keeps their own ranking for every recipe.
 - **Shared cooking history** — "we made this on our Japan trip" — log entries visible to
   both members.
 - **Split responsibility** — one plans, one shops; each has their own view but the same
   underlying data.
 
-**Depends on:** Supabase RLS policy changes; real-time subscriptions (Supabase Realtime).
-**New data:** `households` table linking multiple `profiles`; shared RLS policies on
-`weekly_plans`, `weekly_plan_slots`, `cooking_log`, and whitelisted `cookbooks`.
+**Depends on:** feature 09 household membership and shared library; Supabase RLS policy
+changes; real-time subscriptions (Supabase Realtime).
+**New data:** shared RLS policies on `weekly_plans`, `weekly_plan_slots`, and `cooking_log`;
+reuse `households`, `household_members`, and `recipe_rankings` from feature 09.
 
 ---
 
