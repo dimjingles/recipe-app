@@ -3,7 +3,8 @@ import { anthropic, SONNET } from '@/lib/anthropic'
 import { createClient } from '@/lib/supabase/server'
 import { getRecipe } from '@/lib/db/recipes'
 import { getProfile, updateSkillProfile } from '@/lib/db/profile'
-import { findReadyTechnique, normalizeSkillProfile } from '@/lib/skills'
+import { findReadyTechnique, isRecipeTechnique, normalizeSkillProfile } from '@/lib/skills'
+import type { Technique } from '@/types/database'
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -25,9 +26,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   ])
   const skillProfile = normalizeSkillProfile(profile?.skill_profile, profile?.skill_level)
   const recipeTechniqueKeys = recipe.techniques || []
-  const recipeTechniques = (catalogue || []).filter(t => recipeTechniqueKeys.includes(t.key))
+  const catalogueItems = (catalogue || []) as Technique[]
+  const recipeSpecificCatalogue = catalogueItems.filter(isRecipeTechnique)
+  const recipeTechniques = recipeSpecificCatalogue.filter(t => recipeTechniqueKeys.includes(t.key))
   const stretchTechnique = findReadyTechnique(recipeTechniques, skillProfile)
-    || findReadyTechnique(catalogue || [], skillProfile)
+    || findReadyTechnique(recipeSpecificCatalogue, skillProfile)
 
   if (stretchTechnique) {
     await updateSkillProfile(user.id, {

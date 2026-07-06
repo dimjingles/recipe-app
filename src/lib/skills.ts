@@ -2,6 +2,35 @@ import type { SkillProfile, Technique } from '@/types/database'
 
 export type TechniqueState = 'mastered' | 'unlocked' | 'locked'
 
+
+const GLOBAL_CULINARY_LESSON_CATEGORIES = new Set([
+  'Professional Kitchen Fundamentals',
+])
+
+const GLOBAL_CULINARY_LESSON_KEYS = new Set([
+  'knife_grip_stance',
+  'knife_maintenance',
+  'maillard',
+  'caramelization',
+  'gelatinize',
+  'protein_coagulation',
+  'osmosis_brining_curing',
+  'ph',
+  'mother_sauces',
+  'seasoning_stages',
+  'herbs_spices',
+  'balance_salt_fat_acid_heat',
+])
+
+export function isGlobalCulinaryLesson(technique: Pick<Technique, 'key' | 'category'>): boolean {
+  return GLOBAL_CULINARY_LESSON_CATEGORIES.has(technique.category)
+    || GLOBAL_CULINARY_LESSON_KEYS.has(technique.key)
+}
+
+export function isRecipeTechnique(technique: Pick<Technique, 'key' | 'category'>): boolean {
+  return !isGlobalCulinaryLesson(technique)
+}
+
 export const DEFAULT_SKILL_PROFILE: SkillProfile = {
   techniques_mastered: [],
   techniques_seen: [],
