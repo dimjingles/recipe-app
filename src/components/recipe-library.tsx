@@ -49,6 +49,7 @@ export default function RecipeLibrary({
   const [selectedType, setSelectedType] = useState<string | null>(null)
   const [selectedTag, setSelectedTag] = useState<string | null>(null)
   const [selectedCookbook, setSelectedCookbook] = useState<string | null>(null)
+  const [selectedCategory, setSelectedCategory] = useState<'cooked' | 'bookmarked'>('cooked')
   const [cookbooks, setCookbooks] = useState<CookbookWithCount[]>(initialCookbooks)
   const [onlineResults, setOnlineResults] = useState<OnlineResult[]>([])
   const [loadingOnline, setLoadingOnline] = useState(false)
@@ -208,7 +209,16 @@ export default function RecipeLibrary({
     new Set(initialRecipes.flatMap(r => r.tags || []))
   ).sort()
 
-  const filtered = initialRecipes.filter(r => {
+  const scopedRecipes = initialRecipes.filter(r => {
+    const matchesCookbook = !selectedCookbook ||
+      (r.cookbook_recipes || []).some(cr => cr.cookbook_id === selectedCookbook)
+    return matchesCookbook
+  })
+  const cookedCount = scopedRecipes.filter(r => r.cooked_count > 0).length
+  const bookmarkedCount = scopedRecipes.filter(r => r.cooked_count === 0).length
+
+  const filtered = scopedRecipes.filter(r => {
+    const matchesCategory = selectedCategory === 'cooked' ? r.cooked_count > 0 : r.cooked_count === 0
     const matchesSearch =
       r.name.toLowerCase().includes(search.toLowerCase()) ||
       r.cuisine?.toLowerCase().includes(search.toLowerCase()) ||
@@ -216,9 +226,7 @@ export default function RecipeLibrary({
     const matchesCuisine = !selectedCuisine || r.cuisine?.toLowerCase() === selectedCuisine
     const matchesType = !selectedType || r.recipe_type?.toLowerCase() === selectedType
     const matchesTag = !selectedTag || (r.tags || []).includes(selectedTag)
-    const matchesCookbook = !selectedCookbook ||
-      (r.cookbook_recipes || []).some(cr => cr.cookbook_id === selectedCookbook)
-    return matchesSearch && matchesCuisine && matchesType && matchesTag && matchesCookbook
+    return matchesCategory && matchesSearch && matchesCuisine && matchesType && matchesTag
   })
 
   /* ── Chip style helpers ─────────────────────────────────────────── */
@@ -241,11 +249,91 @@ export default function RecipeLibrary({
   return (
     <div className="max-w-lg mx-auto px-4 pt-6">
       {/* Header */}
-      <div className="mb-4 flex items-center justify-between gap-3">
+      <div className="mb-3 flex items-center justify-between gap-3">
         <h1 className="font-heading text-2xl font-bold text-foreground">Recipes</h1>
         <Button onClick={fetchRecommendations} variant="outline" className="shrink-0 rounded-xl border-brand/30 text-brand hover:bg-brand-subtle">
           <Sparkles className="w-4 h-4 mr-1" /> Suggest
         </Button>
+      </div>
+
+      {/* Cookbook selector */}
+      <div className="relative mb-4">
+        {cookbooks.length === 0 ? (
+          <button
+            onClick={openCreateCookbook}
+            className="group flex items-center gap-2 text-left font-heading text-3xl font-bold text-foreground transition-colors hover:text-brand active:scale-[0.99]"
+          >
+            Add Cookbook
+            <Plus className="h-6 w-6 text-muted-foreground transition-colors group-hover:text-brand" />
+          </button>
+        ) : (
+          <>
+            <button
+              onClick={() => setOpenDropdown(openDropdown === 'cookbook' ? null : 'cookbook')}
+              className="group flex max-w-full items-center gap-2 text-left font-heading text-3xl font-bold text-foreground transition-colors hover:text-brand active:scale-[0.99]"
+            >
+              <span className="truncate">{selectedCookbook ? selectedCookbookName : 'Cookbooks'}</span>
+              <ChevronDown className={`h-7 w-7 shrink-0 text-muted-foreground transition-all duration-150 group-hover:text-brand ${openDropdown === 'cookbook' ? 'rotate-180' : ''}`} />
+            </button>
+            {openDropdown === 'cookbook' && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setOpenDropdown(null)} />
+                <div className="absolute left-0 top-full z-20 mt-2 min-w-[220px] overflow-hidden rounded-2xl border border-border bg-card shadow-lg">
+                  <button
+                    onClick={() => { setSelectedCookbook(null); setOpenDropdown(null) }}
+                    className={`w-full px-4 py-3 text-left text-sm font-medium transition-colors ${!selectedCookbook ? 'bg-brand-subtle text-brand' : 'text-foreground hover:bg-muted'}`}
+                  >
+                    All cookbooks
+                  </button>
+                  {cookbooks.map(cb => (
+                    <button
+                      key={cb.id}
+                      onClick={() => { setSelectedCookbook(cb.id); setOpenDropdown(null) }}
+                      className={`flex w-full items-center gap-2 px-4 py-3 text-left text-sm transition-colors ${selectedCookbook === cb.id ? 'bg-brand-subtle font-medium text-brand' : 'text-foreground hover:bg-muted'}`}
+                    >
+                      <span className="flex-1 truncate">{cb.name}</span>
+                      <span className="text-xs text-muted-foreground">({cb.cookbook_recipes.length})</span>
+                    </button>
+                  ))}
+                  <div className="h-px bg-border" />
+                  <button
+                    onClick={openCreateCookbook}
+                    className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm text-brand transition-colors hover:bg-brand-subtle"
+                  >
+                    <Plus className="h-3.5 w-3.5 shrink-0" /> Add Cookbook
+                  </button>
+                  <button
+                    onClick={() => { setOpenDropdown(null); router.push('/cookbooks') }}
+                    className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm text-muted-foreground transition-colors hover:bg-muted"
+                  >
+                    <BookOpen className="h-3.5 w-3.5 shrink-0" /> View cookbooks
+                  </button>
+                </div>
+              </>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Category tabs */}
+      <div className="mb-4 flex gap-8 border-b border-border">
+        {([
+          { key: 'cooked', label: 'Cooked', count: cookedCount },
+          { key: 'bookmarked', label: 'Bookmarked', count: bookmarkedCount },
+        ] as const).map(category => {
+          const active = selectedCategory === category.key
+          return (
+            <button
+              key={category.key}
+              onClick={() => setSelectedCategory(category.key)}
+              className={`relative -mb-px pb-3 text-lg font-bold transition-colors ${active ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              {category.label}
+              <span className="ml-1.5 text-sm font-semibold text-muted-foreground">{category.count}</span>
+              {active && <span className="absolute inset-x-0 bottom-0 h-1 rounded-full bg-foreground" />}
+            </button>
+          )
+        })}
       </div>
 
       {/* Search */}
@@ -346,65 +434,6 @@ export default function RecipeLibrary({
           </div>
         )}
 
-        {/* Cookbook filter (or Add Cookbook button if none exist) */}
-        {cookbooks.length === 0 ? (
-          <button
-            onClick={openCreateCookbook}
-            className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium border border-dashed border-border text-muted-foreground hover:border-brand hover:text-brand transition-colors active:scale-[0.95]"
-          >
-            <Plus className="w-3.5 h-3.5" /> Add Cookbook
-          </button>
-        ) : (
-          <div className="relative">
-            <button
-              onClick={() => setOpenDropdown(openDropdown === 'cookbook' ? null : 'cookbook')}
-              className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium border transition-colors active:scale-[0.95] ${
-                selectedCookbook
-                  ? 'bg-brand text-brand-foreground border-transparent'
-                  : 'bg-card border-border text-foreground hover:border-brand'
-              }`}
-            >
-              {selectedCookbook ? selectedCookbookName : 'Cookbooks'}
-              <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-150 ${openDropdown === 'cookbook' ? 'rotate-180' : ''}`} />
-            </button>
-            {openDropdown === 'cookbook' && (
-              <>
-                <div className="fixed inset-0 z-10" onClick={() => setOpenDropdown(null)} />
-                <div className="absolute left-0 top-full mt-1.5 z-20 bg-card rounded-2xl shadow-lg border border-border overflow-hidden min-w-[180px]">
-                  <button
-                    onClick={() => { setSelectedCookbook(null); setOpenDropdown(null) }}
-                    className={`w-full text-left px-4 py-2.5 text-sm font-medium transition-colors ${!selectedCookbook ? 'text-brand bg-brand-subtle' : 'text-foreground hover:bg-muted'}`}
-                  >
-                    All cookbooks
-                  </button>
-                  {cookbooks.map(cb => (
-                    <button
-                      key={cb.id}
-                      onClick={() => { setSelectedCookbook(cb.id); setOpenDropdown(null) }}
-                      className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${selectedCookbook === cb.id ? 'text-brand bg-brand-subtle font-medium' : 'text-foreground hover:bg-muted'}`}
-                    >
-                      <span className="truncate">{cb.name}</span>
-                      <span className="text-xs text-muted-foreground ml-1.5">({cb.cookbook_recipes.length})</span>
-                    </button>
-                  ))}
-                  <div className="h-px bg-border" />
-                  <button
-                    onClick={openCreateCookbook}
-                    className="w-full text-left px-4 py-2.5 text-sm text-brand hover:bg-brand-subtle transition-colors flex items-center gap-2"
-                  >
-                    <Plus className="w-3.5 h-3.5 shrink-0" /> Add Cookbook
-                  </button>
-                  <button
-                    onClick={() => { setOpenDropdown(null); router.push('/cookbooks') }}
-                    className="w-full text-left px-4 py-2.5 text-sm text-muted-foreground hover:bg-muted transition-colors flex items-center gap-2"
-                  >
-                    <BookOpen className="w-3.5 h-3.5 shrink-0" /> View cookbooks
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        )}
       </div>
 
       {/* Tag filter chips */}
@@ -436,8 +465,8 @@ export default function RecipeLibrary({
       {filtered.length === 0 && !search ? (
         <EmptyState
           illustration={<RecipeBookIllustration />}
-          title="No recipes yet"
-          description="Add your first one to get started!"
+          title={selectedCategory === 'cooked' ? 'No cooked recipes yet' : 'No bookmarked recipes yet'}
+          description={selectedCategory === 'cooked' ? 'Cook and log a recipe to see it here.' : 'Add a recipe to save it for later.'}
           action={
             <Link
               href="/recipes/new"
@@ -447,64 +476,49 @@ export default function RecipeLibrary({
             </Link>
           }
         />
-      ) : (() => {
-        const ranked = filtered.filter(r => r.rank !== null && r.rank !== undefined)
-        const bookmarked = filtered.filter(r => r.rank === null || r.rank === undefined)
-        return (
-          <div className="pb-24 space-y-6">
-            {filtered.length > 0 && (
-              <>
-                {/* Ranked recipes — horizontal list with stagger */}
-                {ranked.length > 0 && (
-                  <div className="space-y-2">
-                    {ranked.map((recipe, i) => (
-                      <RecipeCard
-                        key={recipe.id}
-                        recipe={recipe}
-                        variant="list"
-                        onClick={() => router.push(`/recipes/${recipe.id}`)}
-                        className="animate-fade-in-up"
-                        style={{ animationDelay: `${i * 40}ms` }}
-                        action={
-                          recipe.cook_time_minutes ? (
-                            <span className="text-xs text-muted-foreground flex items-center gap-0.5 shrink-0">
-                              <Clock className="w-3 h-3" /> {recipe.cook_time_minutes}m
-                            </span>
-                          ) : undefined
-                        }
-                      />
-                    ))}
-                  </div>
-                )}
-
-                {/* Bookmarked recipes — grid */}
-                {bookmarked.length > 0 && (
-                  <div>
-                    {ranked.length > 0 && (
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className="h-px flex-1 bg-border" />
-                        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Bookmarked</span>
-                        <div className="h-px flex-1 bg-border" />
+      ) : (
+        <div className="pb-24 space-y-6">
+          {filtered.length > 0 && (
+            selectedCategory === 'cooked' ? (
+              <div className="space-y-2">
+                {filtered.map((recipe, i) => (
+                  <RecipeCard
+                    key={recipe.id}
+                    recipe={recipe}
+                    variant="list"
+                    onClick={() => router.push(`/recipes/${recipe.id}`)}
+                    className="animate-fade-in-up"
+                    style={{ animationDelay: `${i * 40}ms` }}
+                    action={
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        {recipe.cook_time_minutes ? (
+                          <span className="flex items-center gap-0.5 shrink-0">
+                            <Clock className="w-3 h-3" /> {recipe.cook_time_minutes}m
+                          </span>
+                        ) : null}
+                        <span className="shrink-0">🍳×{recipe.cooked_count}</span>
                       </div>
-                    )}
-                    <div className="grid grid-cols-2 gap-3">
-                      {bookmarked.map((recipe, i) => (
-                        <RecipeCard
-                          key={recipe.id}
-                          recipe={recipe}
-                          variant="grid"
-                          onClick={() => router.push(`/recipes/${recipe.id}`)}
-                          className="animate-fade-in-up"
-                          style={{ animationDelay: `${(ranked.length + i) * 40}ms` }}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
+                    }
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                {filtered.map((recipe, i) => (
+                  <RecipeCard
+                    key={recipe.id}
+                    recipe={recipe}
+                    variant="grid"
+                    onClick={() => router.push(`/recipes/${recipe.id}`)}
+                    className="animate-fade-in-up"
+                    style={{ animationDelay: `${i * 40}ms` }}
+                  />
+                ))}
+              </div>
+            )
+          )}
 
-            {/* Online search results */}
+          {/* Online search results */}
             {search && (
               <div>
                 <div className="flex items-center gap-3 mb-3">
@@ -575,9 +589,8 @@ export default function RecipeLibrary({
                 )}
               </div>
             )}
-          </div>
-        )
-      })()}
+        </div>
+      )}
 
       {/* Recommendations Bottom Sheet */}
       <BottomSheet open={showRecommendations} onClose={() => setShowRecommendations(false)} maxHeight="85vh">

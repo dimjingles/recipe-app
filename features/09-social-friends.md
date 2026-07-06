@@ -1,22 +1,27 @@
-# 09 — Social: Friends, Shared Collections & Activity Feed
+# 09 - Social: Friends, Households, Shared Collections & Activity Feed
 
-**Depends on:** Nothing in the existing 00–08 chain, but must be built in the vertical
-slice order defined below. Lays groundwork for future household sharing (11).
+**Depends on:** Nothing in the existing 00-08 chain, but must be built in the vertical
+slice order defined below. Partially absorbs feature 11's shared recipe-library use case;
+feature 11 keeps shared planner, grocery, and cooking-history sync.
 
 ---
 
 ## What it builds
 
-Users add each other as **mutual friends** (request → accept). Once connected, they can
-browse each other's cookbooks and recipes by default, with a per-item private toggle to
-hide anything. A **friends activity feed** on the home screen shows what friends are
+Users add each other as **mutual friends** (request -> accept). Partners can also create
+a **household** so both accounts see the same shared recipes and cookbooks while keeping
+separate per-person rankings for those recipes. Friends can browse each other's visible
+cookbooks and recipes by default, with a per-item private toggle to hide anything. A
+**friends and household activity feed** on the home screen shows what connected people are
 cooking and creating.
 
 ## Why (north star alignment)
 
 Seeing a friend's recipes and their cooking log is one of the most powerful nudges to
-cook more — and a source of new recipe ideas. Directly serves the metric: home-cooked
-meals per active user per week.
+cook more - and a source of new recipe ideas. The household use case is even more core:
+couples often cook from the same library but disagree on favourites, so the app must let
+them share the underlying recipes/cookbooks without forcing one shared ranking. Directly
+serves the metric: home-cooked meals per active user per week.
 
 ---
 
@@ -33,13 +38,17 @@ meals per active user per week.
   anything else.
 - **Images are already public.** `recipe-images` bucket is public (see
   `add_gallery_images.sql`) — no storage changes needed for friends to see photos.
+- **Recipe rank is currently on `recipes.rank`.** Household sharing requires moving the
+  effective ranking to a per-user table keyed by `(user_id, recipe_id)` so two household
+  members can see the same recipe at different positions. Keep `recipes.rank` only as a
+  migration/backfill source or legacy fallback.
 - **Types are hand-maintained.** `src/types/database.ts` has `Functions: Record<string,
-  never>` — every new RPC must be added there manually.
+  never>` - every new RPC must be added there manually.
 - **Migrations are manual SQL files** pasted into the Supabase SQL Editor.
 
 ---
 
-## Build sequence — ship as vertical slices in this order
+## Build sequence - ship as vertical slices in this order
 
 ### Slice 1 — Identity (prerequisite for everything)
 
@@ -217,7 +226,7 @@ $$;
 grant execute on function unfriend(uuid) to authenticated;
 ```
 
-**App layer — add to `src/lib/db/social.ts`:**
+**App layer - add to `src/lib/db/social.ts`:**
 `sendFriendRequest(targetId)`, `respondToRequest(otherId, accept)`, `unfriend(otherId)`,
 `getFriends()` (accepted, returns public profile rows), `getPendingRequests()` (incoming
 where `requested_by != me`), `getSentRequests()` (pending where `requested_by = me`).
@@ -241,7 +250,112 @@ where `requested_by != me`), `getSentRequests()` (pending where `requested_by = 
 
 ---
 
-### Slice 3 — Visibility & browse (the sharing gate)
+### Slice 3 - Household library + personal rankings
+
+**Migration: `add_households_and_rankings.sql`**
+```sql
+create table households (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  created_by uuid not null references auth.users on delete cascade,
+  created_at timestamptz default now()
+);
+
+create table household_members (
+  household_id uuid not null references households(id) on delete cascade,
+  user_id uuid not null references auth.users on delete cascade,
+  role text not null default 'member' check (role in ('admin', 'member')),
+  joined_at timestamptz default now(),
+  primary key (household_id, user_id)
+);
+
+alter table households enable row level security;
+alter table household_members enable row level security;
+
+create or replace function same_household(u1 uuid, u2 uuid)
+returns boolean
+language sql security definer stable set search_path = public as $$
+  select exists (
+    select 1
+    from household_members hm1
+    join household_members hm2 using (household_id)
+    where hm1.user_id = u1 and hm2.user_id = u2
+  )
+$$;
+grant execute on function same_household(uuid, uuid) to authenticated;
+
+-- Shared ownership fields. `owner_scope = 'user'` keeps today's personal model;
+-- `owner_scope = 'household'` means every household member reads the same recipe/cookbook.
+alter table recipes
+  add column if not exists owner_scope text not null default 'user'
+    check (owner_scope in ('user', 'household')),
+  add column if not exists household_id uuid references households(id) on delete cascade;
+
+alter table cookbooks
+  add column if not exists owner_scope text not null default 'user'
+    check (owner_scope in ('user', 'household')),
+  add column if not exists household_id uuid references households(id) on delete cascade;
+
+-- Per-person rank for both personal and shared recipes.
+create table recipe_rankings (
+  user_id uuid not null references auth.users on delete cascade,
+  recipe_id uuid not null references recipes(id) on delete cascade,
+  rank integer not null,
+  updated_at timestamptz default now(),
+  primary key (user_id, recipe_id),
+  unique (user_id, rank) deferrable initially deferred
+);
+
+alter table recipe_rankings enable row level security;
+
+create policy "Users can manage own recipe rankings"
+  on recipe_rankings for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+create index if not exists household_members_user_id_idx on household_members (user_id);
+create index if not exists recipes_household_id_idx on recipes (household_id);
+create index if not exists cookbooks_household_id_idx on cookbooks (household_id);
+```
+
+**Household RLS additions:**
+- Household members can select the `households` and `household_members` rows they belong to.
+- Household members can select `recipes` / `cookbooks` where `owner_scope = 'household'`
+  and their `auth.uid()` appears in `household_members` for that `household_id`.
+- Household members can select/write `cookbook_recipes` for household cookbooks, but
+  direct recipe/cookbook deletes should be admin-only or blocked behind RPCs to avoid one
+  partner accidentally deleting the shared library.
+- `ingredients` select/insert/update/delete policies must follow the visible/writable recipe.
+
+**App behaviour:**
+- Add a household invite flow from `/friends` or `/profile`: create household, invite partner
+  by link/QR, accept into `household_members`.
+- Shared household library uses the same recipe and cookbook IDs for both members. No recipe
+  duplication for partner accounts.
+- Recipe list ordering joins `recipe_rankings` for `auth.uid()` and sorts by that row, not by
+  `recipes.rank`. If no row exists for the current user, the recipe appears in the unranked
+  section until that user ranks it.
+- Head-to-head ranking writes only `recipe_rankings` for the current user. It must never update
+  another household member's rank.
+- Existing `recipes.rank` values should be backfilled into `recipe_rankings` for the recipe
+  owner during migration.
+
+**App layer - add to `src/lib/db/social.ts` or new `src/lib/db/households.ts`:**
+`createHousehold(name)`, `createHouseholdInvite()`, `acceptHouseholdInvite(token)`,
+`getMyHousehold()`, `getHouseholdMembers()`, `convertRecipeToHouseholdShared(recipeId)`,
+`convertCookbookToHouseholdShared(cookbookId)`, `getRecipeRanking(recipeId)`,
+`upsertRecipeRanking(recipeId, rank)`.
+
+**UI updates:**
+- Household settings card on `/profile` or `/friends`: invite partner, member list, leave
+  household, explain that rankings stay personal.
+- Recipe library filter/toggle: Personal | Household | All.
+- Recipe detail: show "Shared with household" badge and "Your rank" copy.
+- Cookbook detail: show household-shared badge when `owner_scope = 'household'`.
+
+---
+
+### Slice 4 - Visibility & browse (the sharing gate)
 
 **Migration: `add_visibility.sql`**
 ```sql
@@ -251,7 +365,7 @@ alter table cookbooks add column if not exists visibility text not null default 
   check (visibility in ('private', 'friends'));
 
 -- Additive SELECT policies (Postgres OR-combines permissive policies;
--- existing owner policies are untouched — these are additional)
+-- existing owner policies are untouched - these are additional)
 
 create policy "Friends can view friend recipes"
   on recipes for select
@@ -284,7 +398,12 @@ create index if not exists recipes_user_id_idx   on recipes  (user_id);
 create index if not exists cookbooks_user_id_idx on cookbooks (user_id);
 ```
 
-**App layer — add to `src/lib/db/social.ts`:**
+Friend visibility is read-only discovery. Household sharing is collaborative ownership. Do
+not model a spouse/partner as a friend who can browse and copy recipes; model them as a
+household member reading the same household-owned recipe/cookbook rows, with personal rank
+coming from `recipe_rankings`.
+
+**App layer - add to `src/lib/db/social.ts`:**
 `getFriendProfile(username)` (full public profile + recipe + cookbook counts),
 `getFriendRecipes(userId)` (does NOT filter by `user_id = me`; relies on RLS),
 `getFriendCookbooks(userId)` (same).
@@ -309,7 +428,7 @@ add `are_friends`, `send_friend_request`, `respond_to_request`, `unfriend`,
 
 ---
 
-### Slice 4 — Activity feed
+### Slice 5 - Activity feed
 
 **Migration: `add_activity.sql`**
 ```sql
@@ -386,9 +505,11 @@ page and the home dashboard); that frees one slot. Updated nav: Home | Recipes |
 |------|---------|
 | `supabase/migrations/add_social_identity.sql` | Identity columns, trigger, public_profiles, find_user_by_email |
 | `supabase/migrations/add_friendships.sql` | friendships table, are_friends, mutation RPCs |
-| `supabase/migrations/add_visibility.sql` | visibility columns, 4 additive RLS policies |
+| `supabase/migrations/add_households_and_rankings.sql` | households, household members, shared ownership fields, per-user recipe rankings |
+| `supabase/migrations/add_visibility.sql` | visibility columns, friend browse RLS policies |
 | `supabase/migrations/add_activity.sql` | activity table + RLS |
 | `src/lib/db/social.ts` | getPublicProfile, searchUsers, findUserByEmail, updateProfile, friend helpers, getFriendRecipes, getFriendCookbooks |
+| `src/lib/db/households.ts` | household invite/membership helpers, shared library conversion, per-user ranking helpers |
 | `src/lib/db/activity.ts` | getFeed, emitActivity |
 | `src/app/profile/page.tsx` | Own profile edit |
 | `src/app/friends/page.tsx` | Friends list, requests, search, invite link/QR |
@@ -408,9 +529,9 @@ page and the home dashboard); that frees one slot. Updated nav: Home | Recipes |
 
 | File | Change |
 |------|--------|
-| `supabase/schema.sql` | Fold in all 4 migrations |
-| `src/types/database.ts` | Add friendships, activity, visibility columns, public_profiles view, all new RPC function types |
-| `src/lib/db/recipes.ts` | Emit activity on createRecipe + logCooking |
+| `supabase/schema.sql` | Fold in all migrations |
+| `src/types/database.ts` | Add friendships, households, household_members, recipe_rankings, activity, visibility/owner_scope columns, public_profiles view, all new RPC function types |
+| `src/lib/db/recipes.ts` | Join/upsert `recipe_rankings` for current-user ordering; emit activity on createRecipe + logCooking |
 | `src/lib/db/cookbooks.ts` | Emit activity on createCookbook |
 | `src/components/recipe-detail.tsx` | Visibility toggle |
 | `src/components/cookbook-detail-view.tsx` | Visibility toggle |
@@ -422,20 +543,26 @@ page and the home dashboard); that frees one slot. Updated nav: Home | Recipes |
 
 ## Verification
 
+- **Household ranking path:** A creates a household and invites B. A shares a cookbook
+  and 10 recipes to the household. Both accounts see the same recipe IDs and cookbook IDs.
+  A ranks "Thai Green Curry" #1 while B ranks it #7; each library shows their own order.
+  A re-ranks the recipe and B's rank does not change.
 - **Happy path:** two Google accounts — A sends friend request to B by username, B
   accepts. Both appear in each other's `/friends`. B visits `/u/A` and sees A's cookbooks
-  and recipes including ingredients. A marks one recipe private → it vanishes from B's
+  and recipes including ingredients. A marks one recipe private -> it vanishes from B's
   view without page reload barrier.
 - **RLS red-team (the core of "robust"):**
   - As B, directly call `supabase.from('recipes').select()` without a `user_id` filter
-    → only A's `friends`-visibility recipes appear; private recipes are absent.
+    -> only A's `friends`-visibility recipes appear; private recipes are absent.
   - As B, attempt `supabase.from('recipes').update({name:'hack'}).eq('id', A_recipe_id)`
     → 0 rows affected (owner-only write policies unchanged).
-  - As B, call `supabase.from('cooking_log').select()` → only B's own log (cooking_log
+  - As B, call `supabase.from('cooking_log').select()` -> only B's own log (cooking_log
     has no additive friend policy by design).
-  - A and B unfriend → B immediately loses access to A's non-owned rows.
-  - As C (not a friend of A), query A's recipes → empty.
-- **Feed:** A creates a recipe → B's home feed shows the event with avatar + thumbnail.
+  - A and B unfriend -> B immediately loses access to A's non-owned rows.
+  - As B, directly update A's `recipe_rankings` row → blocked by RLS; B can only write
+    rows where `recipe_rankings.user_id = auth.uid()`.
+  - As C (not a friend of A), query A's recipes -> empty.
+- **Feed:** A creates a recipe -> B's home feed shows the event with avatar + thumbnail.
   A logs a cook on a private recipe → event does NOT appear in B's feed.
 - **Identity privacy:** direct query of `profiles` as B returns only B's own row; the
   `public_profiles` view returns only `id, username, display_name, avatar_url`.
