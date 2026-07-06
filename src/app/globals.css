@@ -30,7 +30,7 @@
   /* Fonts */
   --font-sans:    var(--font-sans);
   --font-mono:    var(--font-geist-mono);
-  --font-heading: var(--font-heading);          /* fixed — was pointing at --font-sans */
+  --font-heading: var(--font-heading);          /* fixed - was pointing at --font-sans */
 
   /* Sidebar */
   --color-sidebar-ring:               var(--sidebar-ring);
@@ -82,6 +82,15 @@
   --color-cooking-foreground:  var(--cooking-foreground);
   --color-cooking-subtle:      var(--cooking-subtle);
 
+  /* ── Supporting accents ── */
+  --color-tomato:              var(--tomato);
+  --color-tomato-foreground:   var(--tomato-foreground);
+  --color-tomato-subtle:       var(--tomato-subtle);
+  --color-info:                var(--info);
+  --color-info-foreground:     var(--info-foreground);
+  --color-info-subtle:         var(--info-subtle);
+  --color-lavender-subtle:     var(--lavender-subtle);
+
   /* Radius scale */
   --radius-sm:  calc(var(--radius) * 0.6);
   --radius-md:  calc(var(--radius) * 0.8);
@@ -100,10 +109,10 @@
 /* ─── Light mode tokens ─────────────────────────────────────────────────── */
 
 :root {
-  /* Warm neutrals — tiny chroma on a warm hue, replacing cold grays */
+  /* Warm neutrals - tiny chroma on a warm hue, replacing cold grays */
   --background:           oklch(0.987 0.004 75);   /* warm cream */
   --foreground:           oklch(0.145 0 0);
-  --card:                 oklch(1 0 0);             /* pure white — pops vs cream bg */
+  --card:                 oklch(1 0 0);             /* pure white - pops vs cream bg */
   --card-foreground:      oklch(0.145 0 0);
   --popover:              oklch(1 0 0);
   --popover-foreground:   oklch(0.145 0 0);
@@ -134,20 +143,29 @@
   --sidebar-border:              oklch(0.920 0.004 75);
   --sidebar-ring:                oklch(0.702 0.183 46.6);
 
-  /* Brand — orange ≈ orange-500 */
+  /* Brand - orange ≈ orange-500 */
   --brand:            oklch(0.702 0.183 46.6);
   --brand-foreground: oklch(1 0 0);
   --brand-subtle:     oklch(0.967 0.030 68);        /* pale peach */
 
-  /* Sage — ingredients */
+  /* Sage - ingredients */
   --sage:             oklch(0.540 0.085 158);        /* muted olive-sage */
   --sage-foreground:  oklch(1 0 0);
   --sage-subtle:      oklch(0.967 0.018 158);        /* pale sage */
 
-  /* Cooking / amber — cooking history */
+  /* Cooking / amber - cooking history */
   --cooking:             oklch(0.750 0.120 72);      /* warm amber */
   --cooking-foreground:  oklch(0.200 0 0);           /* dark text on amber */
   --cooking-subtle:      oklch(0.975 0.022 80);      /* pale amber */
+
+  /* Supporting accents */
+  --tomato:              oklch(0.610 0.210 25);
+  --tomato-foreground:   oklch(1 0 0);
+  --tomato-subtle:       oklch(0.965 0.030 25);
+  --info:                oklch(0.700 0.115 210);
+  --info-foreground:     oklch(1 0 0);
+  --info-subtle:         oklch(0.965 0.020 210);
+  --lavender-subtle:     oklch(0.965 0.018 300);
 }
 
 /* ─── Dark mode tokens (authored; ThemeProvider wiring deferred) ─────────── */
@@ -185,20 +203,28 @@
   --sidebar-border:              oklch(1 0 0 / 10%);
   --sidebar-ring:                oklch(0.750 0.180 46.6);
 
-  /* Brand — dark */
+  /* Brand - dark */
   --brand:            oklch(0.750 0.180 46.6);
   --brand-foreground: oklch(0.145 0 0);
   --brand-subtle:     oklch(0.260 0.050 46);
 
-  /* Sage — dark */
+  /* Sage - dark */
   --sage:             oklch(0.680 0.090 158);
   --sage-foreground:  oklch(0.145 0 0);
   --sage-subtle:      oklch(0.220 0.040 158);
 
-  /* Cooking / amber — dark */
+  /* Cooking / amber - dark */
   --cooking:             oklch(0.800 0.120 72);
   --cooking-foreground:  oklch(0.145 0 0);
   --cooking-subtle:      oklch(0.220 0.040 72);
+
+  --tomato:              oklch(0.690 0.190 25);
+  --tomato-foreground:   oklch(0.145 0 0);
+  --tomato-subtle:       oklch(0.260 0.050 25);
+  --info:                oklch(0.760 0.110 210);
+  --info-foreground:     oklch(0.145 0 0);
+  --info-subtle:         oklch(0.220 0.040 210);
+  --lavender-subtle:     oklch(0.220 0.035 300);
 }
 
 /* ─── Base layer ────────────────────────────────────────────────────────── */
@@ -209,6 +235,10 @@
   }
   body {
     @apply bg-background text-foreground;
+    background:
+      radial-gradient(circle at top left, color-mix(in oklch, var(--sage-subtle) 72%, transparent) 0, transparent 34rem),
+      radial-gradient(circle at top right, color-mix(in oklch, var(--brand-subtle) 76%, transparent) 0, transparent 30rem),
+      var(--background);
   }
   html {
     @apply font-sans;
@@ -230,7 +260,31 @@
 /* ─── Custom utilities ──────────────────────────────────────────────────── */
 
 @layer utilities {
-  /* Branded shimmer — use on skeleton loading states */
+  .shadow-card {
+    box-shadow: 0 4px 14px rgb(15 23 42 / 0.08);
+  }
+
+  .shadow-card-hover {
+    box-shadow: 0 10px 24px rgb(15 23 42 / 0.12);
+  }
+
+  .shadow-float {
+    box-shadow: 0 16px 36px rgb(15 23 42 / 0.18);
+  }
+
+  .surface-gradient {
+    background:
+      linear-gradient(135deg, color-mix(in oklch, var(--brand-subtle) 54%, white) 0%, color-mix(in oklch, var(--info-subtle) 45%, white) 100%);
+  }
+
+  .food-placeholder {
+    background:
+      radial-gradient(circle at 28% 24%, color-mix(in oklch, var(--brand-subtle) 84%, white) 0, transparent 34%),
+      radial-gradient(circle at 72% 70%, color-mix(in oklch, var(--sage-subtle) 88%, white) 0, transparent 38%),
+      var(--muted);
+  }
+
+  /* Branded shimmer - use on skeleton loading states */
   .bg-shimmer {
     background: linear-gradient(
       90deg,
