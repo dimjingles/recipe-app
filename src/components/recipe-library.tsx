@@ -319,7 +319,7 @@ export default function RecipeLibrary({
       <div className="mb-4 flex gap-8 border-b border-border">
         {([
           { key: 'cooked', label: 'Cooked', count: cookedCount },
-          { key: 'bookmarked', label: 'Bookmarked', count: bookmarkedCount },
+          { key: 'bookmarked', label: 'Want to try', count: bookmarkedCount },
         ] as const).map(category => {
           const active = selectedCategory === category.key
           return (
@@ -465,7 +465,7 @@ export default function RecipeLibrary({
       {filtered.length === 0 && !search ? (
         <EmptyState
           illustration={<RecipeBookIllustration />}
-          title={selectedCategory === 'cooked' ? 'No cooked recipes yet' : 'No bookmarked recipes yet'}
+          title={selectedCategory === 'cooked' ? 'No cooked recipes yet' : 'No recipes to try yet'}
           description={selectedCategory === 'cooked' ? 'Cook and log a recipe to see it here.' : 'Add a recipe to save it for later.'}
           action={
             <Link
