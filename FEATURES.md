@@ -380,7 +380,6 @@ ReciMe's main draw is one-tap video import. Match and exceed it:
 **Priority: 4 — makes the app sticky; most recipe apps are graveyards**
 
 Most users save 100 recipes and cook 5. Fix the loop:
-- **Cooking streaks** — Duolingo-style. "You've cooked 4 nights in a row 🔥"
 - **Weekly cook rate** — "You cooked 4 of 5 planned meals this week" on the home
   dashboard. Gentle accountability without shame.
 - **AI preference learning** — Claude analyses cooking history (what was actually cooked
@@ -396,6 +395,38 @@ permission request (already wired).
 
 ---
 
+### 16 — Cooking Streak
+
+**Priority: 4 — habit-forming mechanic; flexible cadence sets it apart from Duolingo clones**
+
+Most streak systems demand daily check-ins and punish a missed day harshly — wrong fit
+for cooking. Mise's streak adapts to how the user actually cooks:
+
+- **User-configured cadence** — during onboarding (or in settings) the user picks their
+  target: "daily", "a few times a week" (default: 3×), or "at least once a week". The
+  streak counts consecutive *cadence windows* met, not raw calendar days.
+- **Streak card on Home** — compact card showing current streak (🔥 N weeks / days),
+  cadence goal, and sessions logged this window. Disappears if the user hasn't cooked
+  yet and the window hasn't started; appears once the first cook of a window is logged.
+- **Streak freeze** — one grace period per month (e.g. travel, illness) that preserves
+  the streak without a cook log. User taps "Freeze this week" before the window closes.
+- **Milestones** — quiet celebrations at 4, 8, 13, 26, 52 weeks (or daily equivalents):
+  a confetti moment and a badge stored on the profile. No push spam.
+- **Streak broken state** — if the window closes without a log, show "Streak ended at
+  N — start a new one" rather than resetting to zero silently. Softer than Duolingo.
+- **Social hook** — when feature 09 (social) ships, streaks are visible on public
+  profiles and the activity feed ("Emily is on a 6-week streak 🔥").
+
+**Depends on:** `cooking_log` table (already exists); feature 09 (social) for the
+social hook only — the core streak works standalone.
+
+**New data:** `streak_settings` column on `profiles` (`{ cadence: "daily" | "weekly" |
+"custom", target_per_week: number }`); `streak_freezes` table (`user_id`, `window_start`,
+`used_at`); milestone badges stored in existing `skill_profile jsonb` or a new `badges`
+column.
+
+---
+
 ### Priority summary
 
 | # | Feature | Effort | Impact | Differentiator vs. ReciMe |
@@ -407,3 +438,4 @@ permission request (already wired).
 | 13 | Guided Cook Mode | Medium | Medium-High | ReciMe: static text |
 | 14 | Video Import (TikTok/IG/YT) | Medium-High | Very High | ReciMe's flagship, done better |
 | 15 | Habit Feedback Loop | Low-Medium | Medium | Makes the app sticky |
+| 16 | Cooking Streak | Low | Medium | Flexible cadence — not a Duolingo clone |
