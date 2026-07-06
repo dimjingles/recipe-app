@@ -29,7 +29,7 @@ export default function LoginPage() {
               <ChefHat className="w-10 h-10 text-brand-foreground" />
             </div>
           </div>
-          <h1 className="font-heading text-3xl font-bold text-foreground">Mise en Place</h1>
+          <h1 className="font-heading text-3xl font-bold text-foreground">PrepTable</h1>
           <p className="text-muted-foreground mt-2">Your personal recipe &amp; meal planner</p>
         </div>
 

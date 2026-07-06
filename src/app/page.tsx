@@ -46,7 +46,7 @@ export default async function HomePage() {
         <div>
           <div className="mb-2 flex items-center gap-2 text-foreground">
             <ChefHat className="h-8 w-8 text-brand" />
-            <h1 className="font-heading text-4xl font-bold tracking-tight">Mise en Place</h1>
+            <h1 className="font-heading text-4xl font-bold tracking-tight">PrepTable</h1>
           </div>
           <p className="text-sm font-medium text-muted-foreground">
             {format(new Date(), 'EEEE, MMMM d')}
@@ -158,7 +158,7 @@ export default async function HomePage() {
           <EmptyState
             illustration={<RecipeBookIllustration />}
             title="No recipes yet"
-            description="Add your first one and Mise en Place will help fill in the details."
+            description="Add your first one and PrepTable will help fill in the details."
             variant="dashed"
             action={
               <Link

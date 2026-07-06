@@ -18,7 +18,7 @@ const TOTAL_SHELL_STEPS = 14
 
 // ── localStorage persistence ──────────────────────────────────────────────────
 
-const STORAGE_KEY = 'mep-onboarding-v1'
+const STORAGE_KEY = 'preptable-onboarding-v1'
 
 type StoredState = {
   answers: Answers
@@ -409,7 +409,7 @@ export default function OnboardingWizard({ isAuthenticated }: { isAuthenticated:
                 <ChefHat className="w-10 h-10 text-white" />
               </div>
             </div>
-            <h1 className="text-3xl font-bold text-gray-900">Mise en Place</h1>
+            <h1 className="text-3xl font-bold text-gray-900">PrepTable</h1>
             <p className="text-gray-500 mt-2">Your personal recipe &amp; meal planner</p>
           </div>
           <div className="flex flex-col gap-3">
@@ -941,7 +941,7 @@ function renderStepContent(
             Thank you for trusting us!
           </h1>
           <p className="text-gray-400 text-base">
-            Now let&apos;s personalize Mise en Place for you...
+            Now let&apos;s personalize PrepTable for you...
           </p>
         </div>
       )
@@ -960,7 +960,7 @@ function renderStepContent(
           <div className="bg-gray-100 rounded-2xl overflow-hidden mb-8">
             <div className="bg-gray-200 px-5 py-4 text-center">
               <p className="font-semibold text-gray-900 text-sm">
-                &ldquo;Mise en Place&rdquo; would like to send you notifications
+                &ldquo;PrepTable&rdquo; would like to send you notifications
               </p>
             </div>
             <div className="flex divide-x divide-gray-300">

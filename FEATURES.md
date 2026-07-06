@@ -1,4 +1,4 @@
-# Mise en Place — Feature Backlog
+# PrepTable — Feature Backlog
 
 Per-feature specs live in `features/`. Each spec file has a full product brief, DB
 changes, API/server work, UI work, exact reuse pointers, and acceptance criteria. Read
@@ -8,9 +8,9 @@ a single spec file to build a single feature — all context is self-contained.
 
 ## Existing app
 
-Mise en Place is a mobile-first PWA for personal recipe management and meal planning.
+PrepTable is a mobile-first PWA for personal recipe management and meal planning.
 It feels native: installable on iOS and Android, supports the Android Web Share Target
-(share any recipe URL from another app directly into Mise), and uses page transitions
+(share any recipe URL from another app directly into PrepTable), and uses page transitions
 and a persistent bottom-nav shell.
 
 ### Navigation
@@ -147,10 +147,14 @@ Cookbooks are accessible from the Recipes library (filter + create inline).
 
 01 + 03 + 05 together complete the "skill-stretch" behaviour in Chef AI chat.
 07-image-search is fully independent — can be built any time.
+```plaintext
 08-smart-meal-planning is fully independent — no new infra needed; all data exists.
+17-grocery-savings-engine is fully independent — reuses 08's auto-fill pattern but needs no feature dependency.
 ```
 
-**Recommended sequence:** `00 → 07 → 08 → 01 → 02 → 03 → 04 → 05 → 06`
+**Recommended sequence:** `00 → 07 → 08 → 17 → 01 → 02 → 03 → 04 → 05 → 06`
+
+Feature 17 (Grocery Savings Engine) slots in early because it's high-impact and independent after 08. If done before 09-16, the savings data model is stable and all subsequent features (grocery list 2.0, habit loop) can layer on top of it.
 
 Start with `00` to lay the streaming/model foundations, then `07` as an early independent
 win, then `08` as the highest-impact integration of existing user data, then the Chef AI
@@ -172,6 +176,7 @@ and technique tracks in dependency order.
 | 06 | [features/06-gamified-skill-map.md](features/06-gamified-skill-map.md) | "My Skills" gamified skill tree page | 03, 05 | Built |
 | 08 | [features/08-smart-meal-planning.md](features/08-smart-meal-planning.md) | Preference-aware AI auto-fill, smart recipe picker, plan diversity tools | — | Pending |
 | 09 | [features/09-social-friends.md](features/09-social-friends.md) | Friends, households, shared recipe libraries & activity feed | — | Pending |
+| 17 | [features/17-grocery-savings-engine.md](features/17-grocery-savings-engine.md) | Sale-matched recipe badges, cost estimation, budget-aware planning, flyer import | — | Pending |
 
 ---
 
@@ -224,7 +229,7 @@ building any of these.
 
 ### The pitch against ReciMe
 
-> ReciMe saves your recipes. Mise en Place helps you actually cook them — with your
+> ReciMe saves your recipes. PrepTable helps you actually cook them — with your
 > partner, on budget, adapted to your diet.
 
 ReciMe's core weaknesses (from their user reviews and Reddit threads):
@@ -454,6 +459,26 @@ column.
 
 ---
 
+### 17 — Grocery Savings Engine: Sale-Matched Meal Planning & Budget Tracking
+
+**Priority: 1 — see [`features/17-grocery-savings-engine.md`](features/17-grocery-savings-engine.md) for the full spec**
+
+Skrimp.ai proved the market wants their meal plan driven by what's cheap this week, not what they feel like cooking. Mise matches Skrimp's flyer data with a weekly automated scraping pipeline and goes further:
+
+- **Automated flyer scraping** — a Hermes cron crawls 15+ Canadian grocery flyers every Wednesday, runs Claude Sonnet vision to extract deals, and upserts them into a shared sale-items database. No manual entry needed.
+- **Cost estimation on every recipe** — each recipe card shows an estimated total cost. Per-ingredient breakdown on the detail page. Claude Haiku estimates baseline prices; flyer data provides real prices.
+- **Weekly budget tracking** — set a weekly grocery budget. The planner shows cost total vs. budget in real time. Auto-fill respects the budget constraint.
+- **Sale-matched badges** — recipes whose key ingredients match active sale items get "On Sale", "🔥 Sale match", or "This week's steal" badges. "On Sale First" sort in the library.
+- **"Cook what's on sale" auto-fill** — an alternative auto-fill mode that prioritises sale-matched recipes. At least 70% of the week from what's cheap.
+- **Grocery list cost breakdown** — per-ingredient costs, store subtotals, sale savings callout. Shows strikethrough regular price + sale price on matched items.
+
+Why 10x: Skrimp has flyers and 300 curated recipes — no cooking history, no personalization, no budget tracking. Mise has flyers **plus** your own recipe library, full cooking history, skill tracking, dietary adaptation, Chef AI coaching, and budget management. No competitor combines sale awareness + personalization + budget tracking in one app.
+
+**Depends on:** None in the feature chain. Reuses feature 08's auto-fill route pattern (`/api/planner/auto-fill`) and ingredient data model.
+**New data:** `ingredient_prices`, `user_ingredient_prices`, `sale_items` tables; `weekly_budget`, `savings_mode`, `preferred_stores`, `currency` columns on `profiles`. Cron job for weekly flyer scraping. System user for shared flyer data.
+
+---
+
 ### Priority summary
 
 | # | Feature | Effort | Impact | Differentiator vs. ReciMe |
@@ -467,3 +492,4 @@ column.
 | 14 | Video Import (TikTok/IG/YT) | Medium-High | Very High | ReciMe's flagship, done better |
 | 15 | Habit Feedback Loop | Low-Medium | Medium | Makes the app sticky |
 | 16 | Cooking Streak | Low | Medium | Flexible cadence — not a Duolingo clone |
+| 17 | Grocery Savings Engine | Medium-High | Very High | Skrimp: flyer-only, no personalization. Ours: sale + preference + budget |

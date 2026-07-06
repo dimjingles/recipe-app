@@ -15,13 +15,13 @@ const fraunces = Fraunces({
 })
 
 export const metadata: Metadata = {
-  title: 'Mise en Place',
+  title: 'PrepTable',
   description: 'Your personal recipe & meal planner',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'Mise en Place',
+    title: 'PrepTable',
   },
 }
 

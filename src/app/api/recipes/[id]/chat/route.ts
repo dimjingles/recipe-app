@@ -56,7 +56,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   })()
 
   const system = [
-    `You are Chef AI, a warm and patient cooking coach inside the Mise en Place app.`,
+    `You are Chef AI, a warm and patient cooking coach inside the PrepTable app.`,
     ``,
     `You are helping the user cook: ${recipe.name}.`,
     ``,
