@@ -1,15 +1,18 @@
 import { anthropic, HAIKU, extractJsonArray } from '@/lib/anthropic'
+import { isRecipeTechnique } from '@/lib/skills'
 
 let cachedKeys: string[] | null = null
 
 export async function getTechniqueKeys(supabase: any): Promise<string[]> {
   if (cachedKeys) return cachedKeys
-  const { data, error } = await supabase.from('techniques').select('key').order('key')
+  const { data, error } = await supabase.from('techniques').select('key, category').order('key')
   if (error) {
     console.error('getTechniqueKeys error:', error)
     return []
   }
-  const keys = (data || []).map((t: { key: string }) => t.key)
+  const keys = (data || [])
+    .filter((t: { key: string; category: string }) => isRecipeTechnique(t))
+    .map((t: { key: string }) => t.key)
   cachedKeys = keys
   return keys
 }

@@ -13,7 +13,7 @@ import { RecipeWithDetails, Cookbook, SkillProfile, Technique, InstructionStep }
 import RecipeGallery from '@/components/recipe-gallery'
 import ChefAiChat from '@/components/chef-ai-chat'
 import InstructionSteps from '@/components/instruction-steps'
-import { resolveTechniqueState } from '@/lib/skills'
+import { isRecipeTechnique, resolveTechniqueState } from '@/lib/skills'
 import { getCuisineEmoji } from '@/lib/cuisine-emoji'
 
 const CATEGORY_EMOJI: Record<string, string> = {
@@ -399,7 +399,8 @@ export default function RecipeDetail({
   )
   const [editingLogId, setEditingLogId] = useState<string | null>(null)
   const grouped = groupIngredients(recipe.ingredients || [])
-  const techniquesMap = new Map((techniques || []).map(t => [t.key, t]))
+  const techniquesMap = new Map((techniques || []).filter(isRecipeTechnique).map(t => [t.key, t]))
+  const recipeTechniqueKeys = (recipe.techniques || []).filter(key => techniquesMap.has(key))
   const masteredTechniques = skillProfile?.techniques_mastered ?? []
 
   const handleCookSaved = (triggerRanking: boolean) => {
@@ -614,11 +615,11 @@ export default function RecipeDetail({
         />
 
         {/* Techniques */}
-        {recipe.techniques && recipe.techniques.length > 0 && techniquesMap.size > 0 && (
+        {recipeTechniqueKeys.length > 0 && techniquesMap.size > 0 && (
           <div className="mb-6">
             <h2 className="font-heading font-bold text-foreground text-lg mb-3">Techniques</h2>
             <div className="flex flex-wrap gap-2">
-              {recipe.techniques.map(key => {
+              {recipeTechniqueKeys.map(key => {
                 const technique = techniquesMap.get(key)
                 if (!technique) return null
                 const state = resolveTechniqueState(key, technique.prerequisites, masteredTechniques)
