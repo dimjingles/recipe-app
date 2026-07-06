@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
 
     const message = await anthropic.messages.create({
       model: HAIKU,
-      max_tokens: 1024,
+      max_tokens: 2048,
       messages: [
         {
           role: 'user',
@@ -25,10 +25,19 @@ Return ONLY valid JSON with this exact structure (no markdown, no explanation):
   "recipe_type": "appetizer|main|dessert|drink",
   "cook_time_minutes": 30,
   "servings": 4,
-  "description": "1-2 sentence description of the dish"
+  "description": "1-2 sentence description of the dish",
+  "instructions": "Step-by-step cooking instructions as a single string. Number each step (1., 2., etc.). Be specific about temperatures, timings, and techniques. Keep steps clear and actionable.",
+  "difficulty": 1
 }
 
-Use realistic quantities for a home meal. Category must be one of: produce, dairy, meat, seafood, pantry, spices, bakery, frozen, other. recipe_type must be one of: appetizer, main, dessert, drink.`,
+Use realistic quantities for a home meal. Category must be one of: produce, dairy, meat, seafood, pantry, spices, bakery, frozen, other. recipe_type must be one of: appetizer, main, dessert, drink.
+
+Difficulty rating:
+- 1 = Easy - simple techniques, few steps, beginner-friendly
+- 2 = Medium - requires some skill, multiple components, moderate timing
+- 3 = Hard - advanced techniques, precise timing, complex preparations
+
+Base the difficulty on the complexity of the instructions you write.`,
         },
       ],
     })
