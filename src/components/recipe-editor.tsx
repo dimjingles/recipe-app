@@ -84,7 +84,6 @@ export default function RecipeEditor({ initialValues, showLookup, autoLookup }: 
   const [lookupLoading, setLookupLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [looked, setLooked] = useState(false)
-  const [instructionsLoading, setInstructionsLoading] = useState(false)
 
   // Import panel state
   const [showImport, setShowImport] = useState(false)
@@ -185,43 +184,14 @@ export default function RecipeEditor({ initialValues, showLookup, autoLookup }: 
       if (data.cook_time_minutes) setCookTime(String(data.cook_time_minutes))
       if (data.servings) setServings(String(data.servings))
       if (data.description) setDescription(data.description)
-      setLooked(true)
-      toast.success('Ingredients loaded!')
-    } catch (e: unknown) {
-      toast.error((e as Error).message || 'Could not load ingredients. Try again.')
-    } finally {
-      setLookupLoading(false)
-    }
-  }
-
-  const handleGenerateInstructions = async () => {
-    if (!name.trim()) {
-      toast.error('Enter a recipe name first')
-      return
-    }
-    if (ingredients.length === 0 || !ingredients.some(i => i.name.trim())) {
-      toast.error('Add at least one ingredient first')
-      return
-    }
-    setInstructionsLoading(true)
-    try {
-      const res = await fetch('/api/recipes/generate-instructions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: name.trim(),
-          ingredients: ingredients.filter(i => i.name.trim()),
-        }),
-      })
-      const data = await res.json()
-      if (data.error) throw new Error(data.error)
       if (data.instructions) setInstructions(data.instructions)
       if (data.difficulty && !difficulty) setDifficulty(data.difficulty)
-      toast.success('Instructions generated!')
-    } catch {
-      toast.error('Could not generate instructions. Try again.')
+      setLooked(true)
+      toast.success('Recipe filled!')
+    } catch (e: unknown) {
+      toast.error((e as Error).message || 'Could not fill recipe. Try again.')
     } finally {
-      setInstructionsLoading(false)
+      setLookupLoading(false)
     }
   }
 
@@ -328,7 +298,7 @@ export default function RecipeEditor({ initialValues, showLookup, autoLookup }: 
         </div>
         {showLookup && !looked && !showImport && (
           <p className="text-xs text-gray-400 mt-1.5">
-            Type a recipe name and tap Fill to auto-load ingredients with AI.
+            Type a recipe name and tap Fill to auto-load the recipe with AI.
           </p>
         )}
 
@@ -553,20 +523,15 @@ export default function RecipeEditor({ initialValues, showLookup, autoLookup }: 
         </div>
       </div>
 
-      {/* Instructions + AI Generate */}
+      {/* Instructions */}
       <div>
         <div className="flex items-center justify-between mb-2">
           <Label className="text-gray-700 font-medium">Instructions</Label>
-          <button
-            onClick={handleGenerateInstructions}
-            disabled={instructionsLoading || !name.trim()}
-            className="text-sm text-orange-500 font-medium flex items-center gap-1 hover:text-orange-600 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {instructionsLoading
-              ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              : <Sparkles className="w-3.5 h-3.5" />}
-            {instructionsLoading ? 'Generating...' : 'Generate with AI'}
-          </button>
+          {lookupLoading && showLookup && (
+            <span className="text-sm text-orange-500 font-medium flex items-center gap-1">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Filling with AI...
+            </span>
+          )}
         </div>
         <Textarea
           value={instructions}
