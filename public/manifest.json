@@ -1,7 +1,7 @@
 {
   "id": "/",
-  "name": "Mise en Place",
-  "short_name": "Mise en Place",
+  "name": "PrepTable",
+  "short_name": "PrepTable",
   "description": "Your personal recipe & meal planner",
   "start_url": "/",
   "scope": "/",

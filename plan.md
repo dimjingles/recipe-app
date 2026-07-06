@@ -1,4 +1,4 @@
-# Mise en Place — Recipe & Meal Planner
+# PrepTable — Recipe & Meal Planner
 *Goal: Mobile-first app to track home recipes, plan weekly meals, and generate smart grocery lists.*
 
 ## What's built

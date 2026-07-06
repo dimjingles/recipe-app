@@ -1,4 +1,4 @@
-# 🍽️ Mise en Place — Recipe & Meal Planner
+# 🍽️ PrepTable — Recipe & Meal Planner
 
 A mobile-first web app to track your home recipes, plan weekly meals, and generate smart grocery lists. Built with Next.js 16, Supabase, and Claude AI.
 

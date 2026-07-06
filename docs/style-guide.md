@@ -1,4 +1,4 @@
-# Mise en Place style guide
+# PrepTable style guide
 
 This guide translates the reference screenshots into a practical visual system for the recipe app. The target feel is: warm, premium, mobile-native, food-forward, and calm. Think OpenTable's content density and restaurant photography, combined with Cal AI's soft surfaces, oversized rounded cards, and friendly progress patterns.
 
@@ -405,7 +405,7 @@ Example:
 
 ```txt
 No recipes yet
-Add your first recipe and Mise en Place will help fill in the details.
+Add your first recipe and PrepTable will help fill in the details.
 [Add recipe]
 ```
 

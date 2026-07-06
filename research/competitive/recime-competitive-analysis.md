@@ -1,5 +1,5 @@
 # ReciMe Competitive Analysis
-### Mise en Place vs. ReciMe — Strategy to Win
+### PrepTable vs. ReciMe — Strategy to Win
 
 **Research date:** July 3, 2026  
 **Methodology:** Multi-source deep research — 99 agents, 17 primary/secondary sources fetched, 61 claims extracted, 25 adversarially verified (15 confirmed / 10 refuted / 0 unresolved). Pricing figures and feature claims refuted by the adversarial verification pass are explicitly flagged. All verified facts are cited inline.
@@ -11,9 +11,9 @@
 1. **ReciMe is a formidable incumbent.** 4.8★ from 252,000 iOS ratings, self-reported 10M+ users (treat as unaudited), 1M+ Google Play installs. Its one-sentence value prop — *save any recipe from TikTok or Instagram in one tap* — is clear, emotionally resonant, and hard to unseat as a first mover. [S1, S2]
 2. **Its moat is the social-import UX, not the product depth.** Strip out TikTok/Instagram import and ReciMe is a fairly thin recipe organizer. No elo ranking, no cook-history-based AI recommendations, and — critically — **no smart ingredient consolidation** in its grocery list. [S4, S13]
 3. **The paywall is its biggest liability.** The free tier caps imports at 5/week, and the 7-day trial requires a credit card upfront — a pattern that generates user friction and documented complaints. [S3, S7, S8]
-4. **Grocery list quality is a verifiable head-to-head loss for ReciMe.** User reports confirm it does not consolidate duplicate ingredients (e.g., "1 cup milk" and "2 cups milk" stay separate). Mise en Place already ships unit-normalizing, duplicate-summing, category-sorted consolidation. [S13]
+4. **Grocery list quality is a verifiable head-to-head loss for ReciMe.** User reports confirm it does not consolidate duplicate ingredients (e.g., "1 cup milk" and "2 cups milk" stay separate). PrepTable already ships unit-normalizing, duplicate-summing, category-sorted consolidation. [S13]
 5. **The wedge opportunity is the highly engaged home cook** who has already built a recipe collection and wants to *do more* with it — not just save recipes, but rank them, plan around them, and shop intelligently from them.
-6. **Priority table-stakes gap:** Mise en Place's "import" AI-*generates* a recipe from a dish name; ReciMe *captures* the actual recipe from wherever the user saw it. Until we add real URL/social import, we cannot directly compete for ReciMe's primary user (the social-media recipe saver).
+6. **Priority table-stakes gap:** PrepTable's "import" AI-*generates* a recipe from a dish name; ReciMe *captures* the actual recipe from wherever the user saw it. Until we add real URL/social import, we cannot directly compete for ReciMe's primary user (the social-media recipe saver).
 7. **Strategic call:** Don't try to beat ReciMe at social import today — win on depth, intelligence, and grocery integration first. Build the recurring-cook segment ReciMe under-serves, then close the import gap.
 
 ---
@@ -82,14 +82,14 @@ ReciMe uses AI to parse structured ingredients, quantities, steps, and the origi
 ### 2.4 Grocery / Shopping List
 - Generated from meal plan and/or individual recipes [S2, S7]
 - Free tier [S7]
-- **⚠️ Confirmed quality gap:** The grocery list does NOT consolidate duplicate ingredient entries. "1 cup milk" and "2 cups milk" from two recipes remain as two separate line items rather than being merged into "3 cups milk." [S13] This is a direct competitive inferiority vs. Mise en Place.
+- **⚠️ Confirmed quality gap:** The grocery list does NOT consolidate duplicate ingredient entries. "1 cup milk" and "2 cups milk" from two recipes remain as two separate line items rather than being merged into "3 cups milk." [S13] This is a direct competitive inferiority vs. PrepTable.
 - Shopping list requires manual additions; does not auto-update on serving-size changes. [S13]
 
 ### 2.5 AI Features
 - **Import AI:** Social media / video / photo → structured recipe (core product)
 - **Nutrition calculation:** calories, macros — **Plus-gated** [S7, S9]
 - **AI extraction fallbacks** (audio, website link) during Instagram/TikTok import [S6]
-- No confirmed AI recommendation engine or personalized suggestions analogous to Mise en Place's cook-frequency-based recs
+- No confirmed AI recommendation engine or personalized suggestions analogous to PrepTable's cook-frequency-based recs
 
 ### 2.6 Community & Discovery
 - Some community / "share with friends" layer is present — Product Hunt reviews praise it, and the marketing copy mentions "join an international community" [S10, S11]
@@ -150,7 +150,7 @@ At least one prominent App Store review describes 30+ saved recipes disappearing
 ### 🔴 Complaint #3 — Grocery list doesn't consolidate [S13] ✅ Verified
 The most concrete, verifiable product quality gap. "1 cup milk" + "2 cups milk" = two separate line items in ReciMe's grocery list.
 
-**Opportunity:** Mise en Place already wins here. Ship this as a side-by-side proof point in any marketing.
+**Opportunity:** PrepTable already wins here. Ship this as a side-by-side proof point in any marketing.
 
 ### 🟡 Complaint #4 — AI extraction inconsistency on photos/handwritten notes [S9, S13]
 Multiple sources note that handwritten recipe scanning and some photo imports produce incomplete or incorrect ingredient lists. The technology works on clean sources but degrades on poor image quality.
@@ -160,12 +160,12 @@ Multiple sources note that handwritten recipe scanning and some photo imports pr
 ### 🟡 Complaint #5 — Serving-size changes don't propagate to grocery list [S13]
 The grocery list aggregates at recipe's default serving count. Changing a recipe's servings for a specific week does not cascade to the shopping quantities.
 
-**Opportunity:** Mise en Place's planned serving-size scaling + grocery integration could directly address this.
+**Opportunity:** PrepTable's planned serving-size scaling + grocery integration could directly address this.
 
 ### 🟡 Complaint #6 — Web app is half-baked [S2]
 Meal plans and grocery lists are not available on the beta web app. Power users who work on desktop are underserved.
 
-**Opportunity:** Mise en Place is already a PWA with full web parity. Lean into this.
+**Opportunity:** PrepTable is already a PWA with full web parity. Lean into this.
 
 ---
 
@@ -220,21 +220,21 @@ Meal plans and grocery lists are not available on the beta web app. Power users 
 
 ## 7. Head-to-Head Comparison Matrix
 
-| Capability | ReciMe | Mise en Place | Notes |
+| Capability | ReciMe | PrepTable | Notes |
 |---|---|---|---|
 | **Recipe import — social** | ✅ Instagram, TikTok, Facebook, YouTube, Pinterest | ❌ Not available | ReciMe's core moat |
 | **Recipe import — URL** | ✅ Any website | ❌ Not available | Gap to close |
 | **Recipe import — photo/screenshot** | ✅ Plus-gated | ❌ Not available | Gap to close |
 | **Recipe import — handwritten** | ✅ Plus-gated (AI scan) | ❌ Not available | Gap to close |
-| **Recipe import — AI generation** | ❌ Not available | ✅ AI generates from dish name (Claude) | **Mise en Place advantage** — different model |
-| **AI online recipe search** | ❌ Not available | ✅ Returns 5 well-known recipes; one-tap add | **Mise en Place advantage** |
-| **AI recommendations** | ❌ Not confirmed | ✅ Cook-frequency-based personalized recs | **Mise en Place advantage** |
+| **Recipe import — AI generation** | ❌ Not available | ✅ AI generates from dish name (Claude) | **PrepTable advantage** — different model |
+| **AI online recipe search** | ❌ Not available | ✅ Returns 5 well-known recipes; one-tap add | **PrepTable advantage** |
+| **AI recommendations** | ❌ Not confirmed | ✅ Cook-frequency-based personalized recs | **PrepTable advantage** |
 | **Recipe organization** | ✅ Cookbooks, tags, search | ✅ Library, cuisine, type, tags, search | Parity |
-| **Recipe ranking / tier list** | ❌ Not available | ✅ Elo head-to-head ranking | **Mise en Place advantage — unique** |
-| **Cooking log / history** | ❌ Not confirmed | ✅ Log, notes, cooked count, timeline | **Mise en Place advantage** |
+| **Recipe ranking / tier list** | ❌ Not available | ✅ Elo head-to-head ranking | **PrepTable advantage — unique** |
+| **Cooking log / history** | ❌ Not confirmed | ✅ Log, notes, cooked count, timeline | **PrepTable advantage** |
 | **Meal planning** | ✅ Weekly planner | ✅ Weekly planner | Parity |
 | **Grocery list — generation** | ✅ From meal plan | ✅ From meal plan | Parity |
-| **Grocery list — consolidation** | ❌ Duplicates not merged | ✅ Smart unit-normalize + sum + categorize | **Mise en Place advantage — verified** |
+| **Grocery list — consolidation** | ❌ Duplicates not merged | ✅ Smart unit-normalize + sum + categorize | **PrepTable advantage — verified** |
 | **Grocery list — category sort** | ❓ Unconfirmed | ✅ 9-category store-order sort | Likely advantage |
 | **Nutrition tracking** | ✅ Plus-gated | ❌ Not available | Gap to close (roadmap item) |
 | **Serving-size scaling** | ❌ Doesn't update grocery | ❌ Planned, not shipped | Both weak |
@@ -243,9 +243,9 @@ Meal plans and grocery lists are not available on the beta web app. Power users 
 | **Discovery feed** | ❌ None | ❌ None | Parity (both weak) |
 | **iOS native app** | ✅ | ❌ PWA (installable) | Gap |
 | **Android native app** | ✅ | ❌ PWA | Gap |
-| **Web app** | ⚠️ Beta (no planning/grocery) | ✅ Full-featured | **Mise en Place advantage** |
+| **Web app** | ⚠️ Beta (no planning/grocery) | ✅ Full-featured | **PrepTable advantage** |
 | **Chrome extension** | ✅ 20K users | ❌ Not available | Gap to close (high ROI) |
-| **Free tier generosity** | ⚠️ 5 imports/week; card-required trial | ✅ No import cap; no card required | **Mise en Place advantage** |
+| **Free tier generosity** | ⚠️ 5 imports/week; card-required trial | ✅ No import cap; no card required | **PrepTable advantage** |
 | **Pricing** | $39.99/yr (Plus) | Free (currently) | — |
 | **Offline / PWA** | ❓ Unconfirmed | ✅ PWA install | Likely parity |
 
@@ -256,9 +256,9 @@ Meal plans and grocery lists are not available on the beta web app. Power users 
 ### 8.1 The Positioning Frame
 
 > **ReciMe = recipe collector.** Great at ingesting, weak at doing.  
-> **Mise en Place = recipe intelligence.** Your collection gets smarter the more you cook.
+> **PrepTable = recipe intelligence.** Your collection gets smarter the more you cook.
 
-ReciMe solves "I see a recipe I want — how do I save it?" Mise en Place should own "I have a collection I love — how do I cook better from it?" These are different user intentions at different stages of the same journey. Winning doesn't require beating ReciMe at import; it requires owning the next job.
+ReciMe solves "I see a recipe I want — how do I save it?" PrepTable should own "I have a collection I love — how do I cook better from it?" These are different user intentions at different stages of the same journey. Winning doesn't require beating ReciMe at import; it requires owning the next job.
 
 ---
 
@@ -278,7 +278,7 @@ These gaps prevent us from even being considered in the same evaluation. Priorit
 - Effort: Low-medium. Schema is ready; it's an upload UI + storage bucket wiring.
 
 **P1 — Chrome extension for web URL capture**
-- What: A simple extension that sends the current tab's URL to Mise en Place's import endpoint.
+- What: A simple extension that sends the current tab's URL to PrepTable's import endpoint.
 - Why: ReciMe's Chrome extension has 20K users. This is a lightweight acquisition channel — extension install = account acquisition.
 - Effort: Low. Wrap the URL import endpoint in a 1-action extension popup.
 
@@ -294,7 +294,7 @@ These gaps prevent us from even being considered in the same evaluation. Priorit
 We already ship features ReciMe doesn't. These should be the product's identity, not footnotes.
 
 **Differentiator #1 — The Grocery List**
-- Mise en Place's smart consolidation (unit-normalize → sum → category-sort → fraction-format) is a verifiable head-to-head win over ReciMe.
+- PrepTable's smart consolidation (unit-normalize → sum → category-sort → fraction-format) is a verifiable head-to-head win over ReciMe.
 - **Action:** Add serving-size scaling to the grocery list (the planned feature). Then this flow — plan week → scale to servings → consolidated, categorized grocery list — is genuinely best-in-class.
 - Marketing angle: "The only recipe app that actually combines your grocery list." (ReciMe can't make this claim because it doesn't merge duplicates.)
 
@@ -304,7 +304,7 @@ We already ship features ReciMe doesn't. These should be the product's identity,
 - This is also a retention moat: the more you cook, the more personalized the product gets. ReciMe doesn't compound.
 
 **Differentiator #3 — Full Web App**
-- ReciMe's web beta has no meal plans or grocery lists. Mise en Place is full-featured on web from day one.
+- ReciMe's web beta has no meal plans or grocery lists. PrepTable is full-featured on web from day one.
 - **Action:** Lean into this for users who want to plan on a laptop or share a link to their grocery list from a desktop.
 
 ---
@@ -313,12 +313,12 @@ We already ship features ReciMe doesn't. These should be the product's identity,
 
 **Who:** The *active home cook* with an existing recipe habit — not the casual scroller. Specifically: someone who already cooks 3–5 times/week, wants to track what they're making, doesn't like wasting grocery budget on duplicates, and wants their app to feel like a personal chef's notebook rather than a social media bookmark folder.
 
-This segment is **underserved by ReciMe** (which targets the recipe *discoverer*) and **perfectly served by Mise en Place's shipped feature set**: ranked personal library, cook log, AI recs, planning, smart grocery.
+This segment is **underserved by ReciMe** (which targets the recipe *discoverer*) and **perfectly served by PrepTable's shipped feature set**: ranked personal library, cook log, AI recs, planning, smart grocery.
 
 **Channel:** Home cook communities on Reddit (r/mealprep, r/EatCheapAndHealthy, r/1200isplenty). Users in these communities frequently complain about recipe apps that don't help with *grocery planning* — the grocery list quality story is a natural hook.
 
 **Positioning message for this segment:**
-> "Most recipe apps are bookmarking tools. Mise en Place is a cooking tool. Your recipes are ranked by what you actually liked. Your grocery list actually combines ingredients. Your AI recommends what to cook next based on what you've already made."
+> "Most recipe apps are bookmarking tools. PrepTable is a cooking tool. Your recipes are ranked by what you actually liked. Your grocery list actually combines ingredients. Your AI recommends what to cook next based on what you've already made."
 
 ---
 

@@ -70,7 +70,7 @@ File: `src/app/api/recipes/[id]/chat/route.ts`
    `RecipeWithDetails` including `name`, `instructions`, and `ingredients[]`.
 4. Build a **system prompt** that fully contextualizes the recipe. Example shape:
    ```
-   You are Chef AI, a warm and patient cooking coach inside the Mise en Place app.
+   You are Chef AI, a warm and patient cooking coach inside the PrepTable app.
    You are helping the user cook: [recipe name].
 
    RECIPE DETAILS:

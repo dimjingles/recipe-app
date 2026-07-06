@@ -1,4 +1,4 @@
-# Mise en Place — Executive Summary
+# PrepTable — Executive Summary
 
 ---
 
@@ -25,31 +25,25 @@ discover → plan → shop → cook → log → improve → discover again
 Every phase needs to be connected, frictionless, and smart. No existing app does this. ReciMe comes closest but their planning and grocery features are afterthoughts — and their users are saying so publicly.
 
 **The pitch:**
-> *ReciMe saves your recipes. Mise en Place helps you actually cook them — with your partner, on budget, adapted to your diet.*
+> *ReciMe saves your recipes. PrepTable helps you actually cook them — with your partner, on budget, adapted to your diet.*
 
 ---
 
 ## Core benefits
 
-How Mise en Place improves the lives of people who use it:
+How PrepTable improves the lives of people who use it — in priority order.
 
-**You actually cook what you plan.**
-The planner, auto-generated grocery list, cooking log, and habit loop all close the gap between "I want to make this" and "I made this." Planning a week takes minutes. The grocery list writes itself. The loop closes instead of breaking down at "what should we have tonight?"
-
-**You spend less money on food.**
-Every home-cooked meal replaces a takeout order. The grocery list means you buy exactly what you need for the week — no over-shopping, no duplicate ingredients, no forgotten items. Coming: per-recipe and per-week cost estimates so the savings are visible, not just implied.
-
-**You spend less time deciding — and planning is actually easy.**
-Plan a full week of meals in minutes with AI recommendations. The grocery list generates automatically from your plan. No cross-referencing recipes, no manually building a list, no mid-week "I forgot to defrost something" scramble.
+### Primary benefits
 
 **You get better at cooking without thinking about it.**
 The skill system and Chef AI weave technique learning into the recipes you're already making. Every time you cook, you're nudged toward something just beyond your current level. Over time your skill tree fills in — growth happens as a side effect of cooking, not as a separate project.
 
-**Cooking feels less like a chore.**
-No daily decision fatigue. Never stuck mid-recipe. A personal ranked list of your best dishes means you always have an answer to "what should I make this week?" The app meets you in the kitchen, not just the planning stage.
+**You spend less money on food.**
+Every home-cooked meal replaces a takeout order. The grocery list means you buy exactly what you need for the week — no over-shopping, no duplicate ingredients, no forgotten items. Coming: per-recipe cost estimates, budget-aware weekly planning, and grocery flyer matching so you build your week around what's on sale.
 
-**Your recipes are actually yours.**
-Import from any URL, any video, any caption, any handwritten card. Everything lives in one consistent, searchable place. You're not dependent on a website staying up, a social algorithm resurfacing it, or a $9.99/month subscription to access your own collection.
+### Everything else
+
+The rest of the app — meal planning that takes minutes, a grocery list that writes itself, Chef AI in your pocket while you cook, imported recipes from any URL or video, a gamified skill tree, recipe rankings, cooking logs, household sharing — all of it exists to make the home cooking experience dramatically better. None of these are the primary reason someone cooks more, but together they turn cooking from a chore into something that's easy, rewarding, and worth doing again tomorrow.
 
 ---
 
