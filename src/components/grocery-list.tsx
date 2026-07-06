@@ -58,7 +58,7 @@ export default function GroceryList({ weekStart }: { weekStart: string }) {
 
   const shareList = async () => {
     if (!data) return
-    const lines: string[] = [`🛒 Grocery List — ${format(new Date(weekStart + 'T00:00:00'), 'MMM d')} – ${format(weekEnd, 'MMM d')}\n`]
+    const lines: string[] = [`🛒 Grocery List - ${format(new Date(weekStart + 'T00:00:00'), 'MMM d')} - ${format(weekEnd, 'MMM d')}\n`]
     for (const [cat, items] of Object.entries(data.grouped)) {
       lines.push(`\n${CATEGORY_EMOJI[cat] ?? '📦'} ${cat.charAt(0).toUpperCase() + cat.slice(1)}`)
       for (const item of items) {
@@ -79,7 +79,7 @@ export default function GroceryList({ weekStart }: { weekStart: string }) {
   const checkedCount = checked.size
 
   return (
-    <div className="max-w-lg mx-auto px-4 pt-6 pb-8">
+    <div className="mx-auto max-w-lg px-5 pt-8 pb-8">
       {/* Header */}
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-3">
@@ -87,19 +87,19 @@ export default function GroceryList({ weekStart }: { weekStart: string }) {
             <ArrowLeft className="w-5 h-5" />
           </Link>
           <div>
-            <h1 className="font-heading text-xl font-bold text-foreground flex items-center gap-2">
+            <h1 className="font-heading text-3xl font-bold tracking-tight text-foreground flex items-center gap-2">
               <ShoppingCart className="w-5 h-5 text-brand" />
               Grocery List
             </h1>
             <p className="text-xs text-muted-foreground">
-              {format(new Date(weekStart + 'T00:00:00'), 'MMM d')} – {format(weekEnd, 'MMM d, yyyy')}
+              {format(new Date(weekStart + 'T00:00:00'), 'MMM d')} - {format(weekEnd, 'MMM d, yyyy')}
             </p>
           </div>
         </div>
         {totalItems > 0 && (
           <button
             onClick={shareList}
-            className="flex items-center gap-1.5 bg-brand-subtle text-brand rounded-full px-3 py-1.5 text-sm font-medium hover:bg-brand/20 active:scale-[0.97] transition-all"
+            className="inline-flex items-center gap-1.5 rounded-full bg-sage-subtle px-4 py-2 text-sm font-bold text-sage shadow-sm ring-1 ring-sage/15 transition-all hover:bg-sage-subtle/80 active:scale-[0.97]"
           >
             <Share2 className="w-3.5 h-3.5" />
             Share
@@ -109,16 +109,16 @@ export default function GroceryList({ weekStart }: { weekStart: string }) {
 
       {/* Progress bar */}
       {totalItems > 0 && (
-        <div className="bg-card rounded-2xl border border-border shadow-sm px-4 py-3 mb-5">
+        <div className="mb-6 rounded-3xl border border-border bg-card px-5 py-4 shadow-card">
           <div className="flex items-center justify-between mb-1.5">
-            <span className="text-sm font-medium text-muted-foreground">{checkedCount}/{totalItems} items</span>
+            <span className="text-sm font-semibold text-muted-foreground">{checkedCount}/{totalItems} items</span>
             {checkedCount === totalItems && totalItems > 0 && (
               <span className="text-xs text-sage font-medium">✅ All done!</span>
             )}
           </div>
-          <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+          <div className="h-2 overflow-hidden rounded-full bg-muted">
             <div
-              className="h-full bg-brand rounded-full transition-all duration-300"
+              className="h-full rounded-full bg-sage transition-all duration-300"
               style={{ width: `${totalItems > 0 ? (checkedCount / totalItems) * 100 : 0}%` }}
             />
           </div>
@@ -139,18 +139,18 @@ export default function GroceryList({ weekStart }: { weekStart: string }) {
           action={
             <Link
               href="/planner"
-              className="inline-flex items-center gap-2 bg-brand text-brand-foreground rounded-xl px-4 py-2.5 text-sm font-medium hover:bg-brand/90 transition-colors"
+              className="inline-flex items-center gap-2 bg-brand text-brand-foreground rounded-xl px-4 py-2.5 text-sm font-semibold hover:bg-brand/90 transition-colors"
             >
               Go to Planner
             </Link>
           }
         />
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-5">
           {Object.entries(data.grouped).map(([category, items]) => (
-            <div key={category} className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
+            <div key={category} className="overflow-hidden rounded-3xl border border-border bg-card shadow-card">
               {/* Sage-tinted category header (ingredients section) */}
-              <div className="px-4 py-2.5 bg-sage-subtle border-b border-sage/15">
+              <div className="border-b border-sage/15 bg-sage-subtle px-5 py-3">
                 <h3 className="text-xs font-semibold text-sage uppercase tracking-wide flex items-center gap-1.5">
                   <span>{CATEGORY_EMOJI[category] ?? '📦'}</span>
                   {category}
@@ -167,9 +167,9 @@ export default function GroceryList({ weekStart }: { weekStart: string }) {
                     <li key={key}>
                       <button
                         onClick={() => toggleCheck(key)}
-                        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted active:scale-[0.99] active:bg-muted transition-all text-left"
+                        className="flex w-full items-center gap-3 px-5 py-4 text-left transition-all hover:bg-muted active:scale-[0.99] active:bg-muted"
                       >
-                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
+                        <div className={`h-6 w-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
                           isChecked ? 'bg-brand border-brand' : 'border-border'
                         }`}>
                           {isChecked && (
@@ -179,7 +179,7 @@ export default function GroceryList({ weekStart }: { weekStart: string }) {
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <span className={`text-sm font-medium ${isChecked ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
+                          <span className={`text-sm font-semibold ${isChecked ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
                             {item.name}
                           </span>
                           {item.recipes.length > 1 && (
@@ -189,7 +189,7 @@ export default function GroceryList({ weekStart }: { weekStart: string }) {
                           )}
                         </div>
                         {(item.displayQty || item.unit) && (
-                          <span className={`text-sm font-medium shrink-0 ${isChecked ? 'text-muted-foreground' : 'text-foreground'}`}>
+                          <span className={`text-sm font-semibold shrink-0 ${isChecked ? 'text-muted-foreground' : 'text-foreground'}`}>
                             {item.displayQty} {item.unit}
                           </span>
                         )}

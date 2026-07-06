@@ -27,38 +27,42 @@ export default function BottomNav() {
       (href !== '/' &&
         pathname.startsWith(href) &&
         !(href === '/planner' && pathname === '/planner/grocery'))
+
     return (
       <Link
         key={href}
         href={href}
         className={cn(
-          'relative flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all min-w-[64px]',
+          'relative flex min-w-[58px] flex-col items-center gap-1 rounded-full px-3 py-2 transition-all',
           'active:scale-[0.92]',
-          active ? 'text-brand' : 'text-muted-foreground hover:text-foreground',
+          active
+            ? 'bg-muted text-foreground shadow-sm'
+            : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
         )}
       >
-        <Icon className={cn('w-5 h-5', active && 'stroke-[2.5px]')} />
-        <span className={cn('text-xs font-medium', active && 'font-semibold')}>{label}</span>
+        <Icon className={cn('h-5 w-5', active && 'stroke-[2.6px]')} />
+        <span className={cn('text-[11px] font-semibold leading-none', active && 'text-foreground')}>
+          {label}
+        </span>
         {active && (
-          <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-brand" />
+          <span className="absolute -bottom-0.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-brand" />
         )}
       </Link>
     )
   }
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-card border-t border-border safe-area-pb">
-      <div className="flex items-center justify-around h-16 max-w-lg mx-auto">
+    <nav className="fixed inset-x-0 bottom-4 z-40 mx-auto max-w-lg px-4 safe-area-pb">
+      <div className="flex items-center justify-between rounded-full border border-border bg-card/95 p-2 shadow-float backdrop-blur-xl">
         {LEFT_NAV.map(item => navLink(item))}
 
-        {/* Center add button — goes directly to write recipe page */}
         <Link
           href="/recipes/new"
-          className="flex flex-col items-center active:scale-[0.92] transition-all"
+          className="mx-1 flex items-center justify-center active:scale-[0.92] transition-all"
           aria-label="Add recipe"
         >
-          <span className="w-12 h-12 rounded-full bg-brand text-brand-foreground flex items-center justify-center shadow-lg hover:bg-brand/90 -mt-5">
-            <Plus className="w-6 h-6" />
+          <span className="flex h-14 w-14 items-center justify-center rounded-full bg-foreground text-background shadow-float hover:bg-foreground/90">
+            <Plus className="h-7 w-7" />
           </span>
         </Link>
 

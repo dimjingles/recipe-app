@@ -247,10 +247,10 @@ export default function RecipeLibrary({
   const selectedCookbookName = cookbooks.find(c => c.id === selectedCookbook)?.name
 
   return (
-    <div className="max-w-lg mx-auto px-4 pt-6">
+    <div className="mx-auto max-w-lg px-5 pt-8">
       {/* Header */}
       <div className="mb-3 flex items-center justify-between gap-3">
-        <h1 className="font-heading text-2xl font-bold text-foreground">Recipes</h1>
+        <h1 className="font-heading text-4xl font-bold tracking-tight text-foreground">Recipes</h1>
         <Button onClick={fetchRecommendations} variant="outline" className="shrink-0 rounded-xl border-brand/30 text-brand hover:bg-brand-subtle">
           <Sparkles className="w-4 h-4 mr-1" /> Suggest
         </Button>
@@ -261,7 +261,7 @@ export default function RecipeLibrary({
         {cookbooks.length === 0 ? (
           <button
             onClick={openCreateCookbook}
-            className="group flex items-center gap-2 text-left font-heading text-3xl font-bold text-foreground transition-colors hover:text-brand active:scale-[0.99]"
+            className="group flex items-center gap-2 text-left font-heading text-3xl font-bold tracking-tight text-foreground transition-colors hover:text-brand active:scale-[0.99]"
           >
             Add Cookbook
             <Plus className="h-6 w-6 text-muted-foreground transition-colors group-hover:text-brand" />
@@ -270,7 +270,7 @@ export default function RecipeLibrary({
           <>
             <button
               onClick={() => setOpenDropdown(openDropdown === 'cookbook' ? null : 'cookbook')}
-              className="group flex max-w-full items-center gap-2 text-left font-heading text-3xl font-bold text-foreground transition-colors hover:text-brand active:scale-[0.99]"
+              className="group flex max-w-full items-center gap-2 text-left font-heading text-3xl font-bold tracking-tight text-foreground transition-colors hover:text-brand active:scale-[0.99]"
             >
               <span className="truncate">{selectedCookbook ? selectedCookbookName : 'Cookbooks'}</span>
               <ChevronDown className={`h-7 w-7 shrink-0 text-muted-foreground transition-all duration-150 group-hover:text-brand ${openDropdown === 'cookbook' ? 'rotate-180' : ''}`} />
@@ -316,7 +316,7 @@ export default function RecipeLibrary({
       </div>
 
       {/* Category tabs */}
-      <div className="mb-4 flex gap-8 border-b border-border">
+      <div className="mb-5 flex gap-8 border-b border-border/70">
         {([
           { key: 'cooked', label: 'Cooked', count: cookedCount },
           { key: 'bookmarked', label: 'Want to try', count: bookmarkedCount },
@@ -330,7 +330,7 @@ export default function RecipeLibrary({
             >
               {category.label}
               <span className="ml-1.5 text-sm font-semibold text-muted-foreground">{category.count}</span>
-              {active && <span className="absolute inset-x-0 bottom-0 h-1 rounded-full bg-foreground" />}
+              {active && <span className="absolute inset-x-0 bottom-0 h-1 rounded-full bg-brand" />}
             </button>
           )
         })}
@@ -353,7 +353,7 @@ export default function RecipeLibrary({
       </div>
 
       {/* Filter dropdowns */}
-      <div className="flex gap-2 mb-4 flex-wrap">
+      <div className="mb-5 flex flex-wrap gap-2">
         {/* Type dropdown */}
         <div className="relative">
           <button
@@ -532,7 +532,7 @@ export default function RecipeLibrary({
                 {pendingSearch || loadingOnline ? (
                   <div className="space-y-2">
                     {[1, 2, 3].map(i => (
-                      <div key={i} className="bg-card rounded-2xl border border-border px-4 py-3 space-y-2">
+                      <div key={i} className="rounded-3xl border border-border bg-card px-4 py-3 shadow-card space-y-2">
                         <Shimmer className="h-4 w-3/4" />
                         <Shimmer className="h-3 w-full" />
                       </div>
@@ -545,7 +545,7 @@ export default function RecipeLibrary({
                       return (
                         <div
                           key={i}
-                          className="flex items-center gap-3 bg-card rounded-2xl border border-border shadow-sm px-4 py-3"
+                          className="flex items-center gap-3 rounded-3xl border border-border bg-card px-4 py-3 shadow-card"
                         >
                           <span className="text-2xl shrink-0">{getCuisineEmoji(result.cuisine)}</span>
                           <div className="flex-1 min-w-0">
@@ -623,7 +623,7 @@ export default function RecipeLibrary({
           ) : recommendations.length > 0 ? (
             <div className="space-y-3">
               {recommendations.map((result, i) => (
-                <div key={`${result.name}-${i}`} className="bg-card rounded-2xl border border-border p-4 shadow-sm">
+                <div key={`${result.name}-${i}`} className="rounded-3xl border border-border bg-card p-4 shadow-card">
                   <div className="flex items-start gap-3">
                     <span className="text-2xl shrink-0">{getCuisineEmoji(result.cuisine)}</span>
                     <div className="flex-1 min-w-0">
@@ -636,7 +636,7 @@ export default function RecipeLibrary({
                       {result.why && <p className="text-xs text-brand mt-2">Why: {result.why}</p>}
                     </div>
                   </div>
-                  <button onClick={() => addRecommendation(result)} className="mt-3 w-full bg-brand text-brand-foreground rounded-xl py-2.5 text-sm font-semibold hover:bg-brand/90 active:scale-[0.98] transition-all">
+                  <button onClick={() => addRecommendation(result)} className="mt-3 w-full rounded-full bg-brand py-2.5 text-sm font-bold text-brand-foreground hover:bg-brand/90 active:scale-[0.98] transition-all">
                     Add to library
                   </button>
                 </div>

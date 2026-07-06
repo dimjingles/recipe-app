@@ -100,9 +100,9 @@ export default function CookbooksView({ initialCookbooks, initialRecipes }: Cook
   }
 
   return (
-    <div className="max-w-lg mx-auto px-4 pt-6 pb-24">
+    <div className="mx-auto max-w-lg px-5 pt-8 pb-28">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="mb-7 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link
             href="/recipes"
@@ -110,11 +110,11 @@ export default function CookbooksView({ initialCookbooks, initialRecipes }: Cook
           >
             <ArrowLeft className="w-5 h-5" />
           </Link>
-          <h1 className="font-heading text-2xl font-bold text-foreground">Cookbooks</h1>
+          <h1 className="font-heading text-4xl font-bold tracking-tight text-foreground">Cookbooks</h1>
         </div>
         <button
           onClick={() => { setShowCreate(true) }}
-          className="bg-brand text-brand-foreground rounded-full p-2.5 hover:bg-brand/90 active:scale-[0.95] transition-all shadow-md"
+          className="grid h-12 w-12 place-items-center rounded-full bg-foreground text-background shadow-float transition-all hover:bg-foreground/90 active:scale-[0.95]"
         >
           <Plus className="w-5 h-5" />
         </button>
@@ -122,23 +122,23 @@ export default function CookbooksView({ initialCookbooks, initialRecipes }: Cook
 
       {/* List */}
       {cookbooks.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-center">
+        <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-border bg-card/70 px-6 py-20 text-center shadow-card">
           <BookOpen className="w-12 h-12 text-muted-foreground/40 mb-4" />
-          <p className="font-heading text-lg font-semibold text-foreground mb-1">No cookbooks yet</p>
+          <p className="mb-1 font-heading text-xl font-bold text-foreground">No cookbooks yet</p>
           <p className="text-sm text-muted-foreground mb-6">Create your first to group your favourite recipes.</p>
           <button
             onClick={() => setShowCreate(true)}
-            className="inline-flex items-center gap-2 bg-brand text-brand-foreground rounded-xl px-4 py-2.5 text-sm font-medium hover:bg-brand/90 transition-colors"
+            className="inline-flex items-center gap-2 rounded-full bg-brand px-5 py-3 text-sm font-bold text-brand-foreground shadow-sm transition-colors hover:bg-brand/90"
           >
             <Plus className="w-4 h-4" /> New Cookbook
           </button>
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-3">
           {cookbooks.map(cb => (
             <div
               key={cb.id}
-              className="bg-card rounded-2xl border border-border shadow-sm px-4 py-3"
+              className="rounded-3xl border border-border bg-card px-4 py-4 shadow-card transition-all hover:-translate-y-0.5 hover:shadow-card-hover"
             >
               {deletingId === cb.id ? (
                 /* Delete confirm row */
@@ -166,7 +166,7 @@ export default function CookbooksView({ initialCookbooks, initialRecipes }: Cook
                     value={renameValue}
                     onChange={e => setRenameValue(e.target.value)}
                     autoFocus
-                    className="flex-1 h-9 bg-card"
+                    className="h-11 flex-1 bg-card"
                     onKeyDown={e => {
                       if (e.key === 'Enter') commitRename(cb.id)
                       if (e.key === 'Escape') setRenamingId(null)
@@ -186,23 +186,23 @@ export default function CookbooksView({ initialCookbooks, initialRecipes }: Cook
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => router.push(`/cookbooks/${cb.id}`)}
-                    className="flex-1 text-left min-w-0"
+                    className="min-w-0 flex-1 text-left"
                   >
-                    <p className="font-semibold text-foreground truncate">{cb.name}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
+                    <p className="truncate text-base font-bold text-foreground">{cb.name}</p>
+                    <p className="mt-1 text-sm font-medium text-muted-foreground">
                       {cb.cookbook_recipes.length} {cb.cookbook_recipes.length === 1 ? 'recipe' : 'recipes'}
                     </p>
                   </button>
                   <button
                     onClick={() => startRename(cb.id, cb.name)}
-                    className="p-1.5 text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                    className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                     aria-label="Rename"
                   >
                     <PenLine className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => { setRenamingId(null); setDeletingId(cb.id) }}
-                    className="p-1.5 text-muted-foreground hover:text-destructive transition-colors shrink-0"
+                    className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-tomato-subtle hover:text-destructive"
                     aria-label="Delete"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -268,7 +268,7 @@ export default function CookbooksView({ initialCookbooks, initialRecipes }: Cook
           <Button
             onClick={createCookbook}
             disabled={creating || !newName.trim()}
-            className="w-full bg-brand hover:bg-brand/90 text-brand-foreground h-12 text-base"
+            className="h-12 w-full rounded-full bg-brand text-base font-bold text-brand-foreground hover:bg-brand/90"
           >
             {creating ? 'Creating...' : 'Create Cookbook'}
           </Button>
