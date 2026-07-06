@@ -147,12 +147,14 @@ Cookbooks are accessible from the Recipes library (filter + create inline).
 
 01 + 03 + 05 together complete the "skill-stretch" behaviour in Chef AI chat.
 07-image-search is fully independent — can be built any time.
+08-smart-meal-planning is fully independent — no new infra needed; all data exists.
 ```
 
-**Recommended sequence:** `00 → 07 → 01 → 02 → 03 → 04 → 05 → 06`
+**Recommended sequence:** `00 → 07 → 08 → 01 → 02 → 03 → 04 → 05 → 06`
 
 Start with `00` to lay the streaming/model foundations, then `07` as an early independent
-win, then the Chef AI and technique tracks in dependency order.
+win, then `08` as the highest-impact integration of existing user data, then the Chef AI
+and technique tracks in dependency order.
 
 ---
 
@@ -168,6 +170,7 @@ win, then the Chef AI and technique tracks in dependency order.
 | 04 | [features/04-recipe-technique-breakdown.md](features/04-recipe-technique-breakdown.md) | Technique mastery badges on the recipe detail page | 03, 05 | Built |
 | 05 | [features/05-skill-progression.md](features/05-skill-progression.md) | Chef AI stretches user toward harder techniques | 00, 03 | Built |
 | 06 | [features/06-gamified-skill-map.md](features/06-gamified-skill-map.md) | "My Skills" gamified skill tree page | 03, 05 | Built |
+| 08 | [features/08-smart-meal-planning.md](features/08-smart-meal-planning.md) | Preference-aware AI auto-fill, smart recipe picker, plan diversity tools | — | Pending |
 | 09 | [features/09-social-friends.md](features/09-social-friends.md) | Friends, households, shared recipe libraries & activity feed | — | Pending |
 
 ---
@@ -231,6 +234,23 @@ ReciMe's core weaknesses (from their user reviews and Reddit threads):
 - No household sharing at all
 - No guided cook mode — just static text
 - Free tier limited to 5 recipes; $9.99/mo pricing backlash driving users to look elsewhere
+
+---
+
+### 08 — Smart Meal Planning (specced and ready)
+
+**Priority: 1 — see [`features/08-smart-meal-planning.md`](features/08-smart-meal-planning.md) for the full spec**
+
+The current planner is a blank grid — useful but dumb. This feature makes it personal:
+- **Smarter recipe picker** — when you tap an empty day, recipes are scored and sorted by relevance using your cuisine preferences, skill level, cooking history, diet/allergies, and plan diversity (no 3× Italian in one week).
+- **AI Auto-fill week** — one tap fills unplanned days with a balanced, skill-appropriate week using Claude Haiku. Weekday quick meals, weekend projects. Respects `cook_frequency` so it doesn't overfill.
+- **Plan diversity dashboard** — at-a-glance cuisine mix, difficulty spread, and gentle nudges ("You haven't cooked [recipe] in a while").
+- **Rescue a saved recipe** — surfaces an uncooked recipe from your library that you'd probably enjoy.
+
+Why 10x: ReciMe's planner is a blank grid. Ours knows who you are, what you can cook, and what you like.
+
+**Depends on:** nothing new — all data exists in `profiles`, `cooking_log`, `recipes`, `skill_profile`, `weekly_plans`, `weekly_plan_slots`.
+**New data:** No new tables or columns.
 
 ---
 
@@ -438,6 +458,7 @@ column.
 
 | # | Feature | Effort | Impact | Differentiator vs. ReciMe |
 |---|---------|--------|--------|---------------------------|
+| 08 | Smart Meal Planning | Medium | Very High | ReciMe: blank grid, no personalization |
 | 09 | AI Recipe Adaptation | Medium | Very High | No competitor does it |
 | 10 | Grocery Pipeline 2.0 | Medium | High | Fixes ReciMe's #1 complaint |
 | 11 | Household Sharing | Medium | High | ReciMe has nothing |
