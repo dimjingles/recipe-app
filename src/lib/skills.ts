@@ -42,7 +42,10 @@ export function findReadyTechnique(techniques: Technique[], profile: SkillProfil
 
 export function computeSkillBadges(techniques: Technique[], mastered: string[]) {
   const masteredSet = new Set(mastered)
-  const heatRoots = techniques.filter(t => t.category === 'Heat & Cooking Methods' && t.prerequisites.length === 0)
+  const heatRoots = techniques.filter(t =>
+    ['Heat & Cooking Methods', 'Dry-Heat Cooking Methods', 'Moist-Heat Cooking Methods'].includes(t.category)
+    && t.prerequisites.length === 0
+  )
   const knife = techniques.filter(t => t.category === 'Knife Skills')
   const badges: string[] = []
   if (mastered.length >= 1) badges.push('first_cook')

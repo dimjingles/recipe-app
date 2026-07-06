@@ -1,16 +1,3 @@
--- Technique catalogue, recipe classification, and skill profile
-create table if not exists techniques (
-  key text primary key,
-  label text not null,
-  category text not null,
-  description text not null,
-  prerequisites text[] default '{}'
-);
-
-alter table techniques enable row level security;
-drop policy if exists "techniques are public read" on techniques;
-create policy "techniques are public read" on techniques for select using (true);
-
 -- Expanded culinary technique and skill catalogue
 insert into techniques (key, label, category, description, prerequisites) values
   ('knife_grip_stance','Grip, Stance, and Knife Safety','Knife Skills','Holding the knife and food safely, standing stable at the board, and moving with control before speed.','{}'),
@@ -131,5 +118,3 @@ on conflict (key) do update set
   category = excluded.category,
   description = excluded.description,
   prerequisites = excluded.prerequisites;
-alter table recipes add column if not exists techniques text[] default '{}';
-alter table profiles add column if not exists skill_profile jsonb default '{}'::jsonb;
