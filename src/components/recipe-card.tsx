@@ -38,7 +38,7 @@ export function RecipeCard({
     return (
       <div
         className={cn(
-          'group flex cursor-pointer items-center gap-3 rounded-3xl border border-border bg-card px-4 py-3 shadow-card',
+          'group flex cursor-pointer items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3 shadow-card',
           'transition-all hover:-translate-y-0.5 hover:shadow-card-hover active:scale-[0.98]',
           className,
         )}
@@ -46,13 +46,13 @@ export function RecipeCard({
         style={style}
       >
         {recipe.rank != null && (
-          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-brand-subtle text-xs font-bold text-brand ring-1 ring-brand/15">
+          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-brand-subtle text-xs font-bold text-brand ring-1 ring-brand/15">
             {recipe.rank}
           </span>
         )}
 
         {recipe.image_url ? (
-          <div className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl bg-muted">
+          <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-muted">
             <img
               src={recipe.image_url}
               alt={recipe.name}
@@ -60,7 +60,7 @@ export function RecipeCard({
             />
           </div>
         ) : (
-          <div className="food-placeholder grid h-16 w-16 shrink-0 place-items-center rounded-2xl border border-border/70">
+          <div className="food-placeholder grid h-16 w-16 shrink-0 place-items-center rounded-xl border border-border/70">
             <span className="text-2xl" aria-hidden>{emoji}</span>
           </div>
         )}
@@ -87,7 +87,7 @@ export function RecipeCard({
   return (
     <div
       className={cn(
-        'group cursor-pointer overflow-hidden rounded-3xl border border-border bg-card shadow-card',
+        'group cursor-pointer overflow-hidden rounded-2xl border border-border bg-card shadow-card',
         'transition-all hover:-translate-y-0.5 hover:shadow-card-hover active:scale-[0.97]',
         className,
       )}
@@ -106,7 +106,7 @@ export function RecipeCard({
         <div className="food-placeholder relative aspect-[4/3] overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-white/40 to-transparent" />
           <div className="relative grid h-full place-items-center">
-            <div className="grid h-16 w-16 place-items-center rounded-full bg-card/80 shadow-sm ring-1 ring-border">
+            <div className="grid h-16 w-16 place-items-center rounded-2xl bg-card/80 shadow-sm ring-1 ring-border">
               <ImageIcon className="h-6 w-6 text-muted-foreground" />
             </div>
           </div>

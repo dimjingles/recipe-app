@@ -90,13 +90,13 @@ export default function PlannerView({ initialPlan, recipes, weekStart: initialWe
   )
 
   return (
-    <div className="mx-auto max-w-lg px-5 pt-8 pb-4">
+    <div className="mx-auto max-w-5xl px-5 pt-8 pb-4 md:px-8">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <h1 className="font-heading text-4xl font-bold tracking-tight text-foreground">Planner</h1>
         <Link
           href={`/planner/grocery?week_start=${weekStart}`}
-          className="inline-flex items-center gap-1.5 rounded-full bg-sage-subtle px-4 py-2 text-sm font-bold text-sage shadow-sm ring-1 ring-sage/15 transition-all hover:bg-sage-subtle/80 active:scale-[0.97]"
+          className="inline-flex items-center gap-1.5 rounded-xl bg-sage-subtle px-4 py-2 text-sm font-bold text-sage shadow-sm ring-1 ring-sage/15 transition-all hover:bg-sage-subtle/80 active:scale-[0.97]"
         >
           <ShoppingCart className="w-4 h-4" />
           Grocery
@@ -104,7 +104,7 @@ export default function PlannerView({ initialPlan, recipes, weekStart: initialWe
       </div>
 
       {/* Week navigation */}
-      <div className="mb-6 flex items-center justify-between rounded-3xl border border-border bg-card px-4 py-3 shadow-card">
+      <div className="mb-6 flex items-center justify-between rounded-2xl border border-border bg-card px-4 py-3 shadow-card">
         <button
           onClick={() => navigateWeek('prev')}
           className="text-muted-foreground hover:text-foreground p-1 active:scale-[0.90] transition-all"
@@ -127,13 +127,13 @@ export default function PlannerView({ initialPlan, recipes, weekStart: initialWe
 
       {/* Day grid */}
       {loading ? (
-        <div className="space-y-2">
+        <div className="grid gap-3 md:grid-cols-2">
           {[1, 2, 3, 4, 5, 6, 7].map(i => (
             <Shimmer key={i} className="h-16 rounded-2xl" />
           ))}
         </div>
       ) : (
-        <div className="mb-6 space-y-3">
+        <div className="mb-6 grid gap-3 md:grid-cols-2">
           {DAYS.map((day, i) => {
             const date = addDays(currentWeekDate, i)
             const isToday = format(date, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd')
@@ -142,7 +142,7 @@ export default function PlannerView({ initialPlan, recipes, weekStart: initialWe
             return (
               <div
                 key={day}
-                className={`overflow-hidden rounded-3xl border bg-card shadow-card transition-all active:scale-[0.99] ${
+                className={`overflow-hidden rounded-2xl border bg-card shadow-card transition-all active:scale-[0.99] ${
                   isToday ? 'border-brand/40' : 'border-border'
                 }`}
               >

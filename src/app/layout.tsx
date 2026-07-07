@@ -39,7 +39,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
       </head>
       <body className="min-h-screen antialiased">
-        <main className="min-h-screen pb-28">
+        <main className="min-h-screen pb-28 md:pb-8 md:pl-24">
           <PageTransition>{children}</PageTransition>
         </main>
         <BottomNav />

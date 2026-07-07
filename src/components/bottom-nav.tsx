@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, BookOpen, CalendarDays, ShoppingCart, Plus, Trophy } from 'lucide-react'
+import { Home, BookOpen, CalendarDays, ShoppingCart, Trophy } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const LEFT_NAV = [
@@ -52,21 +52,9 @@ export default function BottomNav() {
   }
 
   return (
-    <nav className="fixed inset-x-0 bottom-4 z-40 mx-auto max-w-lg px-4 safe-area-pb">
-      <div className="flex items-center justify-between rounded-full border border-border bg-card/95 p-2 shadow-float backdrop-blur-xl">
-        {LEFT_NAV.map(item => navLink(item))}
-
-        <Link
-          href="/recipes/new"
-          className="mx-1 flex items-center justify-center active:scale-[0.92] transition-all"
-          aria-label="Add recipe"
-        >
-          <span className="flex h-14 w-14 items-center justify-center rounded-full bg-foreground text-background shadow-float hover:bg-foreground/90">
-            <Plus className="h-7 w-7" />
-          </span>
-        </Link>
-
-        {RIGHT_NAV.map(item => navLink(item))}
+    <nav className="fixed inset-x-0 bottom-4 z-40 mx-auto max-w-lg px-4 safe-area-pb md:inset-x-auto md:left-4 md:top-1/2 md:bottom-auto md:max-w-none md:-translate-y-1/2 md:px-0">
+      <div className="flex items-center justify-between rounded-full border border-border bg-card/95 p-2 shadow-float backdrop-blur-xl md:flex-col md:rounded-2xl">
+        {[...LEFT_NAV, ...RIGHT_NAV].map(item => navLink(item))}
       </div>
     </nav>
   )
