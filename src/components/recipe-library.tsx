@@ -247,38 +247,46 @@ export default function RecipeLibrary({
   const selectedCookbookName = cookbooks.find(c => c.id === selectedCookbook)?.name
 
   return (
-    <div className="mx-auto max-w-lg px-5 pt-8">
-      {/* Header */}
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <h1 className="font-heading text-4xl font-bold tracking-tight text-foreground">Recipes</h1>
-        <Button onClick={fetchRecommendations} variant="outline" className="shrink-0 rounded-xl border-brand/30 text-brand hover:bg-brand-subtle">
-          <Sparkles className="w-4 h-4 mr-1" /> Suggest
-        </Button>
-      </div>
-
+    <div className="mx-auto max-w-6xl px-5 pt-4 md:px-8 md:pt-6">
       {/* Cookbook selector */}
-      <div className="relative mb-4">
+      <div className="relative mb-4 flex items-center justify-between gap-3">
+        <div className="min-w-0">
         {cookbooks.length === 0 ? (
-          <button
-            onClick={openCreateCookbook}
-            className="group flex items-center gap-2 text-left font-heading text-3xl font-bold tracking-tight text-foreground transition-colors hover:text-brand active:scale-[0.99]"
-          >
-            Add Cookbook
-            <Plus className="h-6 w-6 text-muted-foreground transition-colors group-hover:text-brand" />
-          </button>
-        ) : (
           <>
             <button
               onClick={() => setOpenDropdown(openDropdown === 'cookbook' ? null : 'cookbook')}
-              className="group flex max-w-full items-center gap-2 text-left font-heading text-3xl font-bold tracking-tight text-foreground transition-colors hover:text-brand active:scale-[0.99]"
+              className="group flex items-center gap-2 text-left text-2xl font-extrabold tracking-tight text-foreground transition-colors hover:text-brand active:scale-[0.99]"
             >
-              <span className="truncate">{selectedCookbook ? selectedCookbookName : 'Cookbooks'}</span>
-              <ChevronDown className={`h-7 w-7 shrink-0 text-muted-foreground transition-all duration-150 group-hover:text-brand ${openDropdown === 'cookbook' ? 'rotate-180' : ''}`} />
+              Cookbooks
+              <ChevronDown className={`h-6 w-6 shrink-0 text-muted-foreground transition-all duration-150 group-hover:text-brand ${openDropdown === 'cookbook' ? 'rotate-180' : ''}`} />
             </button>
             {openDropdown === 'cookbook' && (
               <>
                 <div className="fixed inset-0 z-10" onClick={() => setOpenDropdown(null)} />
-                <div className="absolute left-0 top-full z-20 mt-2 min-w-[220px] overflow-hidden rounded-2xl border border-border bg-card shadow-lg">
+                <div className="absolute left-0 top-full z-20 mt-2 min-w-[220px] overflow-hidden rounded-xl border border-border bg-card shadow-lg">
+                  <button
+                    onClick={openCreateCookbook}
+                    className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-medium text-brand transition-colors hover:bg-brand-subtle"
+                  >
+                    <Plus className="h-3.5 w-3.5 shrink-0" /> Add Cookbooks
+                  </button>
+                </div>
+              </>
+            )}
+          </>
+        ) : (
+          <>
+            <button
+              onClick={() => setOpenDropdown(openDropdown === 'cookbook' ? null : 'cookbook')}
+              className="group flex max-w-full items-center gap-2 text-left text-2xl font-extrabold tracking-tight text-foreground transition-colors hover:text-brand active:scale-[0.99]"
+            >
+              <span className="truncate">{selectedCookbook ? selectedCookbookName : 'Cookbooks'}</span>
+              <ChevronDown className={`h-6 w-6 shrink-0 text-muted-foreground transition-all duration-150 group-hover:text-brand ${openDropdown === 'cookbook' ? 'rotate-180' : ''}`} />
+            </button>
+            {openDropdown === 'cookbook' && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setOpenDropdown(null)} />
+                <div className="absolute left-0 top-full z-20 mt-2 min-w-[220px] overflow-hidden rounded-xl border border-border bg-card shadow-lg">
                   <button
                     onClick={() => { setSelectedCookbook(null); setOpenDropdown(null) }}
                     className={`w-full px-4 py-3 text-left text-sm font-medium transition-colors ${!selectedCookbook ? 'bg-brand-subtle text-brand' : 'text-foreground hover:bg-muted'}`}
@@ -313,6 +321,10 @@ export default function RecipeLibrary({
             )}
           </>
         )}
+        </div>
+        <Button onClick={fetchRecommendations} variant="outline" className="h-8 shrink-0 rounded-full border-brand/30 px-3 text-xs text-brand hover:bg-brand-subtle">
+          <Sparkles className="mr-1 h-3.5 w-3.5" /> Suggest
+        </Button>
       </div>
 
       {/* Category tabs */}
@@ -338,19 +350,29 @@ export default function RecipeLibrary({
 
       {/* Search */}
       <div className="relative mb-4">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           value={search}
           onChange={e => setSearch(e.target.value)}
           placeholder="Search recipes..."
-          className="pl-9 bg-card"
+          className="bg-card pl-9 pr-9"
         />
         {search && (
           <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2">
-            <X className="w-4 h-4 text-muted-foreground" />
+            <X className="h-4 w-4 text-muted-foreground" />
           </button>
         )}
       </div>
+
+      <Link
+        href="/recipes/new"
+        className="fixed bottom-28 right-5 z-30 inline-flex h-10 items-center justify-center gap-1.5 rounded-full bg-sage px-3.5 text-xs font-bold text-sage-foreground shadow-float transition-all hover:bg-sage/90 active:scale-[0.95] md:bottom-8 md:right-8"
+        aria-label="Add recipe"
+        title="Add recipe"
+      >
+        <Plus className="h-3.5 w-3.5" />
+        <span>Add Recipe</span>
+      </Link>
 
       {/* Filter dropdowns */}
       <div className="mb-5 flex flex-wrap gap-2">
@@ -372,7 +394,7 @@ export default function RecipeLibrary({
           {openDropdown === 'type' && (
             <>
               <div className="fixed inset-0 z-10" onClick={() => setOpenDropdown(null)} />
-              <div className="absolute left-0 top-full mt-1.5 z-20 bg-card rounded-2xl shadow-lg border border-border overflow-hidden min-w-[152px]">
+              <div className="absolute left-0 top-full mt-1.5 z-20 min-w-[152px] overflow-hidden rounded-xl border border-border bg-card shadow-lg">
                 <button
                   onClick={() => { setSelectedType(null); setOpenDropdown(null) }}
                   className={`w-full text-left px-4 py-2.5 text-sm font-medium transition-colors ${!selectedType ? 'text-brand bg-brand-subtle' : 'text-foreground hover:bg-muted'}`}
@@ -412,7 +434,7 @@ export default function RecipeLibrary({
             {openDropdown === 'cuisine' && (
               <>
                 <div className="fixed inset-0 z-10" onClick={() => setOpenDropdown(null)} />
-                <div className="absolute left-0 top-full mt-1.5 z-20 bg-card rounded-2xl shadow-lg border border-border overflow-hidden min-w-[160px]">
+                <div className="absolute left-0 top-full mt-1.5 z-20 min-w-[160px] overflow-hidden rounded-xl border border-border bg-card shadow-lg">
                   <button
                     onClick={() => { setSelectedCuisine(null); setOpenDropdown(null) }}
                     className={`w-full text-left px-4 py-2.5 text-sm font-medium transition-colors ${!selectedCuisine ? 'text-brand bg-brand-subtle' : 'text-foreground hover:bg-muted'}`}
@@ -480,7 +502,7 @@ export default function RecipeLibrary({
         <div className="pb-24 space-y-6">
           {filtered.length > 0 && (
             selectedCategory === 'cooked' ? (
-              <div className="space-y-2">
+              <div className="grid gap-3 md:grid-cols-2">
                 {filtered.map((recipe, i) => (
                   <RecipeCard
                     key={recipe.id}
@@ -503,7 +525,7 @@ export default function RecipeLibrary({
                 ))}
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
                 {filtered.map((recipe, i) => (
                   <RecipeCard
                     key={recipe.id}
@@ -532,7 +554,7 @@ export default function RecipeLibrary({
                 {pendingSearch || loadingOnline ? (
                   <div className="space-y-2">
                     {[1, 2, 3].map(i => (
-                      <div key={i} className="rounded-3xl border border-border bg-card px-4 py-3 shadow-card space-y-2">
+                      <div key={i} className="space-y-2 rounded-2xl border border-border bg-card px-4 py-3 shadow-card">
                         <Shimmer className="h-4 w-3/4" />
                         <Shimmer className="h-3 w-full" />
                       </div>
@@ -545,7 +567,7 @@ export default function RecipeLibrary({
                       return (
                         <div
                           key={i}
-                          className="flex items-center gap-3 rounded-3xl border border-border bg-card px-4 py-3 shadow-card"
+                          className="flex items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3 shadow-card"
                         >
                           <span className="text-2xl shrink-0">{getCuisineEmoji(result.cuisine)}</span>
                           <div className="flex-1 min-w-0">
@@ -623,7 +645,7 @@ export default function RecipeLibrary({
           ) : recommendations.length > 0 ? (
             <div className="space-y-3">
               {recommendations.map((result, i) => (
-                <div key={`${result.name}-${i}`} className="rounded-3xl border border-border bg-card p-4 shadow-card">
+                <div key={`${result.name}-${i}`} className="rounded-2xl border border-border bg-card p-4 shadow-card">
                   <div className="flex items-start gap-3">
                     <span className="text-2xl shrink-0">{getCuisineEmoji(result.cuisine)}</span>
                     <div className="flex-1 min-w-0">
@@ -636,7 +658,7 @@ export default function RecipeLibrary({
                       {result.why && <p className="text-xs text-brand mt-2">Why: {result.why}</p>}
                     </div>
                   </div>
-                  <button onClick={() => addRecommendation(result)} className="mt-3 w-full rounded-full bg-brand py-2.5 text-sm font-bold text-brand-foreground hover:bg-brand/90 active:scale-[0.98] transition-all">
+                  <button onClick={() => addRecommendation(result)} className="mt-3 w-full rounded-xl bg-brand py-2.5 text-sm font-bold text-brand-foreground transition-all hover:bg-brand/90 active:scale-[0.98]">
                     Add to library
                   </button>
                 </div>

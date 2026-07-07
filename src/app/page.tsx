@@ -41,7 +41,7 @@ export default async function HomePage() {
   })
 
   return (
-    <div className="mx-auto max-w-lg px-5 pt-8 pb-4">
+    <div className="mx-auto max-w-6xl px-5 pt-8 pb-4 md:px-8">
       <div className="mb-8 flex items-start justify-between gap-4">
         <div>
           <div className="mb-2 flex items-center gap-2 text-foreground">
@@ -56,14 +56,15 @@ export default async function HomePage() {
           <button
             type="submit"
             title="Sign out"
-            className="grid h-11 w-11 place-items-center rounded-full bg-card text-muted-foreground shadow-card ring-1 ring-border transition-all hover:text-foreground active:scale-[0.95]"
+            className="grid h-11 w-11 place-items-center rounded-xl bg-card text-muted-foreground shadow-card ring-1 ring-border transition-all hover:text-foreground active:scale-[0.95]"
           >
             <LogOut className="h-4 w-4" />
           </button>
         </form>
       </div>
 
-      <section className="surface-gradient mb-6 overflow-hidden rounded-3xl border border-white/70 p-5 shadow-card">
+      <div className="mb-8 grid gap-6 lg:grid-cols-[minmax(0,1.35fr)_360px] lg:items-start">
+      <section className="surface-gradient overflow-hidden rounded-2xl border border-white/70 p-5 shadow-card md:p-7">
         <div className="flex items-start justify-between gap-5">
           <div className="min-w-0 flex-1">
             <p className="mb-2 text-xs font-bold uppercase tracking-wide text-brand">Tonight</p>
@@ -87,7 +88,7 @@ export default async function HomePage() {
               </>
             )}
           </div>
-          <div className="grid h-24 w-24 shrink-0 place-items-center rounded-full bg-card/70 p-3 shadow-sm ring-[12px] ring-white/70">
+          <div className="grid h-24 w-24 shrink-0 place-items-center rounded-2xl bg-card/70 p-3 shadow-sm ring-[10px] ring-white/70">
             <span className="text-4xl">
               {tonightSlot?.recipe ? getCuisineEmoji((tonightSlot.recipe as any).cuisine) : '🍽️'}
             </span>
@@ -96,13 +97,13 @@ export default async function HomePage() {
         <div className="mt-5 flex gap-3">
           <Link
             href="/planner"
-            className="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-foreground px-5 py-3 text-sm font-bold text-background shadow-sm transition-all active:scale-[0.97]"
+            className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-foreground px-5 py-3 text-sm font-bold text-background shadow-sm transition-all active:scale-[0.97]"
           >
             <CalendarDays className="h-4 w-4" /> Plan week
           </Link>
           <Link
             href="/recipes/new"
-            className="grid h-12 w-12 place-items-center rounded-full bg-card text-foreground shadow-sm ring-1 ring-border transition-all active:scale-[0.95]"
+            className="grid h-12 w-12 place-items-center rounded-xl bg-card text-foreground shadow-sm ring-1 ring-border transition-all active:scale-[0.95]"
             aria-label="Add recipe"
           >
             <Plus className="h-5 w-5" />
@@ -110,7 +111,7 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section className="mb-7 rounded-3xl border border-border bg-card p-4 shadow-card">
+      <section className="rounded-2xl border border-border bg-card p-4 shadow-card">
         <div className="mb-4 flex items-center justify-between">
           <div>
             <h2 className="font-heading text-xl font-bold text-foreground">This week</h2>
@@ -131,7 +132,7 @@ export default async function HomePage() {
             return (
               <Link key={day} href="/planner" className="group text-center">
                 <p className={`mb-1 text-[11px] font-bold ${isToday ? 'text-brand' : 'text-muted-foreground'}`}>{day}</p>
-                <div className={`grid h-14 place-items-center rounded-2xl border transition-all group-active:scale-[0.96] ${
+                <div className={`grid h-14 place-items-center rounded-xl border transition-all group-active:scale-[0.96] ${
                   isToday ? 'border-brand/30 bg-brand-subtle text-brand' : slot ? 'border-sage/20 bg-sage-subtle text-sage' : 'border-border bg-muted/60 text-muted-foreground'
                 }`}>
                   <span className="text-sm font-bold">{slot?.recipe ? getCuisineEmoji((slot.recipe as any).cuisine) : format(date, 'd')}</span>
@@ -141,6 +142,7 @@ export default async function HomePage() {
           })}
         </div>
       </section>
+      </div>
 
       <section>
         <div className="mb-4 flex items-end justify-between gap-4">
@@ -170,12 +172,12 @@ export default async function HomePage() {
             }
           />
         ) : (
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
             {recentRecipes.map((recipe, i) => (
               <Link
                 key={recipe.id}
                 href={`/recipes/${recipe.id}`}
-                className="group overflow-hidden rounded-3xl border border-border bg-card shadow-card transition-all hover:-translate-y-0.5 hover:shadow-card-hover active:scale-[0.97]"
+                className="group overflow-hidden rounded-2xl border border-border bg-card shadow-card transition-all hover:-translate-y-0.5 hover:shadow-card-hover active:scale-[0.97]"
                 style={{ animationDelay: `${i * 40}ms` }}
               >
                 {recipe.image_url ? (

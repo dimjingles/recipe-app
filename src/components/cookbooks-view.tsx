@@ -100,7 +100,7 @@ export default function CookbooksView({ initialCookbooks, initialRecipes }: Cook
   }
 
   return (
-    <div className="mx-auto max-w-lg px-5 pt-8 pb-28">
+    <div className="mx-auto max-w-5xl px-5 pt-8 pb-28 md:px-8">
       {/* Header */}
       <div className="mb-7 flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -114,7 +114,7 @@ export default function CookbooksView({ initialCookbooks, initialRecipes }: Cook
         </div>
         <button
           onClick={() => { setShowCreate(true) }}
-          className="grid h-12 w-12 place-items-center rounded-full bg-foreground text-background shadow-float transition-all hover:bg-foreground/90 active:scale-[0.95]"
+          className="grid h-12 w-12 place-items-center rounded-2xl bg-foreground text-background shadow-float transition-all hover:bg-foreground/90 active:scale-[0.95]"
         >
           <Plus className="w-5 h-5" />
         </button>
@@ -122,23 +122,23 @@ export default function CookbooksView({ initialCookbooks, initialRecipes }: Cook
 
       {/* List */}
       {cookbooks.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-border bg-card/70 px-6 py-20 text-center shadow-card">
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-card/70 px-6 py-20 text-center shadow-card">
           <BookOpen className="w-12 h-12 text-muted-foreground/40 mb-4" />
           <p className="mb-1 font-heading text-xl font-bold text-foreground">No cookbooks yet</p>
           <p className="text-sm text-muted-foreground mb-6">Create your first to group your favourite recipes.</p>
           <button
             onClick={() => setShowCreate(true)}
-            className="inline-flex items-center gap-2 rounded-full bg-brand px-5 py-3 text-sm font-bold text-brand-foreground shadow-sm transition-colors hover:bg-brand/90"
+            className="inline-flex items-center gap-2 rounded-xl bg-brand px-5 py-3 text-sm font-bold text-brand-foreground shadow-sm transition-colors hover:bg-brand/90"
           >
             <Plus className="w-4 h-4" /> New Cookbook
           </button>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="grid gap-3 md:grid-cols-2">
           {cookbooks.map(cb => (
             <div
               key={cb.id}
-              className="rounded-3xl border border-border bg-card px-4 py-4 shadow-card transition-all hover:-translate-y-0.5 hover:shadow-card-hover"
+              className="rounded-2xl border border-border bg-card px-4 py-4 shadow-card transition-all hover:-translate-y-0.5 hover:shadow-card-hover"
             >
               {deletingId === cb.id ? (
                 /* Delete confirm row */
@@ -195,14 +195,14 @@ export default function CookbooksView({ initialCookbooks, initialRecipes }: Cook
                   </button>
                   <button
                     onClick={() => startRename(cb.id, cb.name)}
-                    className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                     aria-label="Rename"
                   >
                     <PenLine className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => { setRenamingId(null); setDeletingId(cb.id) }}
-                    className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-tomato-subtle hover:text-destructive"
+                    className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-muted-foreground transition-colors hover:bg-tomato-subtle hover:text-destructive"
                     aria-label="Delete"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -268,7 +268,7 @@ export default function CookbooksView({ initialCookbooks, initialRecipes }: Cook
           <Button
             onClick={createCookbook}
             disabled={creating || !newName.trim()}
-            className="h-12 w-full rounded-full bg-brand text-base font-bold text-brand-foreground hover:bg-brand/90"
+            className="h-12 w-full rounded-xl bg-brand text-base font-bold text-brand-foreground hover:bg-brand/90"
           >
             {creating ? 'Creating...' : 'Create Cookbook'}
           </Button>
