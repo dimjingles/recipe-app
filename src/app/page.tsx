@@ -3,12 +3,14 @@ import { createClient } from '@/lib/supabase/server'
 import { getRecipes } from '@/lib/db/recipes'
 import { getWeekPlan, getWeekStart } from '@/lib/db/planner'
 import { getProfile } from '@/lib/db/profile'
+import { getFeed } from '@/lib/db/activity'
 import Link from 'next/link'
-import { ChefHat, CalendarDays, Clock, Plus, LogOut, ShoppingCart, Sparkles } from 'lucide-react'
+import { ChefHat, CalendarDays, Clock, Plus, LogOut, ShoppingCart, Sparkles, Users } from 'lucide-react'
 import { format, addDays } from 'date-fns'
 import { getCuisineEmoji } from '@/lib/cuisine-emoji'
 import { EmptyState, RecipeBookIllustration } from '@/components/ui/empty-state'
 import { UserAvatar } from '@/components/user-avatar'
+import { FeedItemRow } from '@/components/feed-item'
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
@@ -22,9 +24,10 @@ export default async function HomePage() {
   }
 
   const weekStart = getWeekStart()
-  const [recipes, plan] = await Promise.all([
+  const [recipes, plan, feed] = await Promise.all([
     getRecipes(),
     getWeekPlan(weekStart),
+    getFeed(undefined, 5),
   ])
 
   const recentRecipes = recipes.slice(0, 6)
@@ -151,6 +154,25 @@ export default async function HomePage() {
         </div>
       </section>
       </div>
+
+      {feed.items.length > 0 && (
+        <section className="mb-8">
+          <div className="mb-4 flex items-end justify-between gap-4">
+            <div>
+              <p className="mb-1 flex items-center gap-1 text-xs font-bold uppercase tracking-wide text-brand">
+                <Users className="h-3.5 w-3.5" /> Friends
+              </p>
+              <h2 className="font-heading text-2xl font-bold tracking-tight text-foreground">Activity</h2>
+            </div>
+            <Link href="/feed" className="text-sm font-bold uppercase tracking-wide text-brand">
+              See all →
+            </Link>
+          </div>
+          <div className="space-y-2">
+            {feed.items.map(item => <FeedItemRow key={item.id} item={item} />)}
+          </div>
+        </section>
+      )}
 
       <section>
         <div className="mb-4 flex items-end justify-between gap-4">

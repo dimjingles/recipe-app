@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { RecipeWithIngredients, RecipeWithDetails } from '@/types/database'
+import { emitActivity } from '@/lib/db/activity'
 
 export async function getRecipes() {
   const supabase = await createClient()
@@ -116,6 +117,7 @@ export async function createRecipe(recipe: {
     if (ingError) throw ingError
   }
 
+  await emitActivity('recipe_created', { recipe_id: newRecipe.id })
   return newRecipe
 }
 
@@ -195,4 +197,6 @@ export async function logCooking(recipeId: string, data: {
     cooked_count: (recipe?.cooked_count ?? 0) + 1,
     last_cooked_at: data.cooked_at ?? new Date().toISOString(),
   }).eq('id', recipeId)
+
+  await emitActivity('recipe_cooked', { recipe_id: recipeId })
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { classifyTechniques, getTechniqueKeys } from '@/lib/ai/classify-techniques'
 import { structureInstructions } from '@/lib/ai/structure-instructions'
+import { emitActivity } from '@/lib/db/activity'
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,6 +20,8 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (recipeError) throw recipeError
+
+    await emitActivity('recipe_created', { recipe_id: recipe.id })
 
     if (ingredients && ingredients.length > 0) {
       const { error: ingError } = await supabase

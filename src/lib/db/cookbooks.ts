@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { Cookbook, CookbookWithCount, CookbookWithRecipes } from '@/types/database'
+import { emitActivity } from '@/lib/db/activity'
 
 /** The current user's household id, if any (used to scope shared cookbooks). */
 async function currentHouseholdId(supabase: Awaited<ReturnType<typeof createClient>>, userId: string): Promise<string | null> {
@@ -63,6 +64,7 @@ export async function createCookbook(name: string, recipeIds: string[] = []): Pr
     if (joinError) throw joinError
   }
 
+  await emitActivity('cookbook_created', { cookbook_id: cookbook.id })
   return cookbook as Cookbook
 }
 

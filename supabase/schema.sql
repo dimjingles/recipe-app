@@ -589,3 +589,24 @@ create policy "Friends can view ingredients of visible recipes"
   using (exists (
     select 1 from recipes r where r.id = ingredients.recipe_id
       and r.visibility = 'friends' and are_friends(r.user_id, auth.uid())));
+
+-- ── Slice 5 · Activity feed ─────────────────────────────────
+create table if not exists activity (
+  id          uuid primary key default gen_random_uuid(),
+  actor_id    uuid not null references auth.users on delete cascade,
+  type        text not null
+    check (type in ('recipe_created', 'recipe_cooked', 'cookbook_created')),
+  recipe_id   uuid references recipes(id)   on delete cascade,
+  cookbook_id uuid references cookbooks(id) on delete cascade,
+  created_at  timestamptz default now()
+);
+create index if not exists activity_actor_created_idx on activity (actor_id, created_at desc);
+alter table activity enable row level security;
+drop policy if exists "View own and friends' activity" on activity;
+create policy "View own and friends' activity"
+  on activity for select
+  using (actor_id = auth.uid() or are_friends(actor_id, auth.uid()));
+drop policy if exists "Insert own activity" on activity;
+create policy "Insert own activity"
+  on activity for insert
+  with check (actor_id = auth.uid());

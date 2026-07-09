@@ -352,6 +352,41 @@ export interface Database {
           },
         ]
       }
+      activity: {
+        Row: {
+          id: string
+          actor_id: string
+          type: string
+          recipe_id: string | null
+          cookbook_id: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          actor_id: string
+          type: string
+          recipe_id?: string | null
+          cookbook_id?: string | null
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['activity']['Insert']>
+        Relationships: [
+          {
+            foreignKeyName: 'activity_recipe_id_fkey'
+            columns: ['recipe_id']
+            isOneToOne: false
+            referencedRelation: 'recipes'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'activity_cookbook_id_fkey'
+            columns: ['cookbook_id']
+            isOneToOne: false
+            referencedRelation: 'cookbooks'
+            referencedColumns: ['id']
+          },
+        ]
+      }
     }
     Views: {
       public_profiles: {
