@@ -9,6 +9,7 @@ import {
   ChevronLeft, Sprout,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { validateUsername } from '@/lib/username'
 import OnboardingShell from '@/components/onboarding/shell'
 import OptionCard from '@/components/onboarding/option-card'
 import OptionGrid from '@/components/onboarding/option-grid'
@@ -53,6 +54,7 @@ type Answers = {
   favorite_cuisines: string[]
   skill_level: string
   meal_reminders: boolean
+  username: string
 }
 
 const INITIAL_ANSWERS: Answers = {
@@ -65,6 +67,7 @@ const INITIAL_ANSWERS: Answers = {
   favorite_cuisines: [],
   skill_level: '',
   meal_reminders: false,
+  username: '',
 }
 
 // ─── Option data ──────────────────────────────────────────────────────────────
@@ -384,12 +387,13 @@ export default function OnboardingWizard({ isAuthenticated }: { isAuthenticated:
       body: JSON.stringify(submittingAnswers),
     })
       .then(async (res) => {
+        const body = await res.json().catch(() => ({}))
         if (!res.ok) {
-          const body = await res.json().catch(() => ({}))
           throw new Error(body.error || `Request failed (${res.status})`)
         }
         clearStorage()
-        window.location.href = '/'
+        // Rare: the handle got claimed between selection and save — let them re-pick.
+        window.location.href = body.username_taken ? '/profile' : '/'
       })
       .catch((err: unknown) => {
         const message = err instanceof Error ? err.message : 'Something went wrong'
@@ -563,6 +567,8 @@ export default function OnboardingWizard({ isAuthenticated }: { isAuthenticated:
 
   // ─── Create account screen (step 16) ────────────────────────────────────────
   if (step === 16) {
+    const usernameError = answers.username ? validateUsername(answers.username) : null
+    const usernameReady = !!answers.username && !usernameError
     return (
       <div className="min-h-screen bg-gradient-to-br from-brand-subtle to-cooking-subtle flex items-center justify-center p-4">
         <div className="w-full max-w-sm">
@@ -572,14 +578,35 @@ export default function OnboardingWizard({ isAuthenticated }: { isAuthenticated:
                 <ChefHat className="w-10 h-10 text-white" />
               </div>
             </div>
-            <h1 className="text-3xl font-bold text-gray-900">Almost ready!</h1>
+            <h1 className="text-3xl font-bold text-gray-900">Claim your handle</h1>
             <p className="text-gray-500 mt-3">
-              Create your free account to save your personalised plan.
+              Pick a username so friends can find you, then create your free account.
             </p>
           </div>
+
+          <div className="mb-5">
+            <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 focus-within:ring-2 focus-within:ring-brand/40">
+              <span className="text-gray-400">@</span>
+              <input
+                value={answers.username}
+                onChange={e => set('username', e.target.value.toLowerCase().slice(0, 20))}
+                placeholder="handle"
+                maxLength={20}
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                className="h-12 flex-1 bg-transparent text-base text-gray-900 outline-none placeholder:text-gray-400"
+              />
+            </div>
+            {usernameError && (
+              <p className="mt-1.5 px-1 text-xs font-medium text-red-500">{usernameError}</p>
+            )}
+          </div>
+
           <button
             onClick={handleCreateAccount}
-            className="w-full h-14 rounded-full bg-white border border-gray-200 shadow-sm flex items-center justify-center gap-3 text-gray-700 font-semibold text-base hover:bg-gray-50 active:scale-[0.98] transition-all"
+            disabled={!usernameReady}
+            className="w-full h-14 rounded-full bg-white border border-gray-200 shadow-sm flex items-center justify-center gap-3 text-gray-700 font-semibold text-base hover:bg-gray-50 active:scale-[0.98] transition-all disabled:opacity-50 disabled:active:scale-100"
           >
             <GoogleIcon />
             Continue with Google

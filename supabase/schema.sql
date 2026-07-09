@@ -220,3 +220,69 @@ create policy "Users can delete own plan slots"
   on weekly_plan_slots for delete using (
     exists (select 1 from weekly_plans where weekly_plans.id = weekly_plan_slots.plan_id and weekly_plans.user_id = auth.uid())
   );
+
+-- ============================================================
+-- FEATURE 09 · SOCIAL (friends, households, shared collections, activity feed)
+-- Mirrors supabase/migrations/add_social_*.sql — idempotent, safe to re-run.
+-- ============================================================
+
+-- ── Slice 1 · Identity ──────────────────────────────────────
+create extension if not exists citext;
+
+alter table profiles
+  add column if not exists username citext unique,
+  add column if not exists display_name text,
+  add column if not exists avatar_url text;
+
+create or replace function handle_new_user()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  insert into profiles (id, display_name, avatar_url)
+  values (
+    new.id,
+    new.raw_user_meta_data->>'full_name',
+    new.raw_user_meta_data->>'avatar_url'
+  )
+  on conflict (id) do update set
+    display_name = coalesce(profiles.display_name, excluded.display_name),
+    avatar_url   = coalesce(profiles.avatar_url, excluded.avatar_url);
+  return new;
+end;
+$$;
+
+create or replace trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute function handle_new_user();
+
+insert into profiles (id, display_name, avatar_url)
+select id,
+       raw_user_meta_data->>'full_name',
+       raw_user_meta_data->>'avatar_url'
+from auth.users
+on conflict (id) do update set
+  display_name = coalesce(profiles.display_name, excluded.display_name),
+  avatar_url   = coalesce(profiles.avatar_url, excluded.avatar_url);
+
+drop view if exists public_profiles;
+create view public_profiles
+  with (security_invoker = false)
+as
+  select id, username, display_name, avatar_url
+  from profiles
+  where username is not null;
+grant select on public_profiles to authenticated;
+
+create or replace function find_user_by_email(lookup_email text)
+returns table (id uuid, username citext, display_name text, avatar_url text)
+language plpgsql security definer stable set search_path = public as $$
+begin
+  return query
+    select p.id, p.username, p.display_name, p.avatar_url
+    from auth.users u
+    join profiles p on p.id = u.id
+    where lower(u.email) = lower(lookup_email)
+      and p.username is not null
+    limit 1;
+end;
+$$;
+grant execute on function find_user_by_email(text) to authenticated;

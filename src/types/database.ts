@@ -40,6 +40,9 @@ export interface Database {
       profiles: {
         Row: {
           id: string
+          username: string | null
+          display_name: string | null
+          avatar_url: string | null
           onboarding_completed: boolean
           household_size: string | null
           cook_frequency: string | null
@@ -56,6 +59,9 @@ export interface Database {
         }
         Insert: {
           id: string
+          username?: string | null
+          display_name?: string | null
+          avatar_url?: string | null
           onboarding_completed?: boolean
           household_size?: string | null
           cook_frequency?: string | null
@@ -133,7 +139,15 @@ export interface Database {
         }
         Insert: Omit<Database['public']['Tables']['ingredients']['Row'], 'id'> & { id?: string }
         Update: Partial<Database['public']['Tables']['ingredients']['Insert']>
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: 'ingredients_recipe_id_fkey'
+            columns: ['recipe_id']
+            isOneToOne: false
+            referencedRelation: 'recipes'
+            referencedColumns: ['id']
+          },
+        ]
       }
       cooking_log: {
         Row: {
@@ -148,7 +162,15 @@ export interface Database {
           cooked_at?: string
         }
         Update: Partial<Database['public']['Tables']['cooking_log']['Insert']>
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: 'cooking_log_recipe_id_fkey'
+            columns: ['recipe_id']
+            isOneToOne: false
+            referencedRelation: 'recipes'
+            referencedColumns: ['id']
+          },
+        ]
       }
       weekly_plans: {
         Row: {
@@ -174,7 +196,22 @@ export interface Database {
         }
         Insert: Omit<Database['public']['Tables']['weekly_plan_slots']['Row'], 'id'> & { id?: string }
         Update: Partial<Database['public']['Tables']['weekly_plan_slots']['Insert']>
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: 'weekly_plan_slots_plan_id_fkey'
+            columns: ['plan_id']
+            isOneToOne: false
+            referencedRelation: 'weekly_plans'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'weekly_plan_slots_recipe_id_fkey'
+            columns: ['recipe_id']
+            isOneToOne: false
+            referencedRelation: 'recipes'
+            referencedColumns: ['id']
+          },
+        ]
       }
       cookbooks: {
         Row: {
@@ -202,13 +239,53 @@ export interface Database {
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['cookbook_recipes']['Insert']>
+        Relationships: [
+          {
+            foreignKeyName: 'cookbook_recipes_cookbook_id_fkey'
+            columns: ['cookbook_id']
+            isOneToOne: false
+            referencedRelation: 'cookbooks'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'cookbook_recipes_recipe_id_fkey'
+            columns: ['recipe_id']
+            isOneToOne: false
+            referencedRelation: 'recipes'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+    }
+    Views: {
+      public_profiles: {
+        Row: {
+          id: string
+          username: string | null
+          display_name: string | null
+          avatar_url: string | null
+        }
         Relationships: []
       }
     }
-    Views: Record<string, never>
-    Functions: Record<string, never>
+    Functions: {
+      find_user_by_email: {
+        Args: { lookup_email: string }
+        Returns: {
+          id: string
+          username: string | null
+          display_name: string | null
+          avatar_url: string | null
+        }[]
+      }
+    }
   }
 }
+
+// ── Social identity ───────────────────────────────────────────────────────────
+
+/** The only profile fields ever exposed to other users (via `public_profiles`). */
+export type PublicProfile = Database['public']['Views']['public_profiles']['Row']
 
 export type Profile = Database['public']['Tables']['profiles']['Row']
 export type Recipe = Database['public']['Tables']['recipes']['Row']
