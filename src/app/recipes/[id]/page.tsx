@@ -8,8 +8,9 @@ import { classifyTechniques, getTechniqueKeys } from '@/lib/ai/classify-techniqu
 export default async function RecipePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
 
-  const [{ data: recipe }, cookbooks, profile, { data: techniques }] = await Promise.all([
+  const [{ data: recipe }, cookbooks, profile, { data: techniques }, { data: ranking }, { data: membership }] = await Promise.all([
     supabase
       .from('recipes')
       .select('*, ingredients(*), cooking_log(*), cookbook_recipes(cookbook_id)')
@@ -18,12 +19,22 @@ export default async function RecipePage({ params }: { params: Promise<{ id: str
     getCookbooks(),
     getProfile(),
     supabase.from('techniques').select('*').order('category').order('label'),
+    user
+      ? supabase.from('recipe_rankings').select('rank').eq('user_id', user.id).eq('recipe_id', id).maybeSingle()
+      : Promise.resolve({ data: null }),
+    user
+      ? supabase.from('household_members').select('household_id').eq('user_id', user.id).maybeSingle()
+      : Promise.resolve({ data: null }),
   ])
 
   if (!recipe) notFound()
 
   // Cast once — Supabase join types collapse to never without this
   const r = recipe as any
+  // rank shown on the detail page is the CURRENT user's personal rank.
+  r.rank = (ranking as { rank: number } | null)?.rank ?? null
+  const isOwner = !!user && r.user_id === user.id
+  const hasHousehold = !!(membership as { household_id: string } | null)?.household_id
 
   // Backfill techniques for recipes that predate classification
   if (!r.techniques?.length && r.instructions) {
@@ -41,6 +52,8 @@ export default async function RecipePage({ params }: { params: Promise<{ id: str
       initialCookbooks={cookbooks}
       skillProfile={profile?.skill_profile ?? null}
       techniques={(techniques || []) as any}
+      isOwner={isOwner}
+      hasHousehold={hasHousehold}
     />
   )
 }

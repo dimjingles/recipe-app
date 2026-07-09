@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
+// Writes ONLY the current user's ranking (recipe_rankings). Household members
+// each keep their own order for the same recipe; this never touches theirs.
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
@@ -13,32 +15,27 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: 'Invalid position' }, { status: 400 })
     }
 
-    // Load all currently ranked recipes for this user, ordered by rank
-    const { data: ranked, error } = await supabase
-      .from('recipes')
-      .select('id, rank')
+    // The current user's existing rankings, in order.
+    const { data: rankings, error } = await supabase
+      .from('recipe_rankings')
+      .select('recipe_id, rank')
       .eq('user_id', user.id)
-      .not('rank', 'is', null)
       .order('rank', { ascending: true })
-
     if (error) throw error
 
-    // Remove this recipe from the list if it's already ranked (re-rank case)
-    const others: { id: string; rank: number | null }[] = (ranked || []).filter(r => r.id !== id)
-
-    // Splice this recipe in at the target position (clamp to valid range)
+    const others = (rankings ?? []).filter(r => r.recipe_id !== id)
     const insertAt = Math.min(position - 1, others.length)
-    others.splice(insertAt, 0, { id, rank: null })
+    others.splice(insertAt, 0, { recipe_id: id, rank: 0 })
 
-    // Renumber 1..N and persist all changed rows
-    const updates = others.map((r, i) => ({ id: r.id, rank: i + 1 }))
-    for (const u of updates) {
-      await supabase
-        .from('recipes')
-        .update({ rank: u.rank })
-        .eq('id', u.id)
-        .eq('user_id', user.id)
-    }
+    // Renumber 1..N and persist in one statement — the unique(user_id, rank)
+    // constraint is DEFERRABLE INITIALLY DEFERRED, so intermediate collisions
+    // within the statement are fine.
+    const now = new Date().toISOString()
+    const rows = others.map((r, i) => ({ user_id: user.id, recipe_id: r.recipe_id, rank: i + 1, updated_at: now }))
+    const { error: upErr } = await supabase
+      .from('recipe_rankings')
+      .upsert(rows, { onConflict: 'user_id,recipe_id' })
+    if (upErr) throw upErr
 
     return NextResponse.json({ success: true, rank: insertAt + 1 })
   } catch (error: any) {

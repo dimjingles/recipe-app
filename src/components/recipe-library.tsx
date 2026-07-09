@@ -39,12 +39,15 @@ interface Recommendation {
 export default function RecipeLibrary({
   initialRecipes,
   initialCookbooks,
+  hasHousehold = false,
 }: {
   initialRecipes: RecipeWithIngredients[]
   initialCookbooks: CookbookWithCount[]
+  hasHousehold?: boolean
 }) {
   const router = useRouter()
   const [search, setSearch] = useState('')
+  const [scope, setScope] = useState<'all' | 'personal' | 'household'>('all')
   const [selectedCuisine, setSelectedCuisine] = useState<string | null>(null)
   const [selectedType, setSelectedType] = useState<string | null>(null)
   const [selectedTag, setSelectedTag] = useState<string | null>(null)
@@ -212,7 +215,11 @@ export default function RecipeLibrary({
   const scopedRecipes = initialRecipes.filter(r => {
     const matchesCookbook = !selectedCookbook ||
       (r.cookbook_recipes || []).some(cr => cr.cookbook_id === selectedCookbook)
-    return matchesCookbook
+    const ownerScope = (r as { owner_scope?: string }).owner_scope ?? 'user'
+    const matchesScope =
+      scope === 'all' ||
+      (scope === 'personal' ? ownerScope === 'user' : ownerScope === 'household')
+    return matchesCookbook && matchesScope
   })
   const cookedCount = scopedRecipes.filter(r => r.cooked_count > 0).length
   const bookmarkedCount = scopedRecipes.filter(r => r.cooked_count === 0).length
@@ -347,6 +354,23 @@ export default function RecipeLibrary({
           )
         })}
       </div>
+
+      {/* Personal | Household | All scope */}
+      {hasHousehold && (
+        <div className="mb-4 flex gap-1 rounded-2xl bg-muted p-1">
+          {([['all', 'All'], ['personal', 'Personal'], ['household', 'Household']] as const).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setScope(key)}
+              className={`flex-1 rounded-xl py-1.5 text-sm font-bold transition-colors ${
+                scope === key ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Search */}
       <div className="relative mb-4">

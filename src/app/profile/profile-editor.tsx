@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { UserAvatar } from '@/components/user-avatar'
 import { validateUsername } from '@/lib/username'
+import HouseholdCard, { HouseholdData } from './household-card'
 
 interface Identity {
   username: string
@@ -16,7 +17,15 @@ interface Identity {
   avatar_url: string
 }
 
-export default function ProfileEditor({ initial, email }: { initial: Identity; email: string }) {
+export default function ProfileEditor({
+  initial,
+  email,
+  household,
+}: {
+  initial: Identity
+  email: string
+  household: HouseholdData | null
+}) {
   const router = useRouter()
   const [username, setUsername] = useState(initial.username)
   const [displayName, setDisplayName] = useState(initial.display_name)
@@ -164,6 +173,8 @@ export default function ProfileEditor({ initial, email }: { initial: Identity; e
       >
         {saving ? 'Saving…' : 'Save profile'}
       </Button>
+
+      <HouseholdCard initialHousehold={household} />
 
       <form action="/auth/signout" method="POST" className="mt-6">
         <button

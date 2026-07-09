@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, PenLine, Trash2, X } from 'lucide-react'
+import { ArrowLeft, PenLine, Trash2, X, Home } from 'lucide-react'
 import { toast } from 'sonner'
 import { Input } from '@/components/ui/input'
 import { RecipeCard } from '@/components/recipe-card'
@@ -11,9 +11,11 @@ import { CookbookWithRecipes, Recipe } from '@/types/database'
 
 interface CookbookDetailViewProps {
   cookbook: CookbookWithRecipes
+  canManage?: boolean
+  hasHousehold?: boolean
 }
 
-export default function CookbookDetailView({ cookbook }: CookbookDetailViewProps) {
+export default function CookbookDetailView({ cookbook, canManage = true, hasHousehold = false }: CookbookDetailViewProps) {
   const router = useRouter()
   const [name, setName] = useState(cookbook.name)
   const [recipes, setRecipes] = useState<Recipe[]>(
@@ -24,6 +26,28 @@ export default function CookbookDetailView({ cookbook }: CookbookDetailViewProps
   const [saving, setSaving] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [removingId, setRemovingId] = useState<string | null>(null)
+  const [ownerScope, setOwnerScope] = useState<string>((cookbook as { owner_scope?: string }).owner_scope ?? 'user')
+  const [sharing, setSharing] = useState(false)
+
+  const toggleHouseholdShare = async () => {
+    const next = ownerScope !== 'household'
+    setSharing(true)
+    try {
+      const res = await fetch(`/api/cookbooks/${cookbook.id}/share`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shared: next }),
+      })
+      if (!res.ok) throw new Error((await res.json()).error || 'Failed')
+      setOwnerScope(next ? 'household' : 'user')
+      toast.success(next ? 'Shared with your household' : 'Now personal again')
+      router.refresh()
+    } catch (e: any) {
+      toast.error(e.message || 'Could not update sharing')
+    } finally {
+      setSharing(false)
+    }
+  }
 
   const commitRename = async () => {
     if (!renameValue.trim() || renameValue.trim() === name) { setEditing(false); return }
@@ -112,23 +136,45 @@ export default function CookbookDetailView({ cookbook }: CookbookDetailViewProps
           </p>
         </div>
 
-        <div className="flex gap-1 shrink-0 mt-0.5">
-          <button
-            onClick={() => { setShowDeleteConfirm(false); setEditing(true); setRenameValue(name) }}
-            className="p-1.5 text-muted-foreground hover:text-foreground transition-colors"
-            aria-label="Rename cookbook"
-          >
-            <PenLine className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => { setEditing(false); setShowDeleteConfirm(s => !s) }}
-            className="p-1.5 text-muted-foreground hover:text-destructive transition-colors"
-            aria-label="Delete cookbook"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
-        </div>
+        {canManage && (
+          <div className="flex gap-1 shrink-0 mt-0.5">
+            <button
+              onClick={() => { setShowDeleteConfirm(false); setEditing(true); setRenameValue(name) }}
+              className="p-1.5 text-muted-foreground hover:text-foreground transition-colors"
+              aria-label="Rename cookbook"
+            >
+              <PenLine className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => { setEditing(false); setShowDeleteConfirm(s => !s) }}
+              className="p-1.5 text-muted-foreground hover:text-destructive transition-colors"
+              aria-label="Delete cookbook"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          </div>
+        )}
       </div>
+
+      {/* Household sharing */}
+      {canManage && hasHousehold ? (
+        <button
+          onClick={toggleHouseholdShare}
+          disabled={sharing}
+          className={`mb-4 flex w-full items-center justify-center gap-2 rounded-2xl border px-4 py-2.5 text-sm font-semibold transition-all active:scale-[0.98] disabled:opacity-60 ${
+            ownerScope === 'household'
+              ? 'border-sage/30 bg-sage-subtle text-sage'
+              : 'border-border bg-card text-muted-foreground hover:border-brand hover:text-brand'
+          }`}
+        >
+          <Home className="h-4 w-4" />
+          {ownerScope === 'household' ? 'Shared with household · tap to make personal' : 'Share with household'}
+        </button>
+      ) : ownerScope === 'household' ? (
+        <div className="mb-4 flex w-full items-center justify-center gap-2 rounded-2xl border border-sage/30 bg-sage-subtle px-4 py-2.5 text-sm font-semibold text-sage">
+          <Home className="h-4 w-4" /> Shared with household
+        </div>
+      ) : null}
 
       {/* Delete confirm */}
       {showDeleteConfirm && (
@@ -168,14 +214,16 @@ export default function CookbookDetailView({ cookbook }: CookbookDetailViewProps
               variant="list"
               onClick={() => router.push(`/recipes/${recipe.id}`)}
               action={
-                <button
-                  onClick={e => { e.stopPropagation(); removeRecipe(recipe.id) }}
-                  disabled={removingId === recipe.id}
-                  className="shrink-0 w-7 h-7 flex items-center justify-center rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-40"
-                  aria-label="Remove from cookbook"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
+                canManage ? (
+                  <button
+                    onClick={e => { e.stopPropagation(); removeRecipe(recipe.id) }}
+                    disabled={removingId === recipe.id}
+                    className="shrink-0 w-7 h-7 flex items-center justify-center rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-40"
+                    aria-label="Remove from cookbook"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                ) : undefined
               }
             />
           ))}

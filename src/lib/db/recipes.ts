@@ -6,19 +6,41 @@ export async function getRecipes() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return []
 
-  const { data, error } = await supabase
-    .from('recipes')
-    .select('*, ingredients(*), cookbook_recipes(cookbook_id)')
+  // Library = the user's own recipes + any household-shared recipes. We filter
+  // explicitly (not just via RLS) so friend-visible recipes never leak in here.
+  const { data: membership } = await supabase
+    .from('household_members')
+    .select('household_id')
     .eq('user_id', user.id)
-    .order('rank', { ascending: true, nullsFirst: false })
-    .order('created_at', { ascending: false })
+    .maybeSingle()
+  const householdId = membership?.household_id ?? null
 
+  let query = supabase.from('recipes').select('*, ingredients(*), cookbook_recipes(cookbook_id)')
+  query = householdId
+    ? query.or(`user_id.eq.${user.id},and(owner_scope.eq.household,household_id.eq.${householdId})`)
+    : query.eq('user_id', user.id)
+
+  const [{ data, error }, { data: rankRows }] = await Promise.all([
+    query,
+    supabase.from('recipe_rankings').select('recipe_id, rank').eq('user_id', user.id),
+  ])
   if (error) { console.error(error); return [] }
-  return data as RecipeWithIngredients[]
+
+  // Order by the CURRENT user's personal ranking, then newest-first.
+  const ranks = new Map((rankRows ?? []).map(r => [r.recipe_id, r.rank]))
+  const recipes = (data ?? []).map(r => ({ ...r, rank: ranks.get(r.id) ?? null }))
+  recipes.sort((a, b) => {
+    if (a.rank != null && b.rank != null) return a.rank - b.rank
+    if (a.rank != null) return -1
+    if (b.rank != null) return 1
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  })
+  return recipes as unknown as RecipeWithIngredients[]
 }
 
 export async function getRecipe(id: string) {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
 
   const { data, error } = await supabase
     .from('recipes')
@@ -27,7 +49,21 @@ export async function getRecipe(id: string) {
     .single()
 
   if (error) { console.error(error); return null }
-  return data as RecipeWithDetails
+
+  const recipe = data as RecipeWithDetails
+  // rank shown on the detail page is the current user's personal rank.
+  if (user) {
+    const { data: ranking } = await supabase
+      .from('recipe_rankings')
+      .select('rank')
+      .eq('user_id', user.id)
+      .eq('recipe_id', id)
+      .maybeSingle()
+    recipe.rank = ranking?.rank ?? null
+  } else {
+    recipe.rank = null
+  }
+  return recipe
 }
 
 export async function createRecipe(recipe: {
