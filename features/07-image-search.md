@@ -28,7 +28,15 @@ on the recipe detail page.
 
 - **Pre-fill the query with the recipe title.** Let the user edit it before searching (e.g.
   they might want "chocolate lava cake cross section" instead of just "Chocolate Lava Cake").
-- **Image API: Google Programmable Search Engine (PSE) / Custom Search JSON API.**
+- **Image API (as shipped): Serper.dev primary + Openverse fallback.** The original plan
+  below chose Google PSE, but that path was abandoned — the Google Cloud project never
+  provisioned Custom Search API access (persistent project-level 403 even with a valid key,
+  the API enabled, and active billing; see `bugs/BUG-004`). The route now calls **Serper.dev**
+  (`POST https://google.serper.dev/images`, `SERPER_API_KEY`) for real Google Images results,
+  and falls back to **Openverse** (`https://api.openverse.org/v1/images/`, keyless CC / public
+  domain) whenever Serper is unconfigured or fails — so search can never regress to "not
+  configured". The Google PSE plan is retained below for historical context.
+- **Image API: Google Programmable Search Engine (PSE) / Custom Search JSON API.** _(Superseded — see above.)_
   This is the practical, legitimate way to query Google Images programmatically. Setup:
   1. Create a Programmable Search Engine at https://programmablesearchengine.google.com,
      scoped to the whole web, image-search enabled.
