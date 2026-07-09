@@ -92,15 +92,17 @@ export interface Database {
           cooked_count: number
           last_cooked_at: string | null
           rank: number | null
+          feedback: 'like' | 'okay' | 'dislike' | null
           recipe_type: string | null
           created_at: string
         }
-        Insert: Omit<Database['public']['Tables']['recipes']['Row'], 'id' | 'created_at' | 'cooked_count' | 'last_cooked_at' | 'rank' | 'recipe_type' | 'gallery_images' | 'techniques' | 'instruction_steps'> & {
+        Insert: Omit<Database['public']['Tables']['recipes']['Row'], 'id' | 'created_at' | 'cooked_count' | 'last_cooked_at' | 'rank' | 'feedback' | 'recipe_type' | 'gallery_images' | 'techniques' | 'instruction_steps'> & {
           id?: string
           created_at?: string
           cooked_count?: number
           last_cooked_at?: string | null
           rank?: number | null
+          feedback?: 'like' | 'okay' | 'dislike' | null
           recipe_type?: string | null
           gallery_images?: string[]
           difficulty?: number | null
