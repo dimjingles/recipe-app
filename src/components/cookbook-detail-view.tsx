@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, PenLine, Trash2, X, Home } from 'lucide-react'
+import { ArrowLeft, PenLine, Trash2, X, Home, Users, Lock } from 'lucide-react'
 import { toast } from 'sonner'
 import { Input } from '@/components/ui/input'
 import { RecipeCard } from '@/components/recipe-card'
@@ -28,6 +28,28 @@ export default function CookbookDetailView({ cookbook, canManage = true, hasHous
   const [removingId, setRemovingId] = useState<string | null>(null)
   const [ownerScope, setOwnerScope] = useState<string>((cookbook as { owner_scope?: string }).owner_scope ?? 'user')
   const [sharing, setSharing] = useState(false)
+  const [visibility, setVisibility] = useState<string>((cookbook as { visibility?: string }).visibility ?? 'friends')
+  const [savingVisibility, setSavingVisibility] = useState(false)
+
+  const toggleVisibility = async () => {
+    const next = visibility === 'friends' ? 'private' : 'friends'
+    setSavingVisibility(true)
+    try {
+      const res = await fetch(`/api/cookbooks/${cookbook.id}/visibility`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ visibility: next }),
+      })
+      if (!res.ok) throw new Error((await res.json()).error || 'Failed')
+      setVisibility(next)
+      toast.success(next === 'friends' ? 'Visible to friends' : 'Now private')
+      router.refresh()
+    } catch (e: any) {
+      toast.error(e.message || 'Could not update visibility')
+    } finally {
+      setSavingVisibility(false)
+    }
+  }
 
   const toggleHouseholdShare = async () => {
     const next = ownerScope !== 'household'
@@ -155,6 +177,22 @@ export default function CookbookDetailView({ cookbook, canManage = true, hasHous
           </div>
         )}
       </div>
+
+      {/* Visibility (owner only) */}
+      {canManage && (
+        <button
+          onClick={toggleVisibility}
+          disabled={savingVisibility}
+          className={`mb-3 flex w-full items-center justify-center gap-2 rounded-2xl border px-4 py-2.5 text-sm font-semibold transition-all active:scale-[0.98] disabled:opacity-60 ${
+            visibility === 'friends'
+              ? 'border-brand/30 bg-brand-subtle text-brand'
+              : 'border-border bg-card text-muted-foreground'
+          }`}
+        >
+          {visibility === 'friends' ? <Users className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+          {visibility === 'friends' ? 'Visible to friends · tap to make private' : 'Private · tap to share with friends'}
+        </button>
+      )}
 
       {/* Household sharing */}
       {canManage && hasHousehold ? (

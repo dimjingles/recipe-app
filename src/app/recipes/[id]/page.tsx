@@ -33,11 +33,15 @@ export default async function RecipePage({ params }: { params: Promise<{ id: str
   const r = recipe as any
   // rank shown on the detail page is the CURRENT user's personal rank.
   r.rank = (ranking as { rank: number } | null)?.rank ?? null
+  const myHouseholdId = (membership as { household_id: string } | null)?.household_id ?? null
   const isOwner = !!user && r.user_id === user.id
-  const hasHousehold = !!(membership as { household_id: string } | null)?.household_id
+  const hasHousehold = !!myHouseholdId
+  // A household member can edit shared recipes; anyone else (a friend browsing) is read-only.
+  const canEdit = isOwner || (r.owner_scope === 'household' && !!r.household_id && r.household_id === myHouseholdId)
+  const readOnly = !canEdit
 
-  // Backfill techniques for recipes that predate classification
-  if (!r.techniques?.length && r.instructions) {
+  // Backfill techniques for recipes that predate classification (owner/household only)
+  if (!readOnly && !r.techniques?.length && r.instructions) {
     const keys = await getTechniqueKeys(supabase)
     const classified = await classifyTechniques(r.name, r.instructions, keys)
     if (classified.length) {
@@ -54,6 +58,7 @@ export default async function RecipePage({ params }: { params: Promise<{ id: str
       techniques={(techniques || []) as any}
       isOwner={isOwner}
       hasHousehold={hasHousehold}
+      readOnly={readOnly}
     />
   )
 }

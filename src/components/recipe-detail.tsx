@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Clock, Users, Edit, ChefHat, Trophy, X, BookOpen, Plus, Home } from 'lucide-react'
+import { ArrowLeft, Clock, Users, Edit, ChefHat, Trophy, X, BookOpen, Plus, Home, Lock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { BottomSheet } from '@/components/ui/bottom-sheet'
 import { Input } from '@/components/ui/input'
@@ -376,6 +376,7 @@ export default function RecipeDetail({
   techniques,
   isOwner = true,
   hasHousehold = false,
+  readOnly = false,
 }: {
   recipe: RecipeWithDetails
   initialCookbooks: Cookbook[]
@@ -383,6 +384,7 @@ export default function RecipeDetail({
   techniques?: Technique[]
   isOwner?: boolean
   hasHousehold?: boolean
+  readOnly?: boolean
 }) {
   const router = useRouter()
   const [showCook, setShowCook] = useState(false)
@@ -394,6 +396,28 @@ export default function RecipeDetail({
   const [currentRank, setCurrentRank] = useState<number | null>(recipe.rank)
   const [ownerScope, setOwnerScope] = useState<string>((recipe as { owner_scope?: string }).owner_scope ?? 'user')
   const [sharing, setSharing] = useState(false)
+  const [visibility, setVisibility] = useState<string>((recipe as { visibility?: string }).visibility ?? 'friends')
+  const [savingVisibility, setSavingVisibility] = useState(false)
+
+  const toggleVisibility = async () => {
+    const next = visibility === 'friends' ? 'private' : 'friends'
+    setSavingVisibility(true)
+    try {
+      const res = await fetch(`/api/recipes/${recipe.id}/visibility`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ visibility: next }),
+      })
+      if (!res.ok) throw new Error((await res.json()).error || 'Failed')
+      setVisibility(next)
+      toast.success(next === 'friends' ? 'Visible to friends' : 'Now private')
+      router.refresh()
+    } catch (e: any) {
+      toast.error(e.message || 'Could not update visibility')
+    } finally {
+      setSavingVisibility(false)
+    }
+  }
 
   const toggleHouseholdShare = async () => {
     const next = ownerScope !== 'household'
@@ -493,9 +517,11 @@ export default function RecipeDetail({
             <Link href="/recipes" className="text-white/90 hover:text-white bg-black/20 rounded-full p-1.5">
               <ArrowLeft className="w-5 h-5" />
             </Link>
-            <Link href={`/recipes/${recipe.id}/edit`} className="text-white/90 hover:text-white bg-black/20 rounded-full p-1.5">
-              <Edit className="w-4 h-4" />
-            </Link>
+            {!readOnly && (
+              <Link href={`/recipes/${recipe.id}/edit`} className="text-white/90 hover:text-white bg-black/20 rounded-full p-1.5">
+                <Edit className="w-4 h-4" />
+              </Link>
+            )}
           </div>
         </div>
       )}
@@ -546,9 +572,11 @@ export default function RecipeDetail({
             <Link href="/recipes" className="text-muted-foreground hover:text-foreground p-1 -ml-1 active:scale-[0.95] transition-all">
               <ArrowLeft className="w-5 h-5" />
             </Link>
-            <Link href={`/recipes/${recipe.id}/edit`} className="text-muted-foreground hover:text-foreground p-2 active:scale-[0.95] transition-all">
-              <Edit className="w-4 h-4" />
-            </Link>
+            {!readOnly && (
+              <Link href={`/recipes/${recipe.id}/edit`} className="text-muted-foreground hover:text-foreground p-2 active:scale-[0.95] transition-all">
+                <Edit className="w-4 h-4" />
+              </Link>
+            )}
           </div>
           {/* Large emoji + title */}
           <div className="flex items-start gap-4">
@@ -597,6 +625,7 @@ export default function RecipeDetail({
       {/* ── Content (pulled up over gradient, or flush after warm header) ── */}
       <div className={`px-4 ${recipe.image_url ? '-mt-4' : 'mt-4'}`}>
         {/* Action buttons */}
+        {!readOnly && (
         <div className="flex gap-2 mb-6">
           {cookedCount === 0 && (
             <Button
@@ -632,6 +661,23 @@ export default function RecipeDetail({
             <BookOpen className="w-4 h-4" />
           </Button>
         </div>
+        )}
+
+        {/* Visibility (owner only) */}
+        {isOwner && !readOnly && (
+          <button
+            onClick={toggleVisibility}
+            disabled={savingVisibility}
+            className={`mb-3 flex w-full items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-sm font-semibold transition-all active:scale-[0.98] disabled:opacity-60 ${
+              visibility === 'friends'
+                ? 'border-brand/30 bg-brand-subtle text-brand'
+                : 'border-border bg-card text-muted-foreground'
+            }`}
+          >
+            {visibility === 'friends' ? <Users className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+            {visibility === 'friends' ? 'Visible to friends · tap to make private' : 'Private · tap to share with friends'}
+          </button>
+        )}
 
         {/* Household sharing */}
         {isOwner && hasHousehold ? (
@@ -751,7 +797,7 @@ export default function RecipeDetail({
         )}
 
         {/* Cooking history — amber accent */}
-        {logs.length > 0 && (
+        {!readOnly && logs.length > 0 && (
           <div className="mb-6">
             <h2 className="font-heading font-bold text-foreground text-lg mb-3">Cooking History</h2>
             <div className="space-y-2">

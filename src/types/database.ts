@@ -101,9 +101,10 @@ export interface Database {
           recipe_type: string | null
           owner_scope: string
           household_id: string | null
+          visibility: string
           created_at: string
         }
-        Insert: Omit<Database['public']['Tables']['recipes']['Row'], 'id' | 'created_at' | 'cooked_count' | 'last_cooked_at' | 'rank' | 'recipe_type' | 'gallery_images' | 'techniques' | 'instruction_steps' | 'owner_scope' | 'household_id'> & {
+        Insert: Omit<Database['public']['Tables']['recipes']['Row'], 'id' | 'created_at' | 'cooked_count' | 'last_cooked_at' | 'rank' | 'recipe_type' | 'gallery_images' | 'techniques' | 'instruction_steps' | 'owner_scope' | 'household_id' | 'visibility'> & {
           id?: string
           created_at?: string
           cooked_count?: number
@@ -112,6 +113,7 @@ export interface Database {
           recipe_type?: string | null
           owner_scope?: string
           household_id?: string | null
+          visibility?: string
           gallery_images?: string[]
           difficulty?: number | null
           techniques?: string[]
@@ -224,12 +226,14 @@ export interface Database {
           name: string
           owner_scope: string
           household_id: string | null
+          visibility: string
           created_at: string
         }
-        Insert: Omit<Database['public']['Tables']['cookbooks']['Row'], 'id' | 'created_at' | 'owner_scope' | 'household_id'> & {
+        Insert: Omit<Database['public']['Tables']['cookbooks']['Row'], 'id' | 'created_at' | 'owner_scope' | 'household_id' | 'visibility'> & {
           id?: string
           owner_scope?: string
           household_id?: string | null
+          visibility?: string
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['cookbooks']['Insert']>

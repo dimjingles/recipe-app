@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { SupabaseClient } from '@supabase/supabase-js'
-import { Database, PublicProfile } from '@/types/database'
+import { Database, PublicProfile, Recipe, CookbookWithCount } from '@/types/database'
 import { normalizeUsername, sanitizeUsernameQuery, validateUsername } from '@/lib/username'
 
 type Client = SupabaseClient<Database>
@@ -191,4 +191,48 @@ export async function unfriend(otherId: string): Promise<void> {
   const supabase = await createClient()
   const { error } = await supabase.rpc('unfriend', { other_id: otherId })
   if (error) throw error
+}
+
+// ── Friend browse (visibility enforced by RLS, not app filtering) ─────────────
+
+/**
+ * Recipes OWNED by `userId` that the current user is allowed to see. We filter
+ * by user_id (whose profile we're viewing) and let RLS drop anything private —
+ * we never bypass RLS or assume visibility in app code.
+ */
+export async function getFriendRecipes(userId: string): Promise<Recipe[]> {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('recipes')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+  if (error) { console.error('getFriendRecipes error:', error); return [] }
+  return (data ?? []) as Recipe[]
+}
+
+/** Cookbooks owned by `userId` the current user can see (RLS-filtered). */
+export async function getFriendCookbooks(userId: string): Promise<CookbookWithCount[]> {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('cookbooks')
+    .select('*, cookbook_recipes(recipe_id)')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+  if (error) { console.error('getFriendCookbooks error:', error); return [] }
+  return (data ?? []) as CookbookWithCount[]
+}
+
+/** Public profile + counts of what the current user can see. */
+export async function getFriendProfile(username: string): Promise<
+  { profile: PublicProfile; recipeCount: number; cookbookCount: number } | null
+> {
+  const profile = await getPublicProfile(username)
+  if (!profile) return null
+  const supabase = await createClient()
+  const [{ count: rc }, { count: cc }] = await Promise.all([
+    supabase.from('recipes').select('id', { count: 'exact', head: true }).eq('user_id', profile.id),
+    supabase.from('cookbooks').select('id', { count: 'exact', head: true }).eq('user_id', profile.id),
+  ])
+  return { profile, recipeCount: rc ?? 0, cookbookCount: cc ?? 0 }
 }
