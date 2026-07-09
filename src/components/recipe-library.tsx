@@ -501,43 +501,30 @@ export default function RecipeLibrary({
       ) : (
         <div className="pb-24 space-y-6">
           {filtered.length > 0 && (
-            selectedCategory === 'cooked' ? (
-              <div className="grid gap-3 md:grid-cols-2">
-                {filtered.map((recipe, i) => (
-                  <RecipeCard
-                    key={recipe.id}
-                    recipe={recipe}
-                    variant="list"
-                    onClick={() => router.push(`/recipes/${recipe.id}`)}
-                    className="animate-fade-in-up"
-                    style={{ animationDelay: `${i * 40}ms` }}
-                    action={
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        {recipe.cook_time_minutes ? (
-                          <span className="flex items-center gap-0.5 shrink-0">
-                            <Clock className="w-3 h-3" /> {recipe.cook_time_minutes}m
-                          </span>
-                        ) : null}
+            <div className="grid gap-3 md:grid-cols-2">
+              {filtered.map((recipe, i) => (
+                <RecipeCard
+                  key={recipe.id}
+                  recipe={recipe}
+                  variant="list"
+                  onClick={() => router.push(`/recipes/${recipe.id}`)}
+                  className="animate-fade-in-up"
+                  style={{ animationDelay: `${i * 40}ms` }}
+                  action={
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      {recipe.cook_time_minutes ? (
+                        <span className="flex items-center gap-0.5 shrink-0">
+                          <Clock className="w-3 h-3" /> {recipe.cook_time_minutes}m
+                        </span>
+                      ) : null}
+                      {recipe.cooked_count > 0 ? (
                         <span className="shrink-0">🍳×{recipe.cooked_count}</span>
-                      </div>
-                    }
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
-                {filtered.map((recipe, i) => (
-                  <RecipeCard
-                    key={recipe.id}
-                    recipe={recipe}
-                    variant="grid"
-                    onClick={() => router.push(`/recipes/${recipe.id}`)}
-                    className="animate-fade-in-up"
-                    style={{ animationDelay: `${i * 40}ms` }}
-                  />
-                ))}
-              </div>
-            )
+                      ) : null}
+                    </div>
+                  }
+                />
+              ))}
+            </div>
           )}
 
           {/* Online search results */}
