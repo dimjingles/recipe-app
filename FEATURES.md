@@ -174,6 +174,7 @@ and technique tracks in dependency order.
 | 04 | [features/04-recipe-technique-breakdown.md](features/04-recipe-technique-breakdown.md) | Technique mastery badges on the recipe detail page | 03, 05 | Built |
 | 05 | [features/05-skill-progression.md](features/05-skill-progression.md) | Chef AI stretches user toward harder techniques | 00, 03 | Built |
 | 06 | [features/06-gamified-skill-map.md](features/06-gamified-skill-map.md) | "My Skills" gamified skill tree page | 03, 05 | Built |
+| 13 | (see "13 — Guided Cook Mode" below) | Full-screen guided cook mode: step-by-step view, wake lock, auto/manual timers, opt-in voice control, ingredient check-off, mark-as-cooked | recipe detail, cooking log | Built |
 | 08 | [features/08-smart-meal-planning.md](features/08-smart-meal-planning.md) | Preference-aware AI auto-fill, smart recipe picker, plan diversity tools | — | Pending |
 | 09 | [features/09-social-friends.md](features/09-social-friends.md) | Friends, households, shared recipe libraries & activity feed | — | Pending |
 | 17 | [features/17-grocery-savings-engine.md](features/17-grocery-savings-engine.md) | Sale-matched recipe badges, cost estimation, budget-aware planning, flyer import | — | Pending |
@@ -368,9 +369,21 @@ reuse `households`, `household_members`, and `recipe_rankings` from feature 09.
 
 ---
 
-### 13 — Guided Cook Mode
+### 13 — Guided Cook Mode ✅ Built
 
 **Priority: 3 — turns Mise from a recipe storage app into a cooking companion**
+
+> **Shipped.** Full-screen route `/recipes/[id]/cook` (`src/components/cook/cook-mode.tsx`),
+> launched by a "Start Cooking" CTA on the recipe detail page. One step per screen with a
+> progress bar and large text; Screen Wake Lock keeps the display on where supported
+> (`src/lib/cook/use-wake-lock.ts`). Timers are auto-detected from time phrases in each step
+> (`src/lib/cook/durations.ts`) plus a manual timer sheet, and keep running across steps with
+> a wall-clock tick + beep/vibrate alarm (`src/lib/cook/use-cook-timers.ts`). Opt-in voice
+> control ("next" / "back" / "repeat" / "start timer") via the Web Speech API degrades
+> gracefully where unsupported (`src/lib/cook/use-voice-control.ts`). Ingredient check-off
+> lives in a bottom sheet (local state). The final screen offers "Mark as Cooked" with an
+> optional notes field, posting through the existing `/api/recipes/[id]/log` path. Static
+> reading mode on the recipe detail page is unchanged.
 
 - **Full-screen step mode** — tap "Start Cooking" from the recipe detail; each step fills
   the screen, large readable text, screen stays awake.

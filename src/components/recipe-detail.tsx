@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Clock, Users, Edit, ChefHat, Trophy, X, BookOpen, Plus } from 'lucide-react'
+import { ArrowLeft, Clock, Users, Edit, ChefHat, Trophy, X, BookOpen, Plus, Play } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { BottomSheet } from '@/components/ui/bottom-sheet'
 import { Input } from '@/components/ui/input'
@@ -570,6 +570,16 @@ export default function RecipeDetail({
 
       {/* ── Content (pulled up over gradient, or flush after warm header) ── */}
       <div className={`px-4 ${recipe.image_url ? '-mt-4' : 'mt-4'}`}>
+        {/* Guided cook mode — primary CTA when the recipe has steps */}
+        {recipe.instructions && (
+          <Link
+            href={`/recipes/${recipe.id}/cook`}
+            className="mb-3 flex items-center justify-center gap-2 w-full bg-brand text-brand-foreground hover:bg-brand/90 font-semibold h-14 rounded-2xl shadow-md active:scale-[0.98] transition-all text-base"
+          >
+            <Play className="w-5 h-5" /> Start Cooking
+          </Link>
+        )}
+
         {/* Action buttons */}
         <div className="flex gap-2 mb-6">
           {cookedCount === 0 && (
