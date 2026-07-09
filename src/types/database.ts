@@ -34,6 +34,28 @@ export interface SkillProfile {
   last_stretch_technique: string | null
 }
 
+// ── AI Recipe Adaptation ──────────────────────────────────────────────────────
+export type AdaptationType =
+  | 'dietary_swap'
+  | 'portion_scaling'
+  | 'pantry_substitution'
+  | 'freeform'
+
+/** Provenance stored on a variant recipe's `adaptation_metadata` column. */
+export interface AdaptationMetadata {
+  adaptation_type: AdaptationType
+  /** The user's request, e.g. "make it vegan" or "I don't have eggs". */
+  user_request: string
+  /** Material changes the user should know about (texture, flavour, technique). */
+  warnings: string[]
+  /** Per-ingredient substitution notes explaining what changed and why. */
+  substitution_notes: string[]
+  /** The recipe this variant was adapted from (may since be deleted). */
+  created_from_recipe_id: string
+  /** Snapshot of the original name for display even if the original is gone. */
+  created_from_name: string
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -93,9 +115,11 @@ export interface Database {
           last_cooked_at: string | null
           rank: number | null
           recipe_type: string | null
+          original_recipe_id: string | null
+          adaptation_metadata: AdaptationMetadata | null
           created_at: string
         }
-        Insert: Omit<Database['public']['Tables']['recipes']['Row'], 'id' | 'created_at' | 'cooked_count' | 'last_cooked_at' | 'rank' | 'recipe_type' | 'gallery_images' | 'techniques' | 'instruction_steps'> & {
+        Insert: Omit<Database['public']['Tables']['recipes']['Row'], 'id' | 'created_at' | 'cooked_count' | 'last_cooked_at' | 'rank' | 'recipe_type' | 'gallery_images' | 'techniques' | 'instruction_steps' | 'original_recipe_id' | 'adaptation_metadata'> & {
           id?: string
           created_at?: string
           cooked_count?: number
@@ -106,6 +130,8 @@ export interface Database {
           difficulty?: number | null
           techniques?: string[]
           instruction_steps?: InstructionStep[] | null
+          original_recipe_id?: string | null
+          adaptation_metadata?: AdaptationMetadata | null
         }
         Update: Partial<Database['public']['Tables']['recipes']['Insert']>
         Relationships: []
@@ -276,4 +302,33 @@ export interface ExtractedRecipe {
   gallery_images?: string[]
   /** The original URL the recipe was imported from */
   source_url?: string
+}
+
+// ── AI Recipe Adaptation draft ───────────────────────────────────────────────
+
+/**
+ * Adapted recipe returned by POST /api/recipes/[id]/adapt. Like ExtractedRecipe,
+ * this is a preview the user reviews before saving as a new variant — it does NOT
+ * correspond to a saved row. Saving it creates a fresh recipe linked to the
+ * original via `original_recipe_id` + `adaptation_metadata`.
+ */
+export interface AdaptedRecipeDraft {
+  name: string
+  description?: string
+  cuisine?: string
+  cook_time_minutes?: number
+  servings?: number
+  instructions: string
+  difficulty?: number
+  tags: string[]
+  ingredients: ExtractedIngredient[]
+  /** Material changes the user should know about before cooking. */
+  warnings: string[]
+  /** What was substituted and how it affects the result. */
+  substitution_notes: string[]
+  /** Echoed back so the client can persist provenance without re-deriving it. */
+  adaptation_type: AdaptationType
+  user_request: string
+  created_from_recipe_id: string
+  created_from_name: string
 }

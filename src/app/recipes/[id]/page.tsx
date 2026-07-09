@@ -9,7 +9,7 @@ export default async function RecipePage({ params }: { params: Promise<{ id: str
   const { id } = await params
   const supabase = await createClient()
 
-  const [{ data: recipe }, cookbooks, profile, { data: techniques }] = await Promise.all([
+  const [{ data: recipe }, cookbooks, profile, { data: techniques }, { data: variantRows }] = await Promise.all([
     supabase
       .from('recipes')
       .select('*, ingredients(*), cooking_log(*), cookbook_recipes(cookbook_id)')
@@ -18,9 +18,22 @@ export default async function RecipePage({ params }: { params: Promise<{ id: str
     getCookbooks(),
     getProfile(),
     supabase.from('techniques').select('*').order('category').order('label'),
+    supabase
+      .from('recipes')
+      .select('id, name, cuisine, adaptation_metadata')
+      .eq('original_recipe_id', id)
+      .order('created_at', { ascending: false }),
   ])
 
   if (!recipe) notFound()
+
+  const variants = ((variantRows || []) as { id: string; name: string; cuisine: string | null; adaptation_metadata: { adaptation_type?: string } | null }[])
+    .map(v => ({
+      id: v.id,
+      name: v.name,
+      cuisine: v.cuisine,
+      adaptation_type: v.adaptation_metadata?.adaptation_type ?? null,
+    }))
 
   // Cast once — Supabase join types collapse to never without this
   const r = recipe as any
@@ -41,6 +54,7 @@ export default async function RecipePage({ params }: { params: Promise<{ id: str
       initialCookbooks={cookbooks}
       skillProfile={profile?.skill_profile ?? null}
       techniques={(techniques || []) as any}
+      variants={variants}
     />
   )
 }

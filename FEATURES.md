@@ -259,26 +259,33 @@ Why 10x: ReciMe's planner is a blank grid. Ours knows who you are, what you can 
 
 ---
 
-### 09 — AI Recipe Adaptation
+### 09 — AI Recipe Adaptation ✅ IMPLEMENTED (v1)
 
 **Priority: 1 — highest impact, no competitor does it well**
 
-Let any saved recipe be transformed in one tap via Claude. Proposed entry points:
-- **Dietary swap** — make it vegan / vegetarian / GF / dairy-free. Claude rewrites
-  ingredients and instructions, flags substitutions, warns where the result materially
-  changes (e.g. texture loss from removing eggs).
-- **Portion scaling** — not just multiply quantities; also adjusts cook times, pan sizes,
+**Status:** shipped. Full spec: [`features/09-ai-recipe-adaptation.md`](features/09-ai-recipe-adaptation.md).
+
+Any saved recipe can be transformed into a **new variant** via Claude (`POST
+/api/recipes/[id]/adapt` → preview → save through `POST /api/recipes`). The original is
+never overwritten. Entry points, all live via the **Adapt recipe** button on recipe detail:
+- **Dietary swap** ✅ — make it vegan / vegetarian / GF / dairy-free. Claude rewrites
+  ingredients and instructions, updates tags, flags substitutions, and warns where the
+  result materially changes (e.g. texture loss from removing eggs).
+- **Portion scaling** ✅ — not just multiply quantities; also adjusts cook times, pan sizes,
   and temperatures where relevant.
-- **Pantry substitution** — user says "I don't have X" or marks pantry gaps; Claude
-  suggests what to swap and how that changes the recipe.
-- **Dietary-aware meal planning** — when suggesting meals for the week, filter and
-  adapt to household constraints automatically.
+- **Pantry substitution** ✅ — user says "I don't have X"; Claude suggests what to swap and
+  how that changes the recipe.
+- **Freeform** ✅ — any plain-language request ("make it spicier", "lower-carb").
+- **Dietary-aware meal planning** ⏳ — filter/adapt weekly suggestions to household
+  constraints automatically. Deferred; ties into 08-smart-meal-planning.
 
 Why 10x: ReciMe recipes are static. Ours are alive. Users with dietary restrictions
-currently have to mentally translate every recipe they find. We'd be first to solve that.
+currently have to mentally translate every recipe they find. We're first to solve that.
 
-**Depends on:** 00-shared-ai-infra, existing `ingredients` table, existing Chef AI chat.
-**New data:** Adapted recipe stored as a variant linked to the original, not overwriting it.
+**Depends on:** 00-shared-ai-infra, existing `ingredients` table, existing recipe save flow.
+**New data:** `recipes.original_recipe_id` (FK) + `recipes.adaptation_metadata` (jsonb) —
+variant linked to the original, not overwriting it. Migration:
+`supabase/migrations/add_recipe_adaptations.sql`.
 
 ---
 
@@ -484,7 +491,7 @@ Why 10x: Skrimp has flyers and 300 curated recipes — no cooking history, no pe
 | # | Feature | Effort | Impact | Differentiator vs. ReciMe |
 |---|---------|--------|--------|---------------------------|
 | 08 | Smart Meal Planning | Medium | Very High | ReciMe: blank grid, no personalization |
-| 09 | AI Recipe Adaptation | Medium | Very High | No competitor does it |
+| 09 | AI Recipe Adaptation ✅ | Medium | Very High | No competitor does it |
 | 10 | Grocery Pipeline 2.0 | Medium | High | Fixes ReciMe's #1 complaint |
 | 11 | Household Sharing | Medium | High | ReciMe has nothing |
 | 12 | Multi-Week Calendar + Templates | Medium | High | ReciMe: single week only |

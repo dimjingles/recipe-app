@@ -57,8 +57,13 @@ create table if not exists recipes (
   last_cooked_at timestamptz,
   rank integer,
   recipe_type text,
+  -- AI Recipe Adaptation: link a variant back to the recipe it was adapted from.
+  original_recipe_id uuid references recipes(id) on delete set null,
+  adaptation_metadata jsonb,
   created_at timestamptz default now()
 );
+
+create index if not exists recipes_original_recipe_id_idx on recipes (original_recipe_id);
 
 -- INGREDIENTS
 create table if not exists ingredients (
