@@ -150,9 +150,10 @@ Cookbooks are accessible from the Recipes library (filter + create inline).
 ```plaintext
 08-smart-meal-planning is fully independent — no new infra needed; all data exists.
 17-grocery-savings-engine is fully independent — reuses 08's auto-fill pattern but needs no feature dependency.
+18-recipe-library-sort-preferences is fully independent - uses existing recipe ranking/cooking history fields plus one profile preference column.
 ```
 
-**Recommended sequence:** `00 → 07 → 08 → 17 → 01 → 02 → 03 → 04 → 05 → 06`
+**Recommended sequence:** `00 → 07 → 08 → 18 → 17 → 01 → 02 → 03 → 04 → 05 → 06`
 
 Feature 17 (Grocery Savings Engine) slots in early because it's high-impact and independent after 08. If done before 09-16, the savings data model is stable and all subsequent features (grocery list 2.0, habit loop) can layer on top of it.
 
@@ -177,6 +178,7 @@ and technique tracks in dependency order.
 | 08 | [features/08-smart-meal-planning.md](features/08-smart-meal-planning.md) | Preference-aware AI auto-fill, smart recipe picker, plan diversity tools | — | Pending |
 | 09 | [features/09-social-friends.md](features/09-social-friends.md) | Friends, households, shared recipe libraries & activity feed | — | Pending |
 | 17 | [features/17-grocery-savings-engine.md](features/17-grocery-savings-engine.md) | Sale-matched recipe badges, cost estimation, budget-aware planning, flyer import | — | Pending |
+| 18 | [features/18-recipe-library-sort-preferences.md](features/18-recipe-library-sort-preferences.md) | Recipe library sort control with account-level saved default preference | — | Pending |
 
 ---
 
@@ -479,6 +481,24 @@ Why 10x: Skrimp has flyers and 300 curated recipes — no cooking history, no pe
 
 ---
 
+### 18 - Recipe Library Sort Preferences
+
+**Priority: 3 - see [`features/18-recipe-library-sort-preferences.md`](features/18-recipe-library-sort-preferences.md) for the full spec**
+
+The recipe library gets a sort control that lets users choose how their recipes are ordered:
+- **Ranking** - default option, best ranked recipes first.
+- **Most recently cooked** - recipes with the newest `last_cooked_at` first.
+- **Most cooked** - recipes with the highest `cooked_count` first.
+
+Changing the sort option also changes the user's saved default. The next time they log in or return to `/recipes`, PrepTable opens with that saved sort selected.
+
+Why useful: this is a small control that makes the library feel personal. Users who treat PrepTable as a favourites list want Ranking; users cooking on habit want recency or frequency.
+
+**Depends on:** Existing `/recipes` library, `recipes.rank`, `recipes.last_cooked_at`, `recipes.cooked_count`, and `profiles`.
+**New data:** `recipe_sort_preference` column on `profiles` with allowed values `ranking`, `recently_cooked`, and `most_cooked`.
+
+---
+
 ### Priority summary
 
 | # | Feature | Effort | Impact | Differentiator vs. ReciMe |
@@ -493,3 +513,4 @@ Why 10x: Skrimp has flyers and 300 curated recipes — no cooking history, no pe
 | 15 | Habit Feedback Loop | Low-Medium | Medium | Makes the app sticky |
 | 16 | Cooking Streak | Low | Medium | Flexible cadence — not a Duolingo clone |
 | 17 | Grocery Savings Engine | Medium-High | Very High | Skrimp: flyer-only, no personalization. Ours: sale + preference + budget |
+| 18 | Recipe Library Sort Preferences | Low | Medium | Personal default library ordering by rank, recency, or cooking frequency |
