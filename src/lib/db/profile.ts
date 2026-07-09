@@ -21,6 +21,38 @@ export async function getProfile(): Promise<Profile | null> {
   return data as Profile
 }
 
+/**
+ * Build human-readable preference lines from a profile for LLM prompts.
+ * Shared by /api/recipes/recommend and /api/planner/auto-fill so both routes
+ * describe the user identically.
+ */
+export function buildPrefLines(profile: Profile | null): string[] {
+  const lines: string[] = []
+  if (!profile) return lines
+  if (profile.diet && profile.diet !== 'balanced') {
+    lines.push(`Diet: ${profile.diet.replace('_', '-')}`)
+  }
+  if (profile.favorite_cuisines?.length) {
+    lines.push(`Favourite cuisines: ${profile.favorite_cuisines.join(', ')}`)
+  }
+  if (profile.allergies?.length && !profile.allergies.includes('none')) {
+    lines.push(`Allergies / avoid: ${profile.allergies.join(', ')}`)
+  }
+  if (profile.primary_goal) {
+    lines.push(`Cooking goal: ${profile.primary_goal.replace('_', ' ')}`)
+  }
+  if (profile.skill_level) {
+    lines.push(`Skill level: ${profile.skill_level.replace('_', ' ')}`)
+  }
+  if (profile.household_size) {
+    lines.push(`Cooking for: ${profile.household_size.replace('_', ' ')}`)
+  }
+  if (profile.cook_frequency) {
+    lines.push(`Cooks per week: ${profile.cook_frequency}`)
+  }
+  return lines
+}
+
 export async function completeOnboarding(answers: {
   household_size?: string
   cook_frequency?: string
