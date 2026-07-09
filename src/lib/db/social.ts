@@ -1,6 +1,12 @@
 import { createClient } from '@/lib/supabase/server'
+import { SupabaseClient } from '@supabase/supabase-js'
 import { Database, PublicProfile } from '@/types/database'
 import { normalizeUsername, sanitizeUsernameQuery, validateUsername } from '@/lib/username'
+
+type Client = SupabaseClient<Database>
+
+/** From the current user's perspective toward another user. */
+export type FriendshipStatus = 'none' | 'friends' | 'incoming' | 'outgoing' | 'blocked'
 
 /** Thrown when a handle fails format validation. Maps to HTTP 400. */
 export class ProfileValidationError extends Error {}
@@ -95,4 +101,94 @@ export async function updateProfile(fields: {
     throw error
   }
   return data as PublicProfile
+}
+
+// ── Friend graph ──────────────────────────────────────────────────────────────
+
+/** Fetch public profiles for a set of ids (skips any without a handle). */
+async function profilesByIds(supabase: Client, ids: string[]): Promise<PublicProfile[]> {
+  if (ids.length === 0) return []
+  const { data, error } = await supabase.from('public_profiles').select('*').in('id', ids)
+  if (error) { console.error('profilesByIds error:', error); return [] }
+  return data ?? []
+}
+
+/** Accepted friends of the current user. */
+export async function getFriends(): Promise<PublicProfile[]> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
+  const { data: rows, error } = await supabase
+    .from('friendships')
+    .select('user_id_a, user_id_b')
+    .eq('status', 'accepted')
+  if (error) { console.error('getFriends error:', error); return [] }
+  const ids = (rows ?? []).map(r => (r.user_id_a === user.id ? r.user_id_b : r.user_id_a))
+  return profilesByIds(supabase, ids)
+}
+
+/** Incoming pending requests (someone else asked to be my friend). */
+export async function getPendingRequests(): Promise<PublicProfile[]> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
+  const { data: rows, error } = await supabase
+    .from('friendships')
+    .select('requested_by')
+    .eq('status', 'pending')
+    .neq('requested_by', user.id)
+  if (error) { console.error('getPendingRequests error:', error); return [] }
+  return profilesByIds(supabase, (rows ?? []).map(r => r.requested_by))
+}
+
+/** Outgoing pending requests I've sent that haven't been answered. */
+export async function getSentRequests(): Promise<PublicProfile[]> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
+  const { data: rows, error } = await supabase
+    .from('friendships')
+    .select('user_id_a, user_id_b')
+    .eq('status', 'pending')
+    .eq('requested_by', user.id)
+  if (error) { console.error('getSentRequests error:', error); return [] }
+  const ids = (rows ?? []).map(r => (r.user_id_a === user.id ? r.user_id_b : r.user_id_a))
+  return profilesByIds(supabase, ids)
+}
+
+/** The current user's relationship toward `otherId`. */
+export async function getFriendshipStatus(otherId: string): Promise<FriendshipStatus> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || user.id === otherId) return 'none'
+  // Canonical uuid string ordering matches Postgres least/greatest.
+  const [a, b] = [user.id, otherId].sort()
+  const { data } = await supabase
+    .from('friendships')
+    .select('status, requested_by')
+    .eq('user_id_a', a)
+    .eq('user_id_b', b)
+    .maybeSingle()
+  if (!data) return 'none'
+  if (data.status === 'accepted') return 'friends'
+  if (data.status === 'blocked') return 'blocked'
+  return data.requested_by === user.id ? 'outgoing' : 'incoming'
+}
+
+export async function sendFriendRequest(targetId: string): Promise<void> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc('send_friend_request', { target_id: targetId })
+  if (error) throw error
+}
+
+export async function respondToRequest(otherId: string, accept: boolean): Promise<void> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc('respond_to_request', { other_id: otherId, do_accept: accept })
+  if (error) throw error
+}
+
+export async function unfriend(otherId: string): Promise<void> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc('unfriend', { other_id: otherId })
+  if (error) throw error
 }

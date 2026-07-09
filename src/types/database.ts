@@ -256,6 +256,26 @@ export interface Database {
           },
         ]
       }
+      friendships: {
+        Row: {
+          user_id_a: string
+          user_id_b: string
+          status: string
+          requested_by: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          user_id_a: string
+          user_id_b: string
+          status?: string
+          requested_by: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['friendships']['Insert']>
+        Relationships: []
+      }
     }
     Views: {
       public_profiles: {
@@ -277,6 +297,22 @@ export interface Database {
           display_name: string | null
           avatar_url: string | null
         }[]
+      }
+      are_friends: {
+        Args: { u1: string; u2: string }
+        Returns: boolean
+      }
+      send_friend_request: {
+        Args: { target_id: string }
+        Returns: undefined
+      }
+      respond_to_request: {
+        Args: { other_id: string; do_accept: boolean }
+        Returns: undefined
+      }
+      unfriend: {
+        Args: { other_id: string }
+        Returns: undefined
       }
     }
   }
