@@ -153,10 +153,10 @@ export default function FriendsView({ myUsername, initialFriends, initialIncomin
     if (status === 'friends') return <span className="rounded-full bg-sage-subtle px-3 py-1.5 text-xs font-bold text-sage">Friends</span>
     if (status === 'outgoing') return <span className="rounded-full bg-muted px-3 py-1.5 text-xs font-bold text-muted-foreground">Pending</span>
     if (status === 'incoming') return (
-      <button onClick={() => respond(user, true)} className="rounded-full bg-brand px-3 py-1.5 text-xs font-bold text-brand-foreground active:scale-[0.95]">Accept</button>
+      <button onClick={(e) => { e.preventDefault(); respond(user, true) }} className="rounded-full bg-brand px-3 py-1.5 text-xs font-bold text-brand-foreground active:scale-[0.95]">Accept</button>
     )
     return (
-      <button onClick={() => addFriend(user)} className="flex items-center gap-1 rounded-full bg-brand px-3 py-1.5 text-xs font-bold text-brand-foreground active:scale-[0.95]">
+      <button onClick={(e) => { e.preventDefault(); addFriend(user) }} className="flex items-center gap-1 rounded-full bg-brand px-3 py-1.5 text-xs font-bold text-brand-foreground active:scale-[0.95]">
         <UserPlus className="h-3.5 w-3.5" /> Add
       </button>
     )

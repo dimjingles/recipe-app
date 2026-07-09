@@ -175,7 +175,7 @@ and technique tracks in dependency order.
 | 05 | [features/05-skill-progression.md](features/05-skill-progression.md) | Chef AI stretches user toward harder techniques | 00, 03 | Built |
 | 06 | [features/06-gamified-skill-map.md](features/06-gamified-skill-map.md) | "My Skills" gamified skill tree page | 03, 05 | Built |
 | 08 | [features/08-smart-meal-planning.md](features/08-smart-meal-planning.md) | Preference-aware AI auto-fill, smart recipe picker, plan diversity tools | — | Pending |
-| 09 | [features/09-social-friends.md](features/09-social-friends.md) | Friends, households, shared recipe libraries & activity feed | — | Pending |
+| 09 | [features/09-social-friends.md](features/09-social-friends.md) | Friends, households, shared recipe libraries & activity feed | — | Built |
 | 17 | [features/17-grocery-savings-engine.md](features/17-grocery-savings-engine.md) | Sale-matched recipe badges, cost estimation, budget-aware planning, flyer import | — | Pending |
 
 ---
@@ -307,7 +307,7 @@ data source (manual entry or supermarket API where available).
 
 ### 09 — Social: Friends, Shared Collections & Activity Feed
 
-**Priority: 1 (specced and ready) — see [`features/09-social-friends.md`](features/09-social-friends.md) for the full spec**
+**Priority: 1 — Built. See [`features/09-social-friends.md`](features/09-social-friends.md) for the full spec.**
 
 - **Mutual friends** - request/accept graph with pending/accepted/blocked state machine.
 - **Households** - partner/couple accounts can join one household, share the same recipe
