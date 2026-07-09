@@ -3,7 +3,47 @@
 **File:** `src/app/api/images/search/route.ts`
 
 **Severity:** Medium
-**Status:** Open — awaiting Google Cloud provisioning (project created 2026-07-05)
+**Status:** Resolved (2026-07-08) — Google CSE abandoned; image search now uses Serper.dev
+(real Google Images) with Openverse as a keyless fallback. See Resolution.
+
+## Resolution (2026-07-08)
+
+**Google CSE was abandoned after exhausting every fix.** We confirmed, one by one, that the
+setup was textbook-correct and it *still* returned 403:
+
+- **API key** — ruled out. A fresh, correctly-scoped key (restricted to Custom Search API,
+  no application restriction) created in the right project returned the identical error.
+- **API enablement** — ruled out. Custom Search API showed as enabled in project
+  `recipe-app-501404` and was receiving requests (4 requests / 100% errors in metrics).
+- **Billing** — ruled out. The project's billing account was a paid, active account.
+- Despite all of the above, `/customsearch/v1` kept returning **403
+  `"This project does not have the access to Custom Search JSON API"`** — a *project-level*
+  access error (no `details[]`, `reason: forbidden`), i.e. a Google provisioning quirk we
+  cannot clear from our side.
+- The `/customsearch/v1/siterestrict` endpoint this bug originally recommended is
+  **legacy / allowlist-only** and will always 403 for a newly created engine — a dead end.
+
+**New architecture** in `src/app/api/images/search/route.ts` (two providers, tried in order):
+
+1. **Serper.dev (primary)** — `POST https://google.serper.dev/images`, real Google Images
+   results. Requires `SERPER_API_KEY` in `.env.local`. Free tier ~2,500 queries. Returns
+   professional food-site photography (delish, recipetineats, foodnetwork, epicurious, …).
+2. **Openverse (fallback)** — `https://api.openverse.org/v1/images/`, free & **keyless**
+   Creative-Commons / public-domain search. Runs when Serper is unconfigured, errors, or
+   returns nothing — so search can never regress to "Image search is not configured".
+
+- Both providers map to the unchanged `{ thumbnailUrl, fullUrl, sourceDomain, title }`
+  shape, so `recipe-gallery.tsx` needed no changes. The route also returns a `provider`
+  field (`"serper"` | `"openverse"`) for debugging.
+- Graceful degradation preserved: if both providers fail, the route returns
+  `{ results: [], error: 'Search unavailable' }`.
+- The `GOOGLE_CSE_API_KEY` / `GOOGLE_CSE_ID` env vars are now unused (kept in `.env.local`,
+  commented, in case Google CSE is ever revisited).
+
+Everything below is retained for historical context.
+
+---
+
 
 ## Description
 
