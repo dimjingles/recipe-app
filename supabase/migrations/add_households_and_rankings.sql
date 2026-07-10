@@ -256,6 +256,8 @@ create policy "Users can manage own recipe rankings"
   with check (auth.uid() = user_id);
 
 -- Backfill existing recipes.rank into the owner's per-user ranking.
+-- Target the PK explicitly: ON CONFLICT can't auto-pick an arbiter while the
+-- deferrable unique(user_id, rank) constraint exists on the table.
 insert into recipe_rankings (user_id, recipe_id, rank)
 select user_id, id, rank from recipes where rank is not null
-on conflict do nothing;
+on conflict (user_id, recipe_id) do nothing;

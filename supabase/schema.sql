@@ -559,7 +559,8 @@ drop policy if exists "Users can manage own recipe rankings" on recipe_rankings;
 create policy "Users can manage own recipe rankings"
   on recipe_rankings for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 insert into recipe_rankings (user_id, recipe_id, rank)
-select user_id, id, rank from recipes where rank is not null on conflict do nothing;
+select user_id, id, rank from recipes where rank is not null
+on conflict (user_id, recipe_id) do nothing;
 
 -- ── Slice 4 · Visibility + friend browse ────────────────────
 alter table recipes   add column if not exists visibility text not null default 'friends'
