@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { updateRecipeSortPreference } from '@/lib/db/profile'
 import type { RecipeSortPreference } from '@/types/database'
 
-const RECIPE_SORT_PREFERENCES: RecipeSortPreference[] = ['ranking', 'recently_cooked', 'most_cooked']
+const RECIPE_SORT_PREFERENCES: RecipeSortPreference[] = ['ranking', 'recently_cooked', 'most_cooked', 'cook_time']
 
 function isRecipeSortPreference(value: unknown): value is RecipeSortPreference {
   return typeof value === 'string' && RECIPE_SORT_PREFERENCES.includes(value as RecipeSortPreference)
