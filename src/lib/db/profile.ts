@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import { Database, Profile, RecipeSortPreference, SkillProfile } from '@/types/database'
+import { Database, Profile, RecipeSortPreference, RecipeSortDirection, SkillProfile } from '@/types/database'
 import { normalizeSkillProfile } from '@/lib/skills'
 import { normalizeUsername, validateUsername } from '@/lib/username'
 
@@ -144,7 +144,8 @@ export async function updateSkillProfile(userId: string, updates: {
 
 export async function updateRecipeSortPreference(
   userId: string,
-  preference: RecipeSortPreference
+  preference: RecipeSortPreference,
+  direction: RecipeSortDirection
 ): Promise<void> {
   const supabase = await createClient()
   const { error } = await supabase
@@ -153,6 +154,7 @@ export async function updateRecipeSortPreference(
       {
         id: userId,
         recipe_sort_preference: preference,
+        recipe_sort_direction: direction,
         updated_at: new Date().toISOString(),
       },
       { onConflict: 'id' }

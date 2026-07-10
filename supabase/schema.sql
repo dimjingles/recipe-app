@@ -18,6 +18,7 @@ create table if not exists profiles (
   meal_reminders   boolean default false,
   skill_profile jsonb default '{}'::jsonb,
   recipe_sort_preference text not null default 'ranking' check (recipe_sort_preference in ('ranking', 'recently_cooked', 'most_cooked', 'cook_time')),
+  recipe_sort_direction text not null default 'default' check (recipe_sort_direction in ('default', 'reversed')),
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );

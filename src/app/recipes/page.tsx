@@ -17,6 +17,7 @@ export default async function RecipesPage() {
       initialCookbooks={cookbooks}
       hasHousehold={!!householdId}
       initialSortPreference={profile?.recipe_sort_preference ?? 'ranking'}
+      initialSortDirection={profile?.recipe_sort_direction ?? 'default'}
     />
   )
 }

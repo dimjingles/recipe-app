@@ -58,6 +58,9 @@ export interface AdaptationMetadata {
 
 export type RecipeSortPreference = 'ranking' | 'recently_cooked' | 'most_cooked' | 'cook_time'
 
+/** Sort order for the recipe library: 'default' is top-to-bottom, 'reversed' flips it bottom-to-top. */
+export type RecipeSortDirection = 'default' | 'reversed'
+
 export interface Database {
   public: {
     Tables: {
@@ -79,6 +82,7 @@ export interface Database {
           meal_reminders: boolean
           skill_profile: SkillProfile | null
           recipe_sort_preference: RecipeSortPreference
+          recipe_sort_direction: RecipeSortDirection
           created_at: string
           updated_at: string
         }
@@ -99,6 +103,7 @@ export interface Database {
           meal_reminders?: boolean
           skill_profile?: SkillProfile | null
           recipe_sort_preference?: RecipeSortPreference
+          recipe_sort_direction?: RecipeSortDirection
           created_at?: string
           updated_at?: string
         }
