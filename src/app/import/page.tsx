@@ -36,10 +36,15 @@ function extractedToEditorValues(r: ExtractedRecipe): RecipeEditorValues {
   }
 }
 
+/** Loose client-side platform sniff — only used for friendlier loading copy. */
+function isVideoUrl(url: string): boolean {
+  return /youtube\.com|youtu\.be|tiktok\.com|instagram\.com/i.test(url)
+}
+
 export default function ImportPage({
   searchParams,
 }: {
-  searchParams: Promise<{ url?: string; text?: string; title?: string }>
+  searchParams: Promise<{ url?: string; text?: string; title?: string; mode?: string }>
 }) {
   const [url, setUrl] = useState('')
   const [pasteText, setPasteText] = useState('')
@@ -53,12 +58,16 @@ export default function ImportPage({
   // Resolve shared params from the Android Web Share Target.
   // Android delivers the link in the `text` param (not always `url`),
   // so we try `url` first, then extract the first URL from `text`.
+  // `mode=text` (from the Add-a-recipe sheet) opens the paste view directly.
   useEffect(() => {
     searchParams.then(params => {
       const sharedUrl = params.url || extractFirstUrl(params.text || '')
       if (sharedUrl) {
         setUrl(sharedUrl)
         doImport(sharedUrl)
+      } else if (params.mode === 'text') {
+        setHint('Paste the recipe text, caption, or instructions below.')
+        setImportState('needsText')
       }
     })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -109,7 +118,9 @@ export default function ImportPage({
       const res = await fetch('/api/recipes/import', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: pasteText }),
+        // Send the originally-attempted URL too so the recipe keeps its
+        // source link (and video thumbnail) even via the paste fallback.
+        body: JSON.stringify({ text: pasteText, url: url.trim() || undefined }),
       })
 
       if (res.status === 401) {
@@ -215,7 +226,11 @@ export default function ImportPage({
           {importState === 'loading' && (
             <div className="flex items-center justify-center gap-2 py-6 text-gray-500">
               <Loader2 className="w-5 h-5 animate-spin text-brand" />
-              <span className="text-sm">Fetching and extracting recipe…</span>
+              <span className="text-sm">
+                {isVideoUrl(url)
+                  ? 'Reading the video’s description and captions…'
+                  : 'Fetching and extracting recipe…'}
+              </span>
             </div>
           )}
 

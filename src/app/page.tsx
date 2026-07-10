@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { ChefHat, CalendarDays, Clock, Plus, LogOut, ShoppingCart, Sparkles } from 'lucide-react'
 import { format, addDays } from 'date-fns'
 import { getCuisineEmoji } from '@/lib/cuisine-emoji'
+import { AddRecipeLauncher } from '@/components/add-recipe-sheet'
 import { EmptyState, RecipeBookIllustration } from '@/components/ui/empty-state'
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -101,13 +102,12 @@ export default async function HomePage() {
           >
             <CalendarDays className="h-4 w-4" /> Plan week
           </Link>
-          <Link
-            href="/recipes/new"
+          <AddRecipeLauncher
             className="grid h-12 w-12 place-items-center rounded-xl bg-card text-foreground shadow-sm ring-1 ring-border transition-all active:scale-[0.95]"
-            aria-label="Add recipe"
+            ariaLabel="Add recipe"
           >
             <Plus className="h-5 w-5" />
-          </Link>
+          </AddRecipeLauncher>
         </div>
       </section>
 

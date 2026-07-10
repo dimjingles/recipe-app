@@ -11,6 +11,7 @@ import { BottomSheet } from '@/components/ui/bottom-sheet'
 import { toast } from 'sonner'
 import { getCuisineEmoji } from '@/lib/cuisine-emoji'
 import { RecipeCard } from '@/components/recipe-card'
+import { AddRecipeSheet } from '@/components/add-recipe-sheet'
 import { EmptyState, RecipeBookIllustration } from '@/components/ui/empty-state'
 import { Shimmer } from '@/components/ui/shimmer'
 
@@ -63,6 +64,7 @@ export default function RecipeLibrary({
 
   // Create cookbook sheet
   const [showCreateCookbook, setShowCreateCookbook] = useState(false)
+  const [showAddRecipe, setShowAddRecipe] = useState(false)
   const [newCookbookName, setNewCookbookName] = useState('')
   const [newCookbookRecipes, setNewCookbookRecipes] = useState<string[]>([])
   const [creatingCookbook, setCreatingCookbook] = useState(false)
@@ -364,15 +366,17 @@ export default function RecipeLibrary({
         )}
       </div>
 
-      <Link
-        href="/recipes/new"
+      <button
+        onClick={() => setShowAddRecipe(true)}
         className="fixed bottom-28 right-5 z-30 inline-flex h-10 items-center justify-center gap-1.5 rounded-full bg-sage px-3.5 text-xs font-bold text-sage-foreground shadow-float transition-all hover:bg-sage/90 active:scale-[0.95] md:bottom-8 md:right-8"
         aria-label="Add recipe"
         title="Add recipe"
       >
         <Plus className="h-3.5 w-3.5" />
         <span>Add Recipe</span>
-      </Link>
+      </button>
+
+      <AddRecipeSheet open={showAddRecipe} onClose={() => setShowAddRecipe(false)} />
 
       {/* Filter dropdowns */}
       <div className="mb-5 flex flex-wrap gap-2">
