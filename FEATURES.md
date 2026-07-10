@@ -66,9 +66,19 @@ Cookbooks are accessible from the Recipes library (filter + create inline).
 
 **Import** (`/import`)
 - Paste any URL — recipe sites, YouTube videos, Instagram/TikTok posts
+- Video/social URLs get a dedicated pipeline: YouTube title + description + spoken
+  transcript (captions via watch page, InnerTube fallback), TikTok caption (oEmbed),
+  Instagram caption (OpenGraph) — extracted by Claude Haiku into the same preview
 - AI extracts: name, cuisine, ingredients, instructions, cook time, servings, image
-- Text fallback — when the page can't be scraped, user pastes caption/recipe text instead
+- Text fallback — when the page/post can't be read, user pastes caption/recipe text
+  instead; the original link is kept as the recipe source either way
+- `?mode=text` opens the paste view directly (used by the Add-a-recipe sheet)
 - Android Web Share Target — URLs shared from other apps open directly here with auto-import
+
+**Add-a-recipe sheet** (from the library "Add Recipe" pill and Home "+" button)
+- Import from social media → platform picker (YouTube / TikTok / Instagram) →
+  per-platform share instructions with paste-link field and "Open app" shortcut
+- Import from web / Import from text / Write from scratch tiles
 
 **Cookbooks** (`/cookbooks`, `/cookbooks/[id]`)
 - Create named collections with an emoji
@@ -120,6 +130,7 @@ Cookbooks are accessible from the Recipes library (filter + create inline).
 |---------|-------|-------------|
 | Recipe import extraction from URL | Claude Haiku | `/api/recipes/import` |
 | Recipe import extraction from pasted text | Claude Haiku | `/api/recipes/import` |
+| Video recipe import (YouTube transcript / TikTok / Instagram captions) | Claude Haiku | `/api/recipes/import` |
 | AI instruction generation | Claude Haiku | `/api/recipes/generate-instructions` |
 | Recipe name lookup / autofill | Claude Haiku | `/api/recipes/lookup` |
 | Chef AI cooking coach (streaming chat) | Claude Sonnet | `/api/recipes/[id]/chat` |
@@ -389,23 +400,30 @@ tips per step if the user opens it).
 
 ---
 
-### 14 — Video Recipe Import (TikTok / Instagram / YouTube)
+### 14 — Video Recipe Import (TikTok / Instagram / YouTube) — ✅ Built
 
-**Priority: 3 — this is ReciMe's flagship feature and why 800K users chose them**
+**This was ReciMe's flagship feature and why 800K users chose them.**
 
-ReciMe's main draw is one-tap video import. Match and exceed it:
-- **Transcript extraction** — pull closed captions/transcript from YouTube via the Data
-  API; for TikTok and IG, use the video description + caption text (already works via
-  the existing text-paste fallback).
-- **Vision model extraction** — for videos without transcripts, pass keyframes to Claude's
-  vision to read on-screen ingredient lists and steps.
-- **Structured output** — same `ExtractedRecipe` shape as URL import; feeds into the
-  existing preview → edit → save flow.
-- **Timestamp sync (stretch goal)** — if we store the source video URL, link each step
-  to its timestamp in the video so guided cook mode can play the relevant clip.
-
-**Depends on:** 00-shared-ai-infra, existing import flow (`/api/recipes/import`).
-**Why build:** This is the feature that gets ReciMe users to even consider switching.
+- **Implementation:** `src/lib/import/video.ts` classifies URLs (YouTube incl. Shorts /
+  youtu.be / m., TikTok incl. vm. short links, Instagram p/reel/tv) and gathers context
+  per platform with no scraping dependencies:
+  - **YouTube** — watch-page `ytInitialPlayerResponse` for title/description/thumbnail +
+    caption tracks; caption URLs that come back empty (proof-of-origin gating) retry
+    through the InnerTube ANDROID client. Transcript parsed from json3/srv XML. Recipes
+    spoken in the video but absent from the description import via the transcript.
+  - **TikTok** — documented public oEmbed endpoint (caption/author/thumbnail), page
+    OpenGraph fallback.
+  - **Instagram** — OpenGraph tags on the post page (no login-required scraping); when
+    blocked, users are guided to the paste-caption fallback, which stays first-class.
+  - Claude Haiku extracts the same `ExtractedRecipe` shape (video-specific prompt turns
+    spoken transcripts into written steps), feeding the existing preview → edit → save
+    flow. Thumbnail becomes the cover image; `source_url` is preserved — including
+    through the paste-text fallback, which now sends the originally-attempted URL.
+  - **UI:** ReciMe-style Add-a-recipe bottom sheet (`add-recipe-sheet.tsx`) from the
+    library pill and Home "+": social platform picker → per-platform share instructions
+    (share-sheet steps, paste-link field, "Open app" shortcut).
+  - Manual pipeline test: `node --env-file=.env.local scripts/test-video-import.mts <url>`.
+- **Not built (stretch):** keyframe vision extraction, per-step timestamp sync.
 
 ---
 
@@ -509,7 +527,7 @@ Why useful: this is a small control that makes the library feel personal. Users 
 | 11 | Household Sharing | Medium | High | ReciMe has nothing |
 | 12 | Multi-Week Calendar + Templates | Medium | High | ReciMe: single week only |
 | 13 | Guided Cook Mode | Medium | Medium-High | ReciMe: static text |
-| 14 | Video Import (TikTok/IG/YT) | Medium-High | Very High | ReciMe's flagship, done better |
+| 14 | Video Import (TikTok/IG/YT) | Medium-High | Very High | ✅ Built — ReciMe's flagship, done better |
 | 15 | Habit Feedback Loop | Low-Medium | Medium | Makes the app sticky |
 | 16 | Cooking Streak | Low | Medium | Flexible cadence — not a Duolingo clone |
 | 17 | Grocery Savings Engine | Medium-High | Very High | Skrimp: flyer-only, no personalization. Ours: sale + preference + budget |
