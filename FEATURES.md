@@ -95,6 +95,9 @@ Cookbooks are accessible from the Recipes library (filter + create inline).
 - Mon–Sun grid for the current week
 - Tap any day to assign a saved recipe; tap again to clear
 - Plan persists week-over-week
+- **Smart recipe picker** — the picker ranks recipes by a relevance score (favourite cuisine, skill fit, cook history, week diversity, weekday/weekend, cookbook context); empty days show contextual hints ("Quick meal?" / "Something special?" / day-of-week cuisine habits); diet/allergy-conflicting recipes are shown de-emphasised with a warning badge and a one-time confirmation
+- **Auto-fill week** — one tap fills empty days with a balanced, skill-appropriate plan via Claude Haiku (respects `cook_frequency`, weekday-quick/weekend-special split, cuisine diversity, diet/allergies); preserves manual slots, with one-tap undo
+- **Diversity bar + nudges** — a collapsible strip shows the week's cuisine/difficulty/cook-time mix, plus dismissible "rescue a saved recipe" and "you cook this a lot" cards
 
 **Grocery List** (`/planner/grocery`)
 - Auto-generated from the current week's planned recipes
@@ -187,7 +190,7 @@ and technique tracks in dependency order.
 | 05 | [features/05-skill-progression.md](features/05-skill-progression.md) | Chef AI stretches user toward harder techniques | 00, 03 | Built |
 | 06 | [features/06-gamified-skill-map.md](features/06-gamified-skill-map.md) | "My Skills" gamified skill tree page | 03, 05 | Built |
 | 13 | (see "13 — Guided Cook Mode" below) | Full-screen guided cook mode: step-by-step view, wake lock, auto/manual timers, opt-in voice control, ingredient check-off, mark-as-cooked | recipe detail, cooking log | Built |
-| 08 | [features/08-smart-meal-planning.md](features/08-smart-meal-planning.md) | Preference-aware AI auto-fill, smart recipe picker, plan diversity tools | — | Pending |
+| 08 | [features/08-smart-meal-planning.md](features/08-smart-meal-planning.md) | Preference-aware AI auto-fill, smart recipe picker, plan diversity tools | — | Built |
 | 09 | [features/09-social-friends.md](features/09-social-friends.md) | Friends, households, shared recipe libraries & activity feed | — | Pending |
 | 17 | [features/17-grocery-savings-engine.md](features/17-grocery-savings-engine.md) | Sale-matched recipe badges, cost estimation, budget-aware planning, flyer import | — | Pending |
 | 18 | [features/18-recipe-library-sort-preferences.md](features/18-recipe-library-sort-preferences.md) | Recipe library sort control with account-level saved default preference | — | Pending |
