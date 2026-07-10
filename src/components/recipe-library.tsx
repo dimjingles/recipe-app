@@ -3,8 +3,8 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import type { RecipeWithIngredients, CookbookWithCount, RecipeSortPreference } from '@/types/database'
-import { Plus, Search, Clock, X, Globe, ChevronDown, BookOpen, Loader2, Sparkles, SlidersHorizontal, Check } from 'lucide-react'
+import type { RecipeWithIngredients, CookbookWithCount, RecipeSortPreference, RecipeSortDirection } from '@/types/database'
+import { Plus, Search, Clock, X, Globe, ChevronDown, BookOpen, Loader2, Sparkles, SlidersHorizontal, ArrowDown, ArrowUp } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { BottomSheet } from '@/components/ui/bottom-sheet'
@@ -31,6 +31,11 @@ const SORT_OPTIONS = [
   { value: 'recently_cooked', label: 'Most recently cooked' },
   { value: 'most_cooked', label: 'Most cooked' },
   { value: 'cook_time', label: 'Quickest to cook' },
+] as const
+
+const SORT_DIRECTIONS = [
+  { value: 'default', label: 'Top to bottom', icon: ArrowDown },
+  { value: 'reversed', label: 'Bottom to top', icon: ArrowUp },
 ] as const
 
 function compareDateDesc(a: string | null, b: string | null) {
@@ -103,11 +108,13 @@ export default function RecipeLibrary({
   initialCookbooks,
   hasHousehold = false,
   initialSortPreference = 'ranking',
+  initialSortDirection = 'default',
 }: {
   initialRecipes: RecipeWithIngredients[]
   initialCookbooks: CookbookWithCount[]
   hasHousehold?: boolean
   initialSortPreference?: RecipeSortPreference
+  initialSortDirection?: RecipeSortDirection
 }) {
   const router = useRouter()
   const [search, setSearch] = useState('')
@@ -118,6 +125,7 @@ export default function RecipeLibrary({
   const [selectedCookbook, setSelectedCookbook] = useState<string | null>(null)
   const [selectedCategory, setSelectedCategory] = useState<'cooked' | 'bookmarked'>('cooked')
   const [sortPreference, setSortPreference] = useState<RecipeSortPreference>(initialSortPreference)
+  const [sortDirection, setSortDirection] = useState<RecipeSortDirection>(initialSortDirection)
   const [cookbooks, setCookbooks] = useState<CookbookWithCount[]>(initialCookbooks)
   const [onlineResults, setOnlineResults] = useState<OnlineResult[]>([])
   const [loadingOnline, setLoadingOnline] = useState(false)
@@ -229,8 +237,9 @@ export default function RecipeLibrary({
     }
   }
 
-  const handleSortPreferenceChange = async (nextSort: RecipeSortPreference) => {
+  const handleSortChange = async (nextSort: RecipeSortPreference, nextDirection: RecipeSortDirection) => {
     setSortPreference(nextSort)
+    setSortDirection(nextDirection)
     setOpenDropdown(null)
     const requestSeq = saveSortSeq.current + 1
     saveSortSeq.current = requestSeq
@@ -239,7 +248,7 @@ export default function RecipeLibrary({
       const res = await fetch('/api/profile/preferences', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ recipe_sort_preference: nextSort }),
+        body: JSON.stringify({ recipe_sort_preference: nextSort, recipe_sort_direction: nextDirection }),
       })
       if (!res.ok) throw new Error('Could not save sort preference')
     } catch {
@@ -327,8 +336,12 @@ export default function RecipeLibrary({
   })
 
   const sortedRecipes = useMemo(
-    () => [...filtered].sort((a, b) => compareRecipes(a, b, sortPreference)),
-    [filtered, sortPreference]
+    () => {
+      const ordered = [...filtered].sort((a, b) => compareRecipes(a, b, sortPreference))
+      // 'reversed' flips the whole list bottom-to-top for the chosen sort option.
+      return sortDirection === 'reversed' ? ordered.reverse() : ordered
+    },
+    [filtered, sortPreference, sortDirection]
   )
 
   /* ── Chip style helpers ─────────────────────────────────────────── */
@@ -595,20 +608,40 @@ export default function RecipeLibrary({
           {openDropdown === 'sort' && (
             <>
               <div className="fixed inset-0 z-10" onClick={() => setOpenDropdown(null)} />
-              <div className="absolute right-0 top-full z-20 mt-1.5 min-w-[220px] overflow-hidden rounded-xl border border-border bg-card shadow-lg">
+              <div className="absolute right-0 top-full z-20 mt-1.5 min-w-[248px] overflow-hidden rounded-xl border border-border bg-card shadow-lg">
                 {SORT_OPTIONS.map(option => {
                   const active = sortPreference === option.value
                   return (
-                    <button
+                    <div
                       key={option.value}
-                      onClick={() => handleSortPreferenceChange(option.value)}
-                      className={`flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm transition-colors ${
-                        active ? 'bg-brand-subtle font-medium text-brand' : 'text-foreground hover:bg-muted'
-                      }`}
+                      className={`flex items-center gap-2 px-4 py-2.5 text-sm ${active ? 'bg-brand-subtle' : ''}`}
                     >
-                      <span className="flex-1">{option.label}</span>
-                      {active && <Check className="h-3.5 w-3.5 shrink-0" />}
-                    </button>
+                      <span className={`flex-1 ${active ? 'font-medium text-brand' : 'text-foreground'}`}>
+                        {option.label}
+                      </span>
+                      <div className="flex shrink-0 items-center gap-1">
+                        {SORT_DIRECTIONS.map(direction => {
+                          const dirActive = active && sortDirection === direction.value
+                          const Icon = direction.icon
+                          return (
+                            <button
+                              key={direction.value}
+                              onClick={() => handleSortChange(option.value, direction.value)}
+                              className={`grid h-7 w-7 place-items-center rounded-lg border transition-colors active:scale-[0.95] ${
+                                dirActive
+                                  ? 'border-transparent bg-brand text-brand-foreground'
+                                  : 'border-border bg-card text-muted-foreground hover:border-brand hover:text-foreground'
+                              }`}
+                              aria-label={`Sort by ${option.label}, ${direction.label.toLowerCase()}`}
+                              aria-pressed={dirActive}
+                              title={direction.label}
+                            >
+                              <Icon className="h-3.5 w-3.5" />
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
                   )
                 })}
               </div>
