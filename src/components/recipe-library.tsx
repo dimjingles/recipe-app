@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { BottomSheet } from '@/components/ui/bottom-sheet'
 import { toast } from 'sonner'
 import { getCuisineEmoji } from '@/lib/cuisine-emoji'
+import { computeScores } from '@/lib/scoring'
 import { RecipeCard } from '@/components/recipe-card'
 import { EmptyState, RecipeBookIllustration } from '@/components/ui/empty-state'
 import { Shimmer } from '@/components/ui/shimmer'
@@ -208,6 +209,9 @@ export default function RecipeLibrary({
   const uniqueTags = Array.from(
     new Set(initialRecipes.flatMap(r => r.tags || []))
   ).sort()
+
+  // Per-tier 0–10 scores, keyed by recipe id.
+  const scores = computeScores(initialRecipes)
 
   const scopedRecipes = initialRecipes.filter(r => {
     const matchesCookbook = !selectedCookbook ||
@@ -507,6 +511,7 @@ export default function RecipeLibrary({
                   key={recipe.id}
                   recipe={recipe}
                   variant="list"
+                  score={scores[recipe.id] ?? null}
                   onClick={() => router.push(`/recipes/${recipe.id}`)}
                   className="animate-fade-in-up"
                   style={{ animationDelay: `${i * 40}ms` }}

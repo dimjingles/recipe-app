@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { getCookbooks } from '@/lib/db/cookbooks'
+import { getRankedScores } from '@/lib/db/recipes'
 import { getProfile } from '@/lib/db/profile'
 import { notFound } from 'next/navigation'
 import RecipeDetail from '@/components/recipe-detail'
@@ -9,7 +10,7 @@ export default async function RecipePage({ params }: { params: Promise<{ id: str
   const { id } = await params
   const supabase = await createClient()
 
-  const [{ data: recipe }, cookbooks, profile, { data: techniques }] = await Promise.all([
+  const [{ data: recipe }, cookbooks, profile, { data: techniques }, scores] = await Promise.all([
     supabase
       .from('recipes')
       .select('*, ingredients(*), cooking_log(*), cookbook_recipes(cookbook_id)')
@@ -18,6 +19,7 @@ export default async function RecipePage({ params }: { params: Promise<{ id: str
     getCookbooks(),
     getProfile(),
     supabase.from('techniques').select('*').order('category').order('label'),
+    getRankedScores(),
   ])
 
   if (!recipe) notFound()
@@ -41,6 +43,7 @@ export default async function RecipePage({ params }: { params: Promise<{ id: str
       initialCookbooks={cookbooks}
       skillProfile={profile?.skill_profile ?? null}
       techniques={(techniques || []) as any}
+      score={scores[id] ?? null}
     />
   )
 }
