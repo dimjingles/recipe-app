@@ -665,6 +665,7 @@ export default function RecipeLibrary({
                   variant="list"
                   score={scores[recipe.id] ?? null}
                   onClick={() => router.push(`/recipes/${recipe.id}`)}
+                  showCookTime={false}
                   className="animate-fade-in-up"
                   style={{ animationDelay: `${i * 40}ms` }}
                   action={

@@ -24,6 +24,8 @@ interface RecipeCardProps {
   action?: ReactNode
   style?: CSSProperties
   className?: string
+  /** Show the cook time next to the cuisine. Default true. Disable when the time is rendered elsewhere (e.g. in `action`). */
+  showCookTime?: boolean
 }
 
 export function RecipeCard({
@@ -34,6 +36,7 @@ export function RecipeCard({
   action,
   style,
   className,
+  showCookTime = true,
 }: RecipeCardProps) {
   const emoji = getCuisineEmoji(recipe.cuisine)
 
@@ -74,7 +77,7 @@ export function RecipeCard({
           </p>
           <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs font-medium text-muted-foreground">
             {recipe.cuisine && <span className="capitalize">{recipe.cuisine}</span>}
-            {recipe.cook_time_minutes ? (
+            {showCookTime && recipe.cook_time_minutes ? (
               <span className="flex items-center gap-0.5">
                 <Clock className="h-3 w-3" /> {recipe.cook_time_minutes}m
               </span>
@@ -122,7 +125,7 @@ export function RecipeCard({
         </p>
         <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-muted-foreground">
           {recipe.cuisine && <span className="capitalize">{recipe.cuisine}</span>}
-          {recipe.cook_time_minutes ? (
+          {showCookTime && recipe.cook_time_minutes ? (
             <span className="flex items-center gap-0.5">
               <Clock className="h-3 w-3" /> {recipe.cook_time_minutes}m
             </span>
