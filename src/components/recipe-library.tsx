@@ -17,13 +17,13 @@ import { EmptyState, RecipeBookIllustration } from '@/components/ui/empty-state'
 import { Shimmer } from '@/components/ui/shimmer'
 
 const RECIPE_TYPES = [
-  { value: 'breakfast', label: 'Breakfast', emoji: '🍳' },
-  { value: 'lunch', label: 'Lunch', emoji: '🥪' },
-  { value: 'dinner', label: 'Dinner', emoji: '🍲' },
-  { value: 'appetizer', label: 'Appetizer', emoji: '🥗' },
-  { value: 'main', label: 'Main', emoji: '🍽️' },
-  { value: 'dessert', label: 'Dessert', emoji: '🍰' },
-  { value: 'drink', label: 'Drink', emoji: '🍹' },
+  { value: 'breakfast', label: 'Breakfast' },
+  { value: 'lunch', label: 'Lunch' },
+  { value: 'dinner', label: 'Dinner' },
+  { value: 'appetizer', label: 'Appetizer' },
+  { value: 'main', label: 'Main' },
+  { value: 'dessert', label: 'Dessert' },
+  { value: 'drink', label: 'Drink' },
 ]
 
 const SORT_OPTIONS = [
@@ -509,7 +509,7 @@ export default function RecipeLibrary({
               }`}
             >
               {selectedType
-                ? <>{RECIPE_TYPES.find(t => t.value === selectedType)?.emoji} {RECIPE_TYPES.find(t => t.value === selectedType)?.label}</>
+                ? RECIPE_TYPES.find(t => t.value === selectedType)?.label
                 : 'Type'}
               <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-150 ${openDropdown === 'type' ? 'rotate-180' : ''}`} />
             </button>
@@ -529,7 +529,7 @@ export default function RecipeLibrary({
                       onClick={() => { setSelectedType(t.value); setOpenDropdown(null) }}
                       className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${selectedType === t.value ? 'text-brand bg-brand-subtle font-medium' : 'text-foreground hover:bg-muted'}`}
                     >
-                      {t.emoji} {t.label}
+                      {t.label}
                     </button>
                   ))}
                 </div>
