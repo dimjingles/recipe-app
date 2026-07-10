@@ -56,7 +56,7 @@ export interface AdaptationMetadata {
   created_from_name: string
 }
 
-export type RecipeSortPreference = 'ranking' | 'recently_cooked' | 'most_cooked'
+export type RecipeSortPreference = 'ranking' | 'recently_cooked' | 'most_cooked' | 'cook_time'
 
 export interface Database {
   public: {

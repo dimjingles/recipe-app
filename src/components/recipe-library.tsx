@@ -27,6 +27,7 @@ const SORT_OPTIONS = [
   { value: 'ranking', label: 'Ranking' },
   { value: 'recently_cooked', label: 'Most recently cooked' },
   { value: 'most_cooked', label: 'Most cooked' },
+  { value: 'cook_time', label: 'Quickest to cook' },
 ] as const
 
 function compareDateDesc(a: string | null, b: string | null) {
@@ -48,6 +49,13 @@ function compareRank(a: number | null, b: number | null) {
   return aRank - bRank
 }
 
+// Ascending by cook time; recipes with no cook time sort last.
+function compareCookTimeAsc(a: number | null, b: number | null) {
+  const aTime = a ?? Number.POSITIVE_INFINITY
+  const bTime = b ?? Number.POSITIVE_INFINITY
+  return aTime - bTime
+}
+
 function compareRecipes(a: RecipeWithIngredients, b: RecipeWithIngredients, sort: RecipeSortPreference) {
   if (sort === 'ranking') {
     return compareRank(a.rank, b.rank)
@@ -57,6 +65,12 @@ function compareRecipes(a: RecipeWithIngredients, b: RecipeWithIngredients, sort
 
   if (sort === 'recently_cooked') {
     return compareDateDesc(a.last_cooked_at, b.last_cooked_at)
+      || compareRank(a.rank, b.rank)
+      || a.name.localeCompare(b.name)
+  }
+
+  if (sort === 'cook_time') {
+    return compareCookTimeAsc(a.cook_time_minutes, b.cook_time_minutes)
       || compareRank(a.rank, b.rank)
       || a.name.localeCompare(b.name)
   }
