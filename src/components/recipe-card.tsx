@@ -41,7 +41,7 @@ export function RecipeCard({
     return (
       <div
         className={cn(
-          'group flex cursor-pointer items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3 shadow-card',
+          'group flex cursor-pointer items-center gap-3 rounded-2xl border border-border bg-card px-4 py-2.5 shadow-card',
           'transition-all hover:-translate-y-0.5 hover:shadow-card-hover active:scale-[0.98]',
           className,
         )}
@@ -55,7 +55,7 @@ export function RecipeCard({
         )}
 
         {recipe.image_url ? (
-          <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-muted">
+          <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-muted">
             <img
               src={recipe.image_url}
               alt={recipe.name}
@@ -63,7 +63,7 @@ export function RecipeCard({
             />
           </div>
         ) : (
-          <div className="food-placeholder grid h-16 w-16 shrink-0 place-items-center rounded-xl border border-border/70">
+          <div className="food-placeholder grid h-14 w-14 shrink-0 place-items-center rounded-xl border border-border/70">
             <span className="text-2xl" aria-hidden>{emoji}</span>
           </div>
         )}
