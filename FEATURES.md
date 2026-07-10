@@ -191,7 +191,7 @@ and technique tracks in dependency order.
 | 06 | [features/06-gamified-skill-map.md](features/06-gamified-skill-map.md) | "My Skills" gamified skill tree page | 03, 05 | Built |
 | 13 | (see "13 — Guided Cook Mode" below) | Full-screen guided cook mode: step-by-step view, wake lock, auto/manual timers, opt-in voice control, ingredient check-off, mark-as-cooked | recipe detail, cooking log | Built |
 | 08 | [features/08-smart-meal-planning.md](features/08-smart-meal-planning.md) | Preference-aware AI auto-fill, smart recipe picker, plan diversity tools | — | Built |
-| 09 | [features/09-social-friends.md](features/09-social-friends.md) | Friends, households, shared recipe libraries & activity feed | — | Pending |
+| 09 | [features/09-social-friends.md](features/09-social-friends.md) | Friends, households, shared recipe libraries & activity feed | — | Built |
 | 17 | [features/17-grocery-savings-engine.md](features/17-grocery-savings-engine.md) | Sale-matched recipe badges, cost estimation, budget-aware planning, flyer import | — | Pending |
 | 18 | [features/18-recipe-library-sort-preferences.md](features/18-recipe-library-sort-preferences.md) | Recipe library sort control with account-level saved default preference | — | Pending |
 
@@ -331,7 +331,7 @@ data source (manual entry or supermarket API where available).
 
 ### 09 — Social: Friends, Shared Collections & Activity Feed
 
-**Priority: 1 (specced and ready) — see [`features/09-social-friends.md`](features/09-social-friends.md) for the full spec**
+**Priority: 1 — Built. See [`features/09-social-friends.md`](features/09-social-friends.md) for the full spec.**
 
 - **Mutual friends** - request/accept graph with pending/accepted/blocked state machine.
 - **Households** - partner/couple accounts can join one household, share the same recipe

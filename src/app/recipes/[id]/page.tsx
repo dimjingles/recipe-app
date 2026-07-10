@@ -9,8 +9,9 @@ import { classifyTechniques, getTechniqueKeys } from '@/lib/ai/classify-techniqu
 export default async function RecipePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
 
-  const [{ data: recipe }, cookbooks, profile, { data: techniques }, { data: variantRows }, scores] = await Promise.all([
+  const [{ data: recipe }, cookbooks, profile, { data: techniques }, { data: ranking }, { data: membership }, { data: variantRows }, scores] = await Promise.all([
     supabase
       .from('recipes')
       .select('*, ingredients(*), cooking_log(*), cookbook_recipes(cookbook_id)')
@@ -19,6 +20,12 @@ export default async function RecipePage({ params }: { params: Promise<{ id: str
     getCookbooks(),
     getProfile(),
     supabase.from('techniques').select('*').order('category').order('label'),
+    user
+      ? supabase.from('recipe_rankings').select('rank').eq('user_id', user.id).eq('recipe_id', id).maybeSingle()
+      : Promise.resolve({ data: null }),
+    user
+      ? supabase.from('household_members').select('household_id').eq('user_id', user.id).maybeSingle()
+      : Promise.resolve({ data: null }),
     supabase
       .from('recipes')
       .select('id, name, cuisine, adaptation_metadata')
@@ -39,9 +46,17 @@ export default async function RecipePage({ params }: { params: Promise<{ id: str
 
   // Cast once — Supabase join types collapse to never without this
   const r = recipe as any
+  // rank shown on the detail page is the CURRENT user's personal rank.
+  r.rank = (ranking as { rank: number } | null)?.rank ?? null
+  const myHouseholdId = (membership as { household_id: string } | null)?.household_id ?? null
+  const isOwner = !!user && r.user_id === user.id
+  const hasHousehold = !!myHouseholdId
+  // A household member can edit shared recipes; anyone else (a friend browsing) is read-only.
+  const canEdit = isOwner || (r.owner_scope === 'household' && !!r.household_id && r.household_id === myHouseholdId)
+  const readOnly = !canEdit
 
-  // Backfill techniques for recipes that predate classification
-  if (!r.techniques?.length && r.instructions) {
+  // Backfill techniques for recipes that predate classification (owner/household only)
+  if (!readOnly && !r.techniques?.length && r.instructions) {
     const keys = await getTechniqueKeys(supabase)
     const classified = await classifyTechniques(r.name, r.instructions, keys)
     if (classified.length) {
@@ -56,6 +71,9 @@ export default async function RecipePage({ params }: { params: Promise<{ id: str
       initialCookbooks={cookbooks}
       skillProfile={profile?.skill_profile ?? null}
       techniques={(techniques || []) as any}
+      isOwner={isOwner}
+      hasHousehold={hasHousehold}
+      readOnly={readOnly}
       variants={variants}
       score={scores[id] ?? null}
     />

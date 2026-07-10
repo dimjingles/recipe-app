@@ -3,12 +3,15 @@ import { createClient } from '@/lib/supabase/server'
 import { getRecipes } from '@/lib/db/recipes'
 import { getWeekPlan, getWeekStart } from '@/lib/db/planner'
 import { getProfile } from '@/lib/db/profile'
+import { getFeed } from '@/lib/db/activity'
 import Link from 'next/link'
-import { ChefHat, CalendarDays, Clock, Plus, LogOut, ShoppingCart, Sparkles } from 'lucide-react'
+import { ChefHat, CalendarDays, Clock, Plus, LogOut, ShoppingCart, Sparkles, Users } from 'lucide-react'
 import { format, addDays } from 'date-fns'
 import { getCuisineEmoji } from '@/lib/cuisine-emoji'
 import { AddRecipeLauncher } from '@/components/add-recipe-sheet'
 import { EmptyState, RecipeBookIllustration } from '@/components/ui/empty-state'
+import { UserAvatar } from '@/components/user-avatar'
+import { FeedItemRow } from '@/components/feed-item'
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
@@ -16,17 +19,16 @@ export default async function HomePage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  if (user) {
-    const profile = await getProfile()
-    if (!profile?.onboarding_completed) {
-      redirect('/onboarding')
-    }
+  const profile = user ? await getProfile() : null
+  if (user && !profile?.onboarding_completed) {
+    redirect('/onboarding')
   }
 
   const weekStart = getWeekStart()
-  const [recipes, plan] = await Promise.all([
+  const [recipes, plan, feed] = await Promise.all([
     getRecipes(),
     getWeekPlan(weekStart),
+    getFeed(undefined, 5),
   ])
 
   const recentRecipes = recipes.slice(0, 6)
@@ -53,15 +55,24 @@ export default async function HomePage() {
             {format(new Date(), 'EEEE, MMMM d')}
           </p>
         </div>
-        <form action="/auth/signout" method="POST">
-          <button
-            type="submit"
-            title="Sign out"
-            className="grid h-11 w-11 place-items-center rounded-xl bg-card text-muted-foreground shadow-card ring-1 ring-border transition-all hover:text-foreground active:scale-[0.95]"
+        <div className="flex items-center gap-2">
+          <Link
+            href="/profile"
+            title="Profile"
+            className="rounded-full shadow-card ring-1 ring-border transition-all hover:opacity-90 active:scale-[0.95]"
           >
-            <LogOut className="h-4 w-4" />
-          </button>
-        </form>
+            <UserAvatar name={profile?.display_name || profile?.username} src={profile?.avatar_url} size={44} />
+          </Link>
+          <form action="/auth/signout" method="POST">
+            <button
+              type="submit"
+              title="Sign out"
+              className="grid h-11 w-11 place-items-center rounded-xl bg-card text-muted-foreground shadow-card ring-1 ring-border transition-all hover:text-foreground active:scale-[0.95]"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
+          </form>
+        </div>
       </div>
 
       <div className="mb-8 grid gap-6 lg:grid-cols-[minmax(0,1.35fr)_360px] lg:items-start">
@@ -143,6 +154,25 @@ export default async function HomePage() {
         </div>
       </section>
       </div>
+
+      {feed.items.length > 0 && (
+        <section className="mb-8">
+          <div className="mb-4 flex items-end justify-between gap-4">
+            <div>
+              <p className="mb-1 flex items-center gap-1 text-xs font-bold uppercase tracking-wide text-brand">
+                <Users className="h-3.5 w-3.5" /> Friends
+              </p>
+              <h2 className="font-heading text-2xl font-bold tracking-tight text-foreground">Activity</h2>
+            </div>
+            <Link href="/feed" className="text-sm font-bold uppercase tracking-wide text-brand">
+              See all →
+            </Link>
+          </div>
+          <div className="space-y-2">
+            {feed.items.map(item => <FeedItemRow key={item.id} item={item} />)}
+          </div>
+        </section>
+      )}
 
       <section>
         <div className="mb-4 flex items-end justify-between gap-4">

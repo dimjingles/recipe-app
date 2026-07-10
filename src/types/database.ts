@@ -64,6 +64,9 @@ export interface Database {
       profiles: {
         Row: {
           id: string
+          username: string | null
+          display_name: string | null
+          avatar_url: string | null
           onboarding_completed: boolean
           household_size: string | null
           cook_frequency: string | null
@@ -81,6 +84,9 @@ export interface Database {
         }
         Insert: {
           id: string
+          username?: string | null
+          display_name?: string | null
+          avatar_url?: string | null
           onboarding_completed?: boolean
           household_size?: string | null
           cook_frequency?: string | null
@@ -120,11 +126,14 @@ export interface Database {
           rank: number | null
           feedback: 'like' | 'okay' | 'dislike' | null
           recipe_type: string | null
+          owner_scope: string
+          household_id: string | null
+          visibility: string
           original_recipe_id: string | null
           adaptation_metadata: AdaptationMetadata | null
           created_at: string
         }
-        Insert: Omit<Database['public']['Tables']['recipes']['Row'], 'id' | 'created_at' | 'cooked_count' | 'last_cooked_at' | 'rank' | 'feedback' | 'recipe_type' | 'gallery_images' | 'techniques' | 'instruction_steps' | 'original_recipe_id' | 'adaptation_metadata'> & {
+        Insert: Omit<Database['public']['Tables']['recipes']['Row'], 'id' | 'created_at' | 'cooked_count' | 'last_cooked_at' | 'rank' | 'feedback' | 'recipe_type' | 'gallery_images' | 'techniques' | 'instruction_steps' | 'owner_scope' | 'household_id' | 'visibility' | 'original_recipe_id' | 'adaptation_metadata'> & {
           id?: string
           created_at?: string
           cooked_count?: number
@@ -132,6 +141,9 @@ export interface Database {
           rank?: number | null
           feedback?: 'like' | 'okay' | 'dislike' | null
           recipe_type?: string | null
+          owner_scope?: string
+          household_id?: string | null
+          visibility?: string
           gallery_images?: string[]
           difficulty?: number | null
           techniques?: string[]
@@ -165,7 +177,15 @@ export interface Database {
         }
         Insert: Omit<Database['public']['Tables']['ingredients']['Row'], 'id'> & { id?: string }
         Update: Partial<Database['public']['Tables']['ingredients']['Insert']>
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: 'ingredients_recipe_id_fkey'
+            columns: ['recipe_id']
+            isOneToOne: false
+            referencedRelation: 'recipes'
+            referencedColumns: ['id']
+          },
+        ]
       }
       cooking_log: {
         Row: {
@@ -180,7 +200,15 @@ export interface Database {
           cooked_at?: string
         }
         Update: Partial<Database['public']['Tables']['cooking_log']['Insert']>
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: 'cooking_log_recipe_id_fkey'
+            columns: ['recipe_id']
+            isOneToOne: false
+            referencedRelation: 'recipes'
+            referencedColumns: ['id']
+          },
+        ]
       }
       weekly_plans: {
         Row: {
@@ -206,17 +234,38 @@ export interface Database {
         }
         Insert: Omit<Database['public']['Tables']['weekly_plan_slots']['Row'], 'id'> & { id?: string }
         Update: Partial<Database['public']['Tables']['weekly_plan_slots']['Insert']>
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: 'weekly_plan_slots_plan_id_fkey'
+            columns: ['plan_id']
+            isOneToOne: false
+            referencedRelation: 'weekly_plans'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'weekly_plan_slots_recipe_id_fkey'
+            columns: ['recipe_id']
+            isOneToOne: false
+            referencedRelation: 'recipes'
+            referencedColumns: ['id']
+          },
+        ]
       }
       cookbooks: {
         Row: {
           id: string
           user_id: string
           name: string
+          owner_scope: string
+          household_id: string | null
+          visibility: string
           created_at: string
         }
-        Insert: Omit<Database['public']['Tables']['cookbooks']['Row'], 'id' | 'created_at'> & {
+        Insert: Omit<Database['public']['Tables']['cookbooks']['Row'], 'id' | 'created_at' | 'owner_scope' | 'household_id' | 'visibility'> & {
           id?: string
+          owner_scope?: string
+          household_id?: string | null
+          visibility?: string
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['cookbooks']['Insert']>
@@ -234,13 +283,216 @@ export interface Database {
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['cookbook_recipes']['Insert']>
+        Relationships: [
+          {
+            foreignKeyName: 'cookbook_recipes_cookbook_id_fkey'
+            columns: ['cookbook_id']
+            isOneToOne: false
+            referencedRelation: 'cookbooks'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'cookbook_recipes_recipe_id_fkey'
+            columns: ['recipe_id']
+            isOneToOne: false
+            referencedRelation: 'recipes'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      friendships: {
+        Row: {
+          user_id_a: string
+          user_id_b: string
+          status: string
+          requested_by: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          user_id_a: string
+          user_id_b: string
+          status?: string
+          requested_by: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['friendships']['Insert']>
+        Relationships: []
+      }
+      households: {
+        Row: {
+          id: string
+          name: string
+          created_by: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          created_by: string
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['households']['Insert']>
+        Relationships: []
+      }
+      household_members: {
+        Row: {
+          household_id: string
+          user_id: string
+          role: string
+          joined_at: string
+        }
+        Insert: {
+          household_id: string
+          user_id: string
+          role?: string
+          joined_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['household_members']['Insert']>
+        Relationships: [
+          {
+            foreignKeyName: 'household_members_household_id_fkey'
+            columns: ['household_id']
+            isOneToOne: false
+            referencedRelation: 'households'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      recipe_rankings: {
+        Row: {
+          user_id: string
+          recipe_id: string
+          rank: number
+          updated_at: string
+        }
+        Insert: {
+          user_id: string
+          recipe_id: string
+          rank: number
+          updated_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['recipe_rankings']['Insert']>
+        Relationships: [
+          {
+            foreignKeyName: 'recipe_rankings_recipe_id_fkey'
+            columns: ['recipe_id']
+            isOneToOne: false
+            referencedRelation: 'recipes'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      activity: {
+        Row: {
+          id: string
+          actor_id: string
+          type: string
+          recipe_id: string | null
+          cookbook_id: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          actor_id: string
+          type: string
+          recipe_id?: string | null
+          cookbook_id?: string | null
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['activity']['Insert']>
+        Relationships: [
+          {
+            foreignKeyName: 'activity_recipe_id_fkey'
+            columns: ['recipe_id']
+            isOneToOne: false
+            referencedRelation: 'recipes'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'activity_cookbook_id_fkey'
+            columns: ['cookbook_id']
+            isOneToOne: false
+            referencedRelation: 'cookbooks'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+    }
+    Views: {
+      public_profiles: {
+        Row: {
+          id: string
+          username: string | null
+          display_name: string | null
+          avatar_url: string | null
+        }
         Relationships: []
       }
     }
-    Views: Record<string, never>
-    Functions: Record<string, never>
+    Functions: {
+      find_user_by_email: {
+        Args: { lookup_email: string }
+        Returns: {
+          id: string
+          username: string | null
+          display_name: string | null
+          avatar_url: string | null
+        }[]
+      }
+      are_friends: {
+        Args: { u1: string; u2: string }
+        Returns: boolean
+      }
+      send_friend_request: {
+        Args: { target_id: string }
+        Returns: undefined
+      }
+      respond_to_request: {
+        Args: { other_id: string; do_accept: boolean }
+        Returns: undefined
+      }
+      unfriend: {
+        Args: { other_id: string }
+        Returns: undefined
+      }
+      same_household: {
+        Args: { u1: string; u2: string }
+        Returns: boolean
+      }
+      is_household_member: {
+        Args: { hh: string }
+        Returns: boolean
+      }
+      create_household: {
+        Args: { p_name: string }
+        Returns: string
+      }
+      create_household_invite: {
+        Args: { p_household: string }
+        Returns: string
+      }
+      household_invite_info: {
+        Args: { p_token: string }
+        Returns: { household_id: string; name: string }[]
+      }
+      accept_household_invite: {
+        Args: { p_token: string }
+        Returns: string
+      }
+      leave_household: {
+        Args: { p_household: string }
+        Returns: undefined
+      }
+    }
   }
 }
+
+// ── Social identity ───────────────────────────────────────────────────────────
+
+/** The only profile fields ever exposed to other users (via `public_profiles`). */
+export type PublicProfile = Database['public']['Views']['public_profiles']['Row']
 
 export type Profile = Database['public']['Tables']['profiles']['Row']
 export type Recipe = Database['public']['Tables']['recipes']['Row']
@@ -251,6 +503,9 @@ export type WeeklyPlan = Database['public']['Tables']['weekly_plans']['Row']
 export type WeeklyPlanSlot = Database['public']['Tables']['weekly_plan_slots']['Row']
 export type Cookbook = Database['public']['Tables']['cookbooks']['Row']
 export type CookbookRecipe = Database['public']['Tables']['cookbook_recipes']['Row']
+export type Household = Database['public']['Tables']['households']['Row']
+export type HouseholdMember = Database['public']['Tables']['household_members']['Row']
+export type RecipeRanking = Database['public']['Tables']['recipe_rankings']['Row']
 
 export type RecipeWithIngredients = Recipe & {
   ingredients: Ingredient[]

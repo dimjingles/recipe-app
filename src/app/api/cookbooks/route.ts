@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { emitActivity } from '@/lib/db/activity'
 
 export async function GET() {
   try {
@@ -36,6 +37,8 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (cbError) throw cbError
+
+    await emitActivity('cookbook_created', { cookbook_id: cookbook.id })
 
     if (recipe_ids.length > 0) {
       const { error: joinError } = await supabase

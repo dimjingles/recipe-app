@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { updateSkillProfile } from '@/lib/db/profile'
+import { emitActivity } from '@/lib/db/activity'
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -27,6 +28,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (recipe?.techniques?.length) {
       await updateSkillProfile(user.id, { newMasteredKeys: recipe.techniques })
     }
+
+    await emitActivity('recipe_cooked', { recipe_id: id })
 
     return NextResponse.json({ success: true })
   } catch (error: any) {

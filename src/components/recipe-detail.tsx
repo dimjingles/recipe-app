@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Clock, Users, Edit, ChefHat, Trophy, X, BookOpen, Plus, Play, Sparkles, GitBranch } from 'lucide-react'
+import { ArrowLeft, Clock, Users, Edit, ChefHat, Trophy, X, BookOpen, Plus, Home, Lock, Play, Sparkles, GitBranch } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { BottomSheet } from '@/components/ui/bottom-sheet'
 import { Input } from '@/components/ui/input'
@@ -437,6 +437,9 @@ export default function RecipeDetail({
   initialCookbooks,
   skillProfile,
   techniques,
+  isOwner = true,
+  hasHousehold = false,
+  readOnly = false,
   variants = [],
   score,
 }: {
@@ -444,6 +447,9 @@ export default function RecipeDetail({
   initialCookbooks: Cookbook[]
   skillProfile?: SkillProfile | null
   techniques?: Technique[]
+  isOwner?: boolean
+  hasHousehold?: boolean
+  readOnly?: boolean
   variants?: RecipeVariantLink[]
   score: number | null
 }) {
@@ -457,6 +463,51 @@ export default function RecipeDetail({
   const [cookedCount, setCookedCount] = useState(recipe.cooked_count)
   const [currentRank, setCurrentRank] = useState<number | null>(recipe.rank)
   const [currentFeedback, setCurrentFeedback] = useState<Feedback | null>(recipe.feedback)
+  const [ownerScope, setOwnerScope] = useState<string>((recipe as { owner_scope?: string }).owner_scope ?? 'user')
+  const [sharing, setSharing] = useState(false)
+  const [visibility, setVisibility] = useState<string>((recipe as { visibility?: string }).visibility ?? 'friends')
+  const [savingVisibility, setSavingVisibility] = useState(false)
+
+  const toggleVisibility = async () => {
+    const next = visibility === 'friends' ? 'private' : 'friends'
+    setSavingVisibility(true)
+    try {
+      const res = await fetch(`/api/recipes/${recipe.id}/visibility`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ visibility: next }),
+      })
+      if (!res.ok) throw new Error((await res.json()).error || 'Failed')
+      setVisibility(next)
+      toast.success(next === 'friends' ? 'Visible to friends' : 'Now private')
+      router.refresh()
+    } catch (e: any) {
+      toast.error(e.message || 'Could not update visibility')
+    } finally {
+      setSavingVisibility(false)
+    }
+  }
+
+  const toggleHouseholdShare = async () => {
+    const next = ownerScope !== 'household'
+    setSharing(true)
+    try {
+      const res = await fetch(`/api/recipes/${recipe.id}/share`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shared: next }),
+      })
+      if (!res.ok) throw new Error((await res.json()).error || 'Failed')
+      setOwnerScope(next ? 'household' : 'user')
+      toast.success(next ? 'Shared with your household' : 'Now personal again')
+      router.refresh()
+    } catch (e: any) {
+      toast.error(e.message || 'Could not update sharing')
+    } finally {
+      setSharing(false)
+    }
+  }
+
   const [cookbooks, setCookbooks] = useState<Cookbook[]>(initialCookbooks)
   const [cookbookIds, setCookbookIds] = useState<string[]>(
     (recipe.cookbook_recipes || []).map(cr => cr.cookbook_id)
@@ -562,9 +613,11 @@ export default function RecipeDetail({
             <Link href="/recipes" className="text-white/90 hover:text-white bg-black/20 rounded-full p-1.5">
               <ArrowLeft className="w-5 h-5" />
             </Link>
-            <Link href={`/recipes/${recipe.id}/edit`} className="text-white/90 hover:text-white bg-black/20 rounded-full p-1.5">
-              <Edit className="w-4 h-4" />
-            </Link>
+            {!readOnly && (
+              <Link href={`/recipes/${recipe.id}/edit`} className="text-white/90 hover:text-white bg-black/20 rounded-full p-1.5">
+                <Edit className="w-4 h-4" />
+              </Link>
+            )}
           </div>
         </div>
       )}
@@ -615,9 +668,11 @@ export default function RecipeDetail({
             <Link href="/recipes" className="text-muted-foreground hover:text-foreground p-1 -ml-1 active:scale-[0.95] transition-all">
               <ArrowLeft className="w-5 h-5" />
             </Link>
-            <Link href={`/recipes/${recipe.id}/edit`} className="text-muted-foreground hover:text-foreground p-2 active:scale-[0.95] transition-all">
-              <Edit className="w-4 h-4" />
-            </Link>
+            {!readOnly && (
+              <Link href={`/recipes/${recipe.id}/edit`} className="text-muted-foreground hover:text-foreground p-2 active:scale-[0.95] transition-all">
+                <Edit className="w-4 h-4" />
+              </Link>
+            )}
           </div>
           {/* Large emoji + title */}
           <div className="flex items-start gap-4">
@@ -679,7 +734,7 @@ export default function RecipeDetail({
         )}
 
         {/* Guided cook mode — primary CTA when the recipe has steps */}
-        {recipe.instructions && (
+        {!readOnly && recipe.instructions && (
           <Link
             href={`/recipes/${recipe.id}/cook`}
             className="mb-3 flex items-center justify-center gap-2 w-full bg-brand text-brand-foreground hover:bg-brand/90 font-semibold h-14 rounded-2xl shadow-md active:scale-[0.98] transition-all text-base"
@@ -689,6 +744,7 @@ export default function RecipeDetail({
         )}
 
         {/* Action buttons */}
+        {!readOnly && (
         <div className="flex gap-2 mb-3">
           {cookedCount === 0 && (
             <Button
@@ -724,17 +780,57 @@ export default function RecipeDetail({
             <BookOpen className="w-4 h-4" />
           </Button>
         </div>
+        )}
+
+        {/* Visibility (owner only) */}
+        {isOwner && !readOnly && (
+          <button
+            onClick={toggleVisibility}
+            disabled={savingVisibility}
+            className={`mb-3 flex w-full items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-sm font-semibold transition-all active:scale-[0.98] disabled:opacity-60 ${
+              visibility === 'friends'
+                ? 'border-brand/30 bg-brand-subtle text-brand'
+                : 'border-border bg-card text-muted-foreground'
+            }`}
+          >
+            {visibility === 'friends' ? <Users className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+            {visibility === 'friends' ? 'Visible to friends · tap to make private' : 'Private · tap to share with friends'}
+          </button>
+        )}
+
+        {/* Household sharing */}
+        {isOwner && hasHousehold ? (
+          <button
+            onClick={toggleHouseholdShare}
+            disabled={sharing}
+            className={`mb-6 flex w-full items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-sm font-semibold transition-all active:scale-[0.98] disabled:opacity-60 ${
+              ownerScope === 'household'
+                ? 'border-sage/30 bg-sage-subtle text-sage'
+                : 'border-border bg-card text-muted-foreground hover:border-brand hover:text-brand'
+            }`}
+          >
+            <Home className="h-4 w-4" />
+            {ownerScope === 'household' ? 'Shared with household · tap to make personal' : 'Share with household'}
+          </button>
+        ) : ownerScope === 'household' ? (
+          <div className="mb-6 flex w-full items-center justify-center gap-2 rounded-2xl border border-sage/30 bg-sage-subtle px-4 py-3 text-sm font-semibold text-sage">
+            <Home className="h-4 w-4" /> Shared with household
+          </div>
+        ) : null}
 
         {/* Adapt recipe — AI variant generator */}
-        <Button
-          onClick={() => setShowAdapt(true)}
-          className="w-full mb-6 bg-brand-subtle text-brand hover:bg-brand/15 border border-brand/30 font-semibold h-12 rounded-2xl active:scale-[0.98] transition-all"
-        >
-          <Sparkles className="w-4 h-4" /> Adapt recipe
-        </Button>
+        {!readOnly && (
+          <Button
+            onClick={() => setShowAdapt(true)}
+            className="w-full mb-6 bg-brand-subtle text-brand hover:bg-brand/15 border border-brand/30 font-semibold h-12 rounded-2xl active:scale-[0.98] transition-all"
+          >
+            <Sparkles className="w-4 h-4" /> Adapt recipe
+          </Button>
+        )}
 
-        {/* Taste feedback — calibrates the score into a like / okay / dislike band */}
-        {currentRank !== null && (
+        {/* Taste feedback — calibrates the score into a like / okay / dislike band.
+            The tier is a recipe-level property, so only the owner sets it. */}
+        {!readOnly && isOwner && currentRank !== null && (
           <div className="mb-6">
             <p className="text-sm font-medium text-foreground mb-2">How was it?</p>
             <div className="grid grid-cols-3 gap-2">
@@ -884,7 +980,7 @@ export default function RecipeDetail({
         )}
 
         {/* Cooking history — amber accent */}
-        {logs.length > 0 && (
+        {!readOnly && logs.length > 0 && (
           <div className="mb-6">
             <h2 className="font-heading font-bold text-foreground text-lg mb-3">Cooking History</h2>
             <div className="space-y-2">

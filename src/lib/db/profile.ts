@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
-import type { Profile, RecipeSortPreference, SkillProfile } from '@/types/database'
+import { Database, Profile, RecipeSortPreference, SkillProfile } from '@/types/database'
 import { normalizeSkillProfile } from '@/lib/skills'
+import { normalizeUsername, validateUsername } from '@/lib/username'
 
 export async function getProfile(): Promise<Profile | null> {
   const supabase = await createClient()
@@ -63,32 +64,49 @@ export async function completeOnboarding(answers: {
   favorite_cuisines?: string[]
   skill_level?: string
   meal_reminders?: boolean
-}): Promise<void> {
+  username?: string
+}): Promise<{ username_taken: boolean }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
 
+  const base: Database['public']['Tables']['profiles']['Insert'] = {
+    id: user.id,
+    household_size: answers.household_size ?? null,
+    cook_frequency: answers.cook_frequency ?? null,
+    referral_source: answers.referral_source ?? null,
+    primary_goal: answers.primary_goal ?? null,
+    diet: answers.diet ?? null,
+    allergies: answers.allergies ?? [],
+    favorite_cuisines: answers.favorite_cuisines ?? [],
+    skill_level: answers.skill_level ?? null,
+    meal_reminders: answers.meal_reminders ?? false,
+    onboarding_completed: true,
+    updated_at: new Date().toISOString(),
+  }
+
+  // Only attach a username if it passes format validation.
+  const username =
+    answers.username && !validateUsername(answers.username)
+      ? normalizeUsername(answers.username)
+      : undefined
+
   const { error } = await supabase
     .from('profiles')
-    .upsert(
-      {
-        id: user.id,
-        household_size: answers.household_size ?? null,
-        cook_frequency: answers.cook_frequency ?? null,
-        referral_source: answers.referral_source ?? null,
-        primary_goal: answers.primary_goal ?? null,
-        diet: answers.diet ?? null,
-        allergies: answers.allergies ?? [],
-        favorite_cuisines: answers.favorite_cuisines ?? [],
-        skill_level: answers.skill_level ?? null,
-        meal_reminders: answers.meal_reminders ?? false,
-        onboarding_completed: true,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'id' }
-    )
+    .upsert({ ...base, ...(username ? { username } : {}) }, { onConflict: 'id' })
+
+  // Handle raced away between selection and save — finish onboarding without it
+  // so the user isn't blocked; they can claim a handle from /profile.
+  if (error?.code === '23505' && username) {
+    const { error: retryError } = await supabase
+      .from('profiles')
+      .upsert(base, { onConflict: 'id' })
+    if (retryError) throw retryError
+    return { username_taken: true }
+  }
 
   if (error) throw error
+  return { username_taken: false }
 }
 
 export async function updateSkillProfile(userId: string, updates: {

@@ -2,28 +2,36 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { isFeedback } from '@/lib/scoring'
 
+// The current user's ranked recipes (from recipe_rankings), used by the
+// head-to-head comparison dialog. An optional ?feedback= tier filter restricts
+// to one like/okay/dislike band, since recipes are ranked only within their tier.
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    // Optional tier filter — recipes are ranked only within their own tier.
     const feedback = request.nextUrl.searchParams.get('feedback')
 
-    let query = supabase
-      .from('recipes')
-      .select('id, name, cuisine, rank, feedback')
+    const { data, error } = await supabase
+      .from('recipe_rankings')
+      .select('rank, recipe:recipes(id, name, cuisine, feedback)')
       .eq('user_id', user.id)
-      .not('rank', 'is', null)
-
-    if (isFeedback(feedback)) query = query.eq('feedback', feedback)
-    else if (feedback === 'none') query = query.is('feedback', null)
-
-    const { data, error } = await query.order('rank', { ascending: true })
-
+      .order('rank', { ascending: true })
     if (error) throw error
-    return NextResponse.json(data)
+
+    let rows = (data ?? []).filter((r: any) => r.recipe)
+    if (isFeedback(feedback)) rows = rows.filter((r: any) => r.recipe.feedback === feedback)
+    else if (feedback === 'none') rows = rows.filter((r: any) => r.recipe.feedback == null)
+
+    const flat = rows.map((r: any) => ({
+      id: r.recipe.id,
+      name: r.recipe.name,
+      cuisine: r.recipe.cuisine,
+      rank: r.rank,
+      feedback: r.recipe.feedback ?? null,
+    }))
+    return NextResponse.json(flat)
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }

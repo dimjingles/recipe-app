@@ -2,8 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { TIER_ORDER, type Feedback } from '@/lib/scoring'
 
-type Row = { id: string; rank: number | null; feedback: Feedback | null }
+type Row = { recipe_id: string; rank: number; feedback: Feedback | null }
 
+// Writes ONLY the current user's ranking (recipe_rankings). Household members
+// each keep their own order for the same recipe; this never touches theirs.
+// Recipes are ranked WITHIN their like/okay/dislike tier (recipes.feedback);
+// the stored rank is a global tier-major ordinal.
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
@@ -17,26 +21,26 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: 'Invalid position' }, { status: 400 })
     }
 
-    // This recipe's tier — it's only ranked against others in the same tier.
+    // This recipe's tier (feedback lives on the recipe; RLS gates readability).
     const { data: self, error: selfErr } = await supabase
       .from('recipes')
       .select('feedback')
       .eq('id', id)
-      .eq('user_id', user.id)
-      .single()
+      .maybeSingle()
     if (selfErr) throw selfErr
     const selfTier: Feedback | null = (self?.feedback as Feedback | null) ?? null
 
-    // All currently ranked recipes for this user, ordered by rank.
-    const { data: ranked, error } = await supabase
-      .from('recipes')
-      .select('id, rank, feedback')
+    // The current user's existing rankings, with each recipe's tier.
+    const { data: rankings, error } = await supabase
+      .from('recipe_rankings')
+      .select('recipe_id, rank, recipe:recipes(feedback)')
       .eq('user_id', user.id)
-      .not('rank', 'is', null)
       .order('rank', { ascending: true })
     if (error) throw error
 
-    const others = ((ranked || []) as Row[]).filter(r => r.id !== id)
+    const others: Row[] = (rankings ?? [])
+      .filter((r: any) => r.recipe_id !== id)
+      .map((r: any) => ({ recipe_id: r.recipe_id, rank: r.rank, feedback: r.recipe?.feedback ?? null }))
 
     // Group into tiers, best first (like → okay → dislike), null feedback last.
     const tiers: (Feedback | null)[] = [...TIER_ORDER, null]
@@ -46,24 +50,20 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     // Insert this recipe into its tier at the requested within-tier position.
     const selfBucket = buckets.get(selfTier)!
     const insertAt = Math.min(position - 1, selfBucket.length)
-    selfBucket.splice(insertAt, 0, { id, rank: null, feedback: selfTier })
+    selfBucket.splice(insertAt, 0, { recipe_id: id, rank: 0, feedback: selfTier })
 
-    // Flatten tier-major and renumber 1..N globally, persisting only changes.
+    // Flatten tier-major and renumber 1..N globally, then persist in one
+    // statement — the unique(user_id, rank) constraint is DEFERRABLE INITIALLY
+    // DEFERRED, so intermediate collisions within the statement are fine.
     const ordered = tiers.flatMap(t => buckets.get(t)!)
-    const oldRank = new Map((ranked || []).map(r => [r.id, r.rank]))
-    let selfRank = insertAt + 1
-    for (let i = 0; i < ordered.length; i++) {
-      const newRank = i + 1
-      if (ordered[i].id === id) selfRank = newRank
-      if (oldRank.get(ordered[i].id) !== newRank) {
-        await supabase
-          .from('recipes')
-          .update({ rank: newRank })
-          .eq('id', ordered[i].id)
-          .eq('user_id', user.id)
-      }
-    }
+    const now = new Date().toISOString()
+    const rows = ordered.map((r, i) => ({ user_id: user.id, recipe_id: r.recipe_id, rank: i + 1, updated_at: now }))
+    const { error: upErr } = await supabase
+      .from('recipe_rankings')
+      .upsert(rows, { onConflict: 'user_id,recipe_id' })
+    if (upErr) throw upErr
 
+    const selfRank = ordered.findIndex(r => r.recipe_id === id) + 1
     return NextResponse.json({ success: true, rank: selfRank, feedback: selfTier })
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 })
