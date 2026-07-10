@@ -17,8 +17,6 @@ const FETCH_SIZE = 45
 type CacheEntry = { expiresAt: number; results: ImageResult[]; provider: string }
 const cache = new Map<string, CacheEntry>()
 
-const USER_AGENT = 'PrepTable/1.0 (recipe app image search)'
-
 function hostnameOf(...urls: string[]): string {
   for (const u of urls) {
     try {
@@ -29,7 +27,7 @@ function hostnameOf(...urls: string[]): string {
   return 'source'
 }
 
-// Primary provider: Serper.dev — real Google Images results (needs SERPER_API_KEY).
+// Provider: Serper.dev — real Google Images results (needs SERPER_API_KEY).
 // Docs: https://serper.dev/playground (POST https://google.serper.dev/images)
 async function searchSerper(q: string, apiKey: string, limit: number): Promise<ImageResult[]> {
   const res = await fetch('https://google.serper.dev/images', {
@@ -51,59 +49,21 @@ async function searchSerper(q: string, apiKey: string, limit: number): Promise<I
   }).filter((r: ImageResult) => r.fullUrl && r.thumbnailUrl)
 }
 
-// Fallback provider: Openverse — free, keyless, Creative-Commons / public-domain
-// search. Keeps image search working if Serper is unconfigured, rate-limited, or
-// down, so the feature can never regress to "not configured".
-// Docs: https://api.openverse.org/v1/
-async function searchOpenverse(q: string, limit: number): Promise<ImageResult[]> {
-  const url = new URL('https://api.openverse.org/v1/images/')
-  url.searchParams.set('q', q)
-  url.searchParams.set('page_size', String(limit))
-  url.searchParams.set('category', 'photograph')
-  url.searchParams.set('mature', 'false')
-  const res = await fetch(url, {
-    headers: { Accept: 'application/json', 'User-Agent': USER_AGENT },
-    cache: 'no-store',
-  })
-  if (!res.ok) throw new Error(`Openverse search failed: ${res.status}`)
-  const data = await res.json()
-  return (data.results || []).map((item: any) => {
-    const fullUrl = item.url || ''
-    return {
-      thumbnailUrl: item.thumbnail || fullUrl,
-      fullUrl,
-      sourceDomain: item.source || hostnameOf(item.foreign_landing_url || '', fullUrl),
-      title: item.title || q,
-    }
-  }).filter((r: ImageResult) => r.fullUrl && r.thumbnailUrl)
-}
-
-// Fetch one batch (Serper first, Openverse fallback). Returns null only if both fail.
+// Fetch one batch from Serper. Returns null if the key is missing or the call fails.
 async function fetchBatch(q: string): Promise<CacheEntry | null> {
-  let results: ImageResult[] = []
-  let provider = ''
-
   const serperKey = process.env.SERPER_API_KEY
-  if (serperKey) {
-    try {
-      results = await searchSerper(q, serperKey, FETCH_SIZE)
-      provider = 'serper'
-    } catch (error) {
-      console.error('Serper image search failed, falling back to Openverse:', error)
-    }
+  if (!serperKey) {
+    console.error('Image search error: SERPER_API_KEY is not set')
+    return null
   }
 
-  if (results.length === 0) {
-    try {
-      results = await searchOpenverse(q, FETCH_SIZE)
-      provider = 'openverse'
-    } catch (error) {
-      console.error('Image search error:', error)
-      return null
-    }
+  try {
+    const results = await searchSerper(q, serperKey, FETCH_SIZE)
+    return { expiresAt: Date.now() + CACHE_TTL_MS, results, provider: 'serper' }
+  } catch (error) {
+    console.error('Serper image search failed:', error)
+    return null
   }
-
-  return { expiresAt: Date.now() + CACHE_TTL_MS, results, provider }
 }
 
 export async function GET(request: NextRequest) {
