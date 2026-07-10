@@ -36,6 +36,9 @@ export default function RecipeGallery({ recipeId, recipeName, initialImages }: P
   const [isSearching, setIsSearching] = useState(false)
   const [hasSearched, setHasSearched] = useState(false)
   const [searchError, setSearchError] = useState('')
+  const [searchPage, setSearchPage] = useState(1)
+  const [hasMore, setHasMore] = useState(false)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   const addUrl = async (url: string) => {
@@ -65,10 +68,13 @@ export default function RecipeGallery({ recipeId, recipeName, initialImages }: P
     setIsSearching(true)
     setHasSearched(true)
     setSearchError('')
+    setSearchPage(1)
+    setHasMore(false)
     try {
-      const res = await fetch(`/api/images/search?q=${encodeURIComponent(searchQuery)}&recipeId=${recipeId}`)
+      const res = await fetch(`/api/images/search?q=${encodeURIComponent(searchQuery)}&recipeId=${recipeId}&page=1`)
       const data = await res.json()
       setSearchResults(data.results || [])
+      setHasMore(!!data.hasMore)
       if (data.error) setSearchError(data.error)
     } catch {
       setSearchResults([])
@@ -78,10 +84,35 @@ export default function RecipeGallery({ recipeId, recipeName, initialImages }: P
     }
   }
 
+  const handleViewMore = async () => {
+    if (isLoadingMore) return
+    const nextPage = searchPage + 1
+    setIsLoadingMore(true)
+    try {
+      const res = await fetch(`/api/images/search?q=${encodeURIComponent(searchQuery)}&recipeId=${recipeId}&page=${nextPage}`)
+      const data = await res.json()
+      const more: ImageResult[] = data.results || []
+      if (more.length) {
+        setSearchResults(prev => {
+          const seen = new Set(prev.map(r => r.fullUrl))
+          return [...prev, ...more.filter(r => !seen.has(r.fullUrl))]
+        })
+        setSearchPage(nextPage)
+      }
+      setHasMore(!!data.hasMore)
+    } catch {
+      toast.error('Could not load more images')
+    } finally {
+      setIsLoadingMore(false)
+    }
+  }
+
   const handlePickImage = async (result: ImageResult) => {
     await addUrl(result.fullUrl)
     setSearchResults([])
     setHasSearched(false)
+    setSearchPage(1)
+    setHasMore(false)
   }
 
   const handleUpload = async (file: File) => {
@@ -148,7 +179,7 @@ export default function RecipeGallery({ recipeId, recipeName, initialImages }: P
         )}
       </div>
 
-      <BottomSheet open={showSheet} onClose={() => setShowSheet(false)} zIndex="elevated">
+      <BottomSheet open={showSheet} onClose={() => setShowSheet(false)} zIndex="elevated" maxHeight="85vh">
         <div className="px-6 pb-10">
           <div className="flex items-center justify-between mb-5">
             <h3 className="font-heading text-lg font-bold text-foreground">Add Photo</h3>
@@ -198,16 +229,23 @@ export default function RecipeGallery({ recipeId, recipeName, initialImages }: P
               {isSearching && <div className="grid grid-cols-3 gap-2">{[1,2,3,4,5,6].map(i => <Shimmer key={i} className="aspect-square rounded-xl" />)}</div>}
               {searchError && <p className="text-sm text-muted-foreground text-center py-2">{searchError}</p>}
               {searchResults.length > 0 && (
-                <div className="grid grid-cols-3 gap-2">
-                  {searchResults.map(result => (
-                    <button key={result.fullUrl} onClick={() => handlePickImage(result)} className="relative aspect-square rounded-xl overflow-hidden border border-border active:scale-[0.97] transition-all">
-                      <img src={result.thumbnailUrl} alt={result.title} className="w-full h-full object-cover" loading="lazy" />
-                      <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-1 py-0.5">
-                        <span className="text-white text-[9px] truncate block">{result.sourceDomain}</span>
-                      </div>
-                    </button>
-                  ))}
-                </div>
+                <>
+                  <div className="grid grid-cols-3 gap-2">
+                    {searchResults.map(result => (
+                      <button key={result.fullUrl} onClick={() => handlePickImage(result)} className="relative aspect-square rounded-xl overflow-hidden border border-border active:scale-[0.97] transition-all">
+                        <img src={result.thumbnailUrl} alt={result.title} className="w-full h-full object-cover" loading="lazy" />
+                        <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-1 py-0.5">
+                          <span className="text-white text-[9px] truncate block">{result.sourceDomain}</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                  {hasMore && (
+                    <Button variant="outline" onClick={handleViewMore} disabled={isLoadingMore} className="w-full mt-3">
+                      {isLoadingMore ? <Loader2 className="w-4 h-4 animate-spin" /> : 'View more'}
+                    </Button>
+                  )}
+                </>
               )}
               {searchResults.length === 0 && !isSearching && hasSearched && !searchError && <p className="text-sm text-muted-foreground text-center py-6">No results. Try a different search.</p>}
             </div>

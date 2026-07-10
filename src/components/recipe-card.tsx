@@ -3,6 +3,7 @@
 import { ReactNode, CSSProperties } from 'react'
 import { Clock, ImageIcon } from 'lucide-react'
 import { getCuisineEmoji } from '@/lib/cuisine-emoji'
+import { formatScore } from '@/lib/scoring'
 import { cn } from '@/lib/utils'
 
 export interface RecipeCardRecipe {
@@ -11,13 +12,14 @@ export interface RecipeCardRecipe {
   cuisine?: string | null
   tags?: string[] | null
   image_url?: string | null
-  rank?: number | null
   cook_time_minutes?: number | null
 }
 
 interface RecipeCardProps {
   recipe: RecipeCardRecipe
   variant: 'grid' | 'list'
+  /** 0.0–10.0 score badge shown on the list variant. Omit for no badge. */
+  score?: number | null
   onClick?: () => void
   action?: ReactNode
   style?: CSSProperties
@@ -27,6 +29,7 @@ interface RecipeCardProps {
 export function RecipeCard({
   recipe,
   variant,
+  score,
   onClick,
   action,
   style,
@@ -45,9 +48,9 @@ export function RecipeCard({
         onClick={onClick}
         style={style}
       >
-        {recipe.rank != null && (
-          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-brand-subtle text-xs font-bold text-brand ring-1 ring-brand/15">
-            {recipe.rank}
+        {score != null && (
+          <span className="grid h-8 min-w-8 shrink-0 place-items-center rounded-xl bg-brand-subtle px-1.5 text-xs font-bold tabular-nums text-brand ring-1 ring-brand/15">
+            {formatScore(score)}
           </span>
         )}
 
