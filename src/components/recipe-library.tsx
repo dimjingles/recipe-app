@@ -17,6 +17,9 @@ import { EmptyState, RecipeBookIllustration } from '@/components/ui/empty-state'
 import { Shimmer } from '@/components/ui/shimmer'
 
 const RECIPE_TYPES = [
+  { value: 'breakfast', label: 'Breakfast', emoji: '🍳' },
+  { value: 'lunch', label: 'Lunch', emoji: '🥪' },
+  { value: 'dinner', label: 'Dinner', emoji: '🍲' },
   { value: 'appetizer', label: 'Appetizer', emoji: '🥗' },
   { value: 'main', label: 'Main', emoji: '🍽️' },
   { value: 'dessert', label: 'Dessert', emoji: '🍰' },
