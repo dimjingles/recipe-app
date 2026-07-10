@@ -2,13 +2,15 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Sparkles, Plus, X, Loader2, ChefHat, Link2 } from 'lucide-react'
+import { Sparkles, Plus, X, Loader2, Link2 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
 import CuisineCombobox from '@/components/cuisine-combobox'
+import InstructionsEditor from '@/components/instructions-editor'
+import { textToSteps, stepsToText, splitSourceNote } from '@/lib/instructions'
 import type { ExtractedRecipe } from '@/types/database'
 
 export interface IngredientRow {
@@ -70,7 +72,10 @@ export default function RecipeEditor({ initialValues, showLookup, autoLookup }: 
   const [recipeType, setRecipeType] = useState(initialValues?.recipeType ?? '')
   const [cookTime, setCookTime] = useState(initialValues?.cookTime ?? '')
   const [servings, setServings] = useState(initialValues?.servings ?? '4')
-  const [instructions, setInstructions] = useState(initialValues?.instructions ?? '')
+  // Instructions edited as discrete steps; reassembled into the source string
+  // on save. Any trailing "Source: <url>" note is kept separate.
+  const [steps, setSteps] = useState<string[]>(() => textToSteps(splitSourceNote(initialValues?.instructions).body))
+  const [sourceNote, setSourceNote] = useState(() => splitSourceNote(initialValues?.instructions).note)
   const [difficulty, setDifficulty] = useState<number | null>(initialValues?.difficulty ?? null)
   const [tags, setTags] = useState<string[]>(
     initialValues?.tags
@@ -82,6 +87,7 @@ export default function RecipeEditor({ initialValues, showLookup, autoLookup }: 
   const [imageUrl] = useState(initialValues?.image_url ?? '')
   const [galleryImages] = useState<string[]>(initialValues?.gallery_images ?? [])
   const [lookupLoading, setLookupLoading] = useState(false)
+  const [genLoading, setGenLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [looked, setLooked] = useState(false)
 
@@ -108,8 +114,8 @@ export default function RecipeEditor({ initialValues, showLookup, autoLookup }: 
     if (r.cook_time_minutes != null) setCookTime(String(r.cook_time_minutes))
     if (r.servings != null) setServings(String(r.servings))
     if (r.instructions) {
-      const sourceNote = r.source_url ? `\n\nSource: ${r.source_url}` : ''
-      setInstructions(r.instructions + sourceNote)
+      setSteps(textToSteps(r.instructions))
+      setSourceNote(r.source_url ? `Source: ${r.source_url}` : '')
     }
     if (r.ingredients?.length) setIngredients(r.ingredients)
     setShowImport(false)
@@ -184,7 +190,11 @@ export default function RecipeEditor({ initialValues, showLookup, autoLookup }: 
       if (data.cook_time_minutes) setCookTime(String(data.cook_time_minutes))
       if (data.servings) setServings(String(data.servings))
       if (data.description) setDescription(data.description)
-      if (data.instructions) setInstructions(data.instructions)
+      if (data.instructions) {
+        const { body, note } = splitSourceNote(data.instructions)
+        setSteps(textToSteps(body))
+        setSourceNote(note)
+      }
       if (data.difficulty && !difficulty) setDifficulty(data.difficulty)
       setLooked(true)
       toast.success('Recipe filled!')
@@ -192,6 +202,38 @@ export default function RecipeEditor({ initialValues, showLookup, autoLookup }: 
       toast.error((e as Error).message || 'Could not fill recipe. Try again.')
     } finally {
       setLookupLoading(false)
+    }
+  }
+
+  const handleGenerateInstructions = async () => {
+    if (!name.trim()) { toast.error('Enter a recipe name first'); return }
+    if (ingredients.length === 0 || !ingredients.some(i => i.name.trim())) {
+      toast.error('Add at least one ingredient first')
+      return
+    }
+    setGenLoading(true)
+    try {
+      const res = await fetch('/api/recipes/generate-instructions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: name.trim(),
+          ingredients: ingredients.filter(i => i.name.trim()),
+        }),
+      })
+      const data = await res.json()
+      if (data.error) throw new Error(data.error)
+      // AI returns a numbered blob — split it into separate editable steps.
+      if (data.instructions) {
+        setSteps(textToSteps(splitSourceNote(data.instructions).body))
+        setSourceNote('')
+      }
+      if (data.difficulty && !difficulty) setDifficulty(data.difficulty)
+      toast.success('Instructions generated!')
+    } catch {
+      toast.error('Could not generate instructions. Try again.')
+    } finally {
+      setGenLoading(false)
     }
   }
 
@@ -226,6 +268,8 @@ export default function RecipeEditor({ initialValues, showLookup, autoLookup }: 
     if (!name.trim()) { toast.error('Recipe name is required'); return }
     setSaving(true)
     try {
+      const body = stepsToText(steps)
+      const instructions = body ? [body, sourceNote].filter(Boolean).join('\n\n') : ''
       const res = await fetch('/api/recipes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -523,28 +567,15 @@ export default function RecipeEditor({ initialValues, showLookup, autoLookup }: 
         </div>
       </div>
 
-      {/* Instructions */}
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <Label className="text-gray-700 font-medium">Instructions</Label>
-          {lookupLoading && showLookup && (
-            <span className="text-sm text-orange-500 font-medium flex items-center gap-1">
-              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Filling with AI...
-            </span>
-          )}
-        </div>
-        <Textarea
-          value={instructions}
-          onChange={e => setInstructions(e.target.value)}
-          placeholder="Step by step instructions..."
-          className="mt-1.5 resize-none h-32"
-        />
-        {instructions && (
-          <p className="text-xs text-gray-400 mt-1">
-            <ChefHat className="w-3 h-3 inline mr-0.5" /> You can edit these instructions freely. They'll be saved as-is.
-          </p>
-        )}
-      </div>
+      {/* Instructions — step-based editor with AI generation */}
+      <InstructionsEditor
+        steps={steps}
+        onStepsChange={setSteps}
+        ingredientNames={ingredients.map(i => i.name).filter(Boolean)}
+        onGenerate={handleGenerateInstructions}
+        generating={genLoading || (lookupLoading && showLookup)}
+        generateDisabled={!name.trim()}
+      />
 
       {/* Tags - Chip multi-select */}
       <div>

@@ -16,9 +16,10 @@
  *   3. plain <p> blob (original rendering, identical to before this feature)
  */
 
-import { Clock, Thermometer, Scale, ChefHat } from 'lucide-react'
+import { ChefHat } from 'lucide-react'
 import { splitStepsFromText, overlayIngredients } from '@/lib/instructions'
-import type { InstructionStep, StepToken, Ingredient } from '@/types/database'
+import { renderStepTokens } from '@/components/step-tokens'
+import type { InstructionStep, Ingredient } from '@/types/database'
 
 interface Props {
   steps: InstructionStep[] | null | undefined
@@ -59,7 +60,7 @@ export default function InstructionSteps({ steps, rawInstructions, ingredients =
           {/* Step content */}
           <div className="flex-1 bg-card rounded-xl border border-border shadow-sm px-4 py-3">
             <p className="text-foreground text-sm leading-relaxed">
-              {renderTokens(overlayIngredients(step.tokens, ingredientNames))}
+              {renderStepTokens(overlayIngredients(step.tokens, ingredientNames))}
             </p>
 
             {/* Per-step Ask Chef AI button */}
@@ -76,73 +77,4 @@ export default function InstructionSteps({ steps, rawInstructions, ingredients =
       ))}
     </ol>
   )
-}
-
-// ── Token renderer ────────────────────────────────────────────────────────────
-
-function renderTokens(tokens: StepToken[]): React.ReactNode[] {
-  return tokens.map((token, i) => {
-    switch (token.type) {
-      case 'time':
-        return (
-          <span
-            key={i}
-            className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-semibold bg-cooking-subtle text-cooking align-baseline mx-0.5"
-            title="Time"
-          >
-            <Clock className="w-3 h-3 flex-shrink-0" />
-            {token.value}
-          </span>
-        )
-
-      case 'temp':
-        return (
-          <span
-            key={i}
-            className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-semibold bg-brand-subtle text-brand align-baseline mx-0.5"
-            title="Temperature"
-          >
-            <Thermometer className="w-3 h-3 flex-shrink-0" />
-            {token.value}
-          </span>
-        )
-
-      case 'quantity':
-        return (
-          <span
-            key={i}
-            className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-semibold bg-sage-subtle text-sage align-baseline mx-0.5"
-            title="Amount"
-          >
-            <Scale className="w-3 h-3 flex-shrink-0" />
-            {token.value}
-          </span>
-        )
-
-      case 'doneness':
-        return (
-          <span
-            key={i}
-            className="italic text-muted-foreground underline decoration-dotted underline-offset-2"
-            title="Doneness cue"
-          >
-            {token.value}
-          </span>
-        )
-
-      case 'ingredient':
-        return (
-          <span
-            key={i}
-            className="font-semibold text-sage underline decoration-sage/40 underline-offset-2"
-            title="Ingredient"
-          >
-            {token.value}
-          </span>
-        )
-
-      default:
-        return <span key={i}>{token.value}</span>
-    }
-  })
 }

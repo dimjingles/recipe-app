@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Plus, X, Loader2, Trash2, Sparkles, ChefHat } from 'lucide-react'
+import { ArrowLeft, Plus, X, Loader2, Trash2 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
@@ -11,6 +11,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
 import { RecipeWithIngredients } from '@/types/database'
 import CuisineCombobox from '@/components/cuisine-combobox'
+import InstructionsEditor from '@/components/instructions-editor'
+import { textToSteps, stepsToText, splitSourceNote } from '@/lib/instructions'
 
 const CATEGORIES = ['produce', 'dairy', 'meat', 'seafood', 'pantry', 'spices', 'bakery', 'frozen', 'other']
 
@@ -42,7 +44,15 @@ export default function EditRecipeForm({ recipe }: { recipe: RecipeWithIngredien
   const [recipeType, setRecipeType] = useState(recipe.recipe_type || '')
   const [cookTime, setCookTime] = useState(String(recipe.cook_time_minutes || ''))
   const [servings, setServings] = useState(String(recipe.servings || 4))
-  const [instructions, setInstructions] = useState(recipe.instructions || '')
+  // Instructions are edited as discrete steps; the source-of-truth string is
+  // reassembled on save. Prefer the AI-structured steps if present, else split
+  // the raw blob. Any trailing "Source: <url>" note is preserved separately.
+  const [steps, setSteps] = useState<string[]>(() =>
+    recipe.instruction_steps && recipe.instruction_steps.length > 0
+      ? recipe.instruction_steps.map(s => s.text)
+      : textToSteps(splitSourceNote(recipe.instructions).body)
+  )
+  const [sourceNote] = useState(() => splitSourceNote(recipe.instructions).note)
   const [difficulty, setDifficulty] = useState<number | null>(recipe.difficulty ?? null)
   const [tags, setTags] = useState<string[]>(recipe.tags || [])
   const [customTagInput, setCustomTagInput] = useState('')
@@ -106,7 +116,8 @@ export default function EditRecipeForm({ recipe }: { recipe: RecipeWithIngredien
       })
       const data = await res.json()
       if (data.error) throw new Error(data.error)
-      if (data.instructions) setInstructions(data.instructions)
+      // AI returns a numbered blob — split it into separate editable steps.
+      if (data.instructions) setSteps(textToSteps(splitSourceNote(data.instructions).body))
       if (data.difficulty && !difficulty) setDifficulty(data.difficulty)
       toast.success('Instructions generated!')
     } catch {
@@ -133,6 +144,8 @@ export default function EditRecipeForm({ recipe }: { recipe: RecipeWithIngredien
     if (!name.trim()) { toast.error('Recipe name is required'); return }
     setSaving(true)
     try {
+      const body = stepsToText(steps)
+      const instructions = body ? [body, sourceNote].filter(Boolean).join('\n\n') : ''
       const res = await fetch(`/api/recipes/${recipe.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -253,28 +266,15 @@ export default function EditRecipeForm({ recipe }: { recipe: RecipeWithIngredien
           </div>
         </div>
 
-        {/* Instructions + AI Generate */}
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <Label className="text-gray-700 font-medium">Instructions</Label>
-            <button
-              onClick={handleGenerateInstructions}
-              disabled={instructionsLoading || !name.trim()}
-              className="text-sm text-orange-500 font-medium flex items-center gap-1 hover:text-orange-600 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {instructionsLoading
-                ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                : <Sparkles className="w-3.5 h-3.5" />}
-              {instructionsLoading ? 'Generating...' : 'Generate with AI'}
-            </button>
-          </div>
-          <Textarea value={instructions} onChange={e => setInstructions(e.target.value)} className="mt-1.5 resize-none h-32" />
-          {instructions && (
-            <p className="text-xs text-gray-400 mt-1">
-              <ChefHat className="w-3 h-3 inline mr-0.5" /> You can edit these instructions freely.
-            </p>
-          )}
-        </div>
+        {/* Instructions — step-based editor with AI generation */}
+        <InstructionsEditor
+          steps={steps}
+          onStepsChange={setSteps}
+          ingredientNames={ingredients.map(i => i.name).filter(Boolean)}
+          onGenerate={handleGenerateInstructions}
+          generating={instructionsLoading}
+          generateDisabled={!name.trim()}
+        />
 
         {/* Tags - Chip multi-select */}
         <div>
