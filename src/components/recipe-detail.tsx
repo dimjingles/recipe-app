@@ -3,13 +3,14 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Clock, Users, Edit, ChefHat, Trophy, X, BookOpen, Plus } from 'lucide-react'
+import { ArrowLeft, Clock, Users, Edit, ChefHat, Trophy, X, BookOpen, Plus, Sparkles, GitBranch } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { BottomSheet } from '@/components/ui/bottom-sheet'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
 import { RecipeWithDetails, Cookbook, SkillProfile, Technique, InstructionStep } from '@/types/database'
+import AdaptRecipeDialog from '@/components/adapt-recipe-dialog'
 import RecipeGallery from '@/components/recipe-gallery'
 import ChefAiChat from '@/components/chef-ai-chat'
 import InstructionSteps from '@/components/instruction-steps'
@@ -423,17 +424,27 @@ function CookbookDialog({
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
+/** A sibling recipe adapted from this one (or the original this was adapted from). */
+export interface RecipeVariantLink {
+  id: string
+  name: string
+  cuisine: string | null
+  adaptation_type: string | null
+}
+
 export default function RecipeDetail({
   recipe,
   initialCookbooks,
   skillProfile,
   techniques,
+  variants = [],
   score,
 }: {
   recipe: RecipeWithDetails
   initialCookbooks: Cookbook[]
   skillProfile?: SkillProfile | null
   techniques?: Technique[]
+  variants?: RecipeVariantLink[]
   score: number | null
 }) {
   const router = useRouter()
@@ -441,6 +452,7 @@ export default function RecipeDetail({
   const [showRank, setShowRank] = useState(false)
   const [showCookbook, setShowCookbook] = useState(false)
   const [showChefAi, setShowChefAi] = useState(false)
+  const [showAdapt, setShowAdapt] = useState(false)
   const [chefInitialPrompt, setChefInitialPrompt] = useState<string | undefined>(undefined)
   const [cookedCount, setCookedCount] = useState(recipe.cooked_count)
   const [currentRank, setCurrentRank] = useState<number | null>(recipe.rank)
@@ -531,6 +543,7 @@ export default function RecipeDetail({
   }
 
   const emoji = getCuisineEmoji(recipe.cuisine)
+  const adaptedFrom = recipe.adaptation_metadata
 
   return (
     <div className="max-w-lg mx-auto pb-8">
@@ -652,8 +665,21 @@ export default function RecipeDetail({
 
       {/* ── Content (pulled up over gradient, or flush after warm header) ── */}
       <div className={`px-4 ${recipe.image_url ? '-mt-4' : 'mt-4'}`}>
+        {/* Adapted-from banner (shown on variants) */}
+        {adaptedFrom && (
+          <Link
+            href={`/recipes/${adaptedFrom.created_from_recipe_id}`}
+            className="flex items-center gap-2 mb-4 bg-sage-subtle border border-sage/20 rounded-xl px-3 py-2 text-sm text-sage hover:bg-sage/10 transition-colors"
+          >
+            <GitBranch className="w-4 h-4 shrink-0" />
+            <span className="flex-1 min-w-0 truncate">
+              Adapted from <strong className="font-semibold">{adaptedFrom.created_from_name}</strong>
+            </span>
+          </Link>
+        )}
+
         {/* Action buttons */}
-        <div className="flex gap-2 mb-6">
+        <div className="flex gap-2 mb-3">
           {cookedCount === 0 && (
             <Button
               onClick={() => setShowCook(true)}
@@ -688,6 +714,14 @@ export default function RecipeDetail({
             <BookOpen className="w-4 h-4" />
           </Button>
         </div>
+
+        {/* Adapt recipe — AI variant generator */}
+        <Button
+          onClick={() => setShowAdapt(true)}
+          className="w-full mb-6 bg-brand-subtle text-brand hover:bg-brand/15 border border-brand/30 font-semibold h-12 rounded-2xl active:scale-[0.98] transition-all"
+        >
+          <Sparkles className="w-4 h-4" /> Adapt recipe
+        </Button>
 
         {/* Taste feedback — calibrates the score into a like / okay / dislike band */}
         {currentRank !== null && (
@@ -811,6 +845,34 @@ export default function RecipeDetail({
           </div>
         )}
 
+        {/* Variants — recipes adapted from this one */}
+        {variants.length > 0 && (
+          <div className="mb-6">
+            <h2 className="font-heading font-bold text-foreground text-lg mb-3 flex items-center gap-2">
+              <GitBranch className="w-4 h-4 text-brand" /> Variants
+            </h2>
+            <div className="space-y-2">
+              {variants.map(v => (
+                <Link
+                  key={v.id}
+                  href={`/recipes/${v.id}`}
+                  className="flex items-center justify-between gap-2 bg-card border border-border rounded-2xl shadow-sm px-4 py-3 hover:border-brand/40 hover:bg-brand-subtle/40 active:scale-[0.99] transition-all"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="text-xl shrink-0">{getCuisineEmoji(v.cuisine)}</span>
+                    <span className="text-sm font-medium text-foreground truncate">{v.name}</span>
+                  </div>
+                  {v.adaptation_type && (
+                    <span className="text-[10px] font-semibold text-brand bg-brand-subtle rounded-full px-2 py-0.5 uppercase tracking-wide shrink-0">
+                      {v.adaptation_type.replace(/_/g, ' ')}
+                    </span>
+                  )}
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Cooking history — amber accent */}
         {logs.length > 0 && (
           <div className="mb-6">
@@ -878,6 +940,14 @@ export default function RecipeDetail({
         onClose={() => setShowChefAi(false)}
         initialPrompt={chefInitialPrompt}
       />
+
+      {showAdapt && (
+        <AdaptRecipeDialog
+          recipeId={recipe.id}
+          currentServings={recipe.servings || 4}
+          onClose={() => setShowAdapt(false)}
+        />
+      )}
 
       {showCookbook && (
         <CookbookDialog
