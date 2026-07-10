@@ -66,9 +66,19 @@ Cookbooks are accessible from the Recipes library (filter + create inline).
 
 **Import** (`/import`)
 - Paste any URL — recipe sites, YouTube videos, Instagram/TikTok posts
+- Video/social URLs get a dedicated pipeline: YouTube title + description + spoken
+  transcript (captions via watch page, InnerTube fallback), TikTok caption (oEmbed),
+  Instagram caption (OpenGraph) — extracted by Claude Haiku into the same preview
 - AI extracts: name, cuisine, ingredients, instructions, cook time, servings, image
-- Text fallback — when the page can't be scraped, user pastes caption/recipe text instead
+- Text fallback — when the page/post can't be read, user pastes caption/recipe text
+  instead; the original link is kept as the recipe source either way
+- `?mode=text` opens the paste view directly (used by the Add-a-recipe sheet)
 - Android Web Share Target — URLs shared from other apps open directly here with auto-import
+
+**Add-a-recipe sheet** (from the library "Add Recipe" pill and Home "+" button)
+- Import from social media → platform picker (YouTube / TikTok / Instagram) →
+  per-platform share instructions with paste-link field and "Open app" shortcut
+- Import from web / Import from text / Write from scratch tiles
 
 **Cookbooks** (`/cookbooks`, `/cookbooks/[id]`)
 - Create named collections with an emoji
@@ -120,6 +130,7 @@ Cookbooks are accessible from the Recipes library (filter + create inline).
 |---------|-------|-------------|
 | Recipe import extraction from URL | Claude Haiku | `/api/recipes/import` |
 | Recipe import extraction from pasted text | Claude Haiku | `/api/recipes/import` |
+| Video recipe import (YouTube transcript / TikTok / Instagram captions) | Claude Haiku | `/api/recipes/import` |
 | AI instruction generation | Claude Haiku | `/api/recipes/generate-instructions` |
 | Recipe name lookup / autofill | Claude Haiku | `/api/recipes/lookup` |
 | Chef AI cooking coach (streaming chat) | Claude Sonnet | `/api/recipes/[id]/chat` |
@@ -150,9 +161,10 @@ Cookbooks are accessible from the Recipes library (filter + create inline).
 ```plaintext
 08-smart-meal-planning is fully independent — no new infra needed; all data exists.
 17-grocery-savings-engine is fully independent — reuses 08's auto-fill pattern but needs no feature dependency.
+18-recipe-library-sort-preferences is fully independent - uses existing recipe ranking/cooking history fields plus one profile preference column.
 ```
 
-**Recommended sequence:** `00 → 07 → 08 → 17 → 01 → 02 → 03 → 04 → 05 → 06`
+**Recommended sequence:** `00 → 07 → 08 → 18 → 17 → 01 → 02 → 03 → 04 → 05 → 06`
 
 Feature 17 (Grocery Savings Engine) slots in early because it's high-impact and independent after 08. If done before 09-16, the savings data model is stable and all subsequent features (grocery list 2.0, habit loop) can layer on top of it.
 
@@ -174,9 +186,11 @@ and technique tracks in dependency order.
 | 04 | [features/04-recipe-technique-breakdown.md](features/04-recipe-technique-breakdown.md) | Technique mastery badges on the recipe detail page | 03, 05 | Built |
 | 05 | [features/05-skill-progression.md](features/05-skill-progression.md) | Chef AI stretches user toward harder techniques | 00, 03 | Built |
 | 06 | [features/06-gamified-skill-map.md](features/06-gamified-skill-map.md) | "My Skills" gamified skill tree page | 03, 05 | Built |
+| 13 | (see "13 — Guided Cook Mode" below) | Full-screen guided cook mode: step-by-step view, wake lock, auto/manual timers, opt-in voice control, ingredient check-off, mark-as-cooked | recipe detail, cooking log | Built |
 | 08 | [features/08-smart-meal-planning.md](features/08-smart-meal-planning.md) | Preference-aware AI auto-fill, smart recipe picker, plan diversity tools | — | Pending |
 | 09 | [features/09-social-friends.md](features/09-social-friends.md) | Friends, households, shared recipe libraries & activity feed | — | Built |
 | 17 | [features/17-grocery-savings-engine.md](features/17-grocery-savings-engine.md) | Sale-matched recipe badges, cost estimation, budget-aware planning, flyer import | — | Pending |
+| 18 | [features/18-recipe-library-sort-preferences.md](features/18-recipe-library-sort-preferences.md) | Recipe library sort control with account-level saved default preference | — | Pending |
 
 ---
 
@@ -259,26 +273,33 @@ Why 10x: ReciMe's planner is a blank grid. Ours knows who you are, what you can 
 
 ---
 
-### 09 — AI Recipe Adaptation
+### 09 — AI Recipe Adaptation ✅ IMPLEMENTED (v1)
 
 **Priority: 1 — highest impact, no competitor does it well**
 
-Let any saved recipe be transformed in one tap via Claude. Proposed entry points:
-- **Dietary swap** — make it vegan / vegetarian / GF / dairy-free. Claude rewrites
-  ingredients and instructions, flags substitutions, warns where the result materially
-  changes (e.g. texture loss from removing eggs).
-- **Portion scaling** — not just multiply quantities; also adjusts cook times, pan sizes,
+**Status:** shipped. Full spec: [`features/09-ai-recipe-adaptation.md`](features/09-ai-recipe-adaptation.md).
+
+Any saved recipe can be transformed into a **new variant** via Claude (`POST
+/api/recipes/[id]/adapt` → preview → save through `POST /api/recipes`). The original is
+never overwritten. Entry points, all live via the **Adapt recipe** button on recipe detail:
+- **Dietary swap** ✅ — make it vegan / vegetarian / GF / dairy-free. Claude rewrites
+  ingredients and instructions, updates tags, flags substitutions, and warns where the
+  result materially changes (e.g. texture loss from removing eggs).
+- **Portion scaling** ✅ — not just multiply quantities; also adjusts cook times, pan sizes,
   and temperatures where relevant.
-- **Pantry substitution** — user says "I don't have X" or marks pantry gaps; Claude
-  suggests what to swap and how that changes the recipe.
-- **Dietary-aware meal planning** — when suggesting meals for the week, filter and
-  adapt to household constraints automatically.
+- **Pantry substitution** ✅ — user says "I don't have X"; Claude suggests what to swap and
+  how that changes the recipe.
+- **Freeform** ✅ — any plain-language request ("make it spicier", "lower-carb").
+- **Dietary-aware meal planning** ⏳ — filter/adapt weekly suggestions to household
+  constraints automatically. Deferred; ties into 08-smart-meal-planning.
 
 Why 10x: ReciMe recipes are static. Ours are alive. Users with dietary restrictions
-currently have to mentally translate every recipe they find. We'd be first to solve that.
+currently have to mentally translate every recipe they find. We're first to solve that.
 
-**Depends on:** 00-shared-ai-infra, existing `ingredients` table, existing Chef AI chat.
-**New data:** Adapted recipe stored as a variant linked to the original, not overwriting it.
+**Depends on:** 00-shared-ai-infra, existing `ingredients` table, existing recipe save flow.
+**New data:** `recipes.original_recipe_id` (FK) + `recipes.adaptation_metadata` (jsonb) —
+variant linked to the original, not overwriting it. Migration:
+`supabase/migrations/add_recipe_adaptations.sql`.
 
 ---
 
@@ -368,9 +389,21 @@ reuse `households`, `household_members`, and `recipe_rankings` from feature 09.
 
 ---
 
-### 13 — Guided Cook Mode
+### 13 — Guided Cook Mode ✅ Built
 
 **Priority: 3 — turns Mise from a recipe storage app into a cooking companion**
+
+> **Shipped.** Full-screen route `/recipes/[id]/cook` (`src/components/cook/cook-mode.tsx`),
+> launched by a "Start Cooking" CTA on the recipe detail page. One step per screen with a
+> progress bar and large text; Screen Wake Lock keeps the display on where supported
+> (`src/lib/cook/use-wake-lock.ts`). Timers are auto-detected from time phrases in each step
+> (`src/lib/cook/durations.ts`) plus a manual timer sheet, and keep running across steps with
+> a wall-clock tick + beep/vibrate alarm (`src/lib/cook/use-cook-timers.ts`). Opt-in voice
+> control ("next" / "back" / "repeat" / "start timer") via the Web Speech API degrades
+> gracefully where unsupported (`src/lib/cook/use-voice-control.ts`). Ingredient check-off
+> lives in a bottom sheet (local state). The final screen offers "Mark as Cooked" with an
+> optional notes field, posting through the existing `/api/recipes/[id]/log` path. Static
+> reading mode on the recipe detail page is unchanged.
 
 - **Full-screen step mode** — tap "Start Cooking" from the recipe detail; each step fills
   the screen, large readable text, screen stays awake.
@@ -387,23 +420,30 @@ tips per step if the user opens it).
 
 ---
 
-### 14 — Video Recipe Import (TikTok / Instagram / YouTube)
+### 14 — Video Recipe Import (TikTok / Instagram / YouTube) — ✅ Built
 
-**Priority: 3 — this is ReciMe's flagship feature and why 800K users chose them**
+**This was ReciMe's flagship feature and why 800K users chose them.**
 
-ReciMe's main draw is one-tap video import. Match and exceed it:
-- **Transcript extraction** — pull closed captions/transcript from YouTube via the Data
-  API; for TikTok and IG, use the video description + caption text (already works via
-  the existing text-paste fallback).
-- **Vision model extraction** — for videos without transcripts, pass keyframes to Claude's
-  vision to read on-screen ingredient lists and steps.
-- **Structured output** — same `ExtractedRecipe` shape as URL import; feeds into the
-  existing preview → edit → save flow.
-- **Timestamp sync (stretch goal)** — if we store the source video URL, link each step
-  to its timestamp in the video so guided cook mode can play the relevant clip.
-
-**Depends on:** 00-shared-ai-infra, existing import flow (`/api/recipes/import`).
-**Why build:** This is the feature that gets ReciMe users to even consider switching.
+- **Implementation:** `src/lib/import/video.ts` classifies URLs (YouTube incl. Shorts /
+  youtu.be / m., TikTok incl. vm. short links, Instagram p/reel/tv) and gathers context
+  per platform with no scraping dependencies:
+  - **YouTube** — watch-page `ytInitialPlayerResponse` for title/description/thumbnail +
+    caption tracks; caption URLs that come back empty (proof-of-origin gating) retry
+    through the InnerTube ANDROID client. Transcript parsed from json3/srv XML. Recipes
+    spoken in the video but absent from the description import via the transcript.
+  - **TikTok** — documented public oEmbed endpoint (caption/author/thumbnail), page
+    OpenGraph fallback.
+  - **Instagram** — OpenGraph tags on the post page (no login-required scraping); when
+    blocked, users are guided to the paste-caption fallback, which stays first-class.
+  - Claude Haiku extracts the same `ExtractedRecipe` shape (video-specific prompt turns
+    spoken transcripts into written steps), feeding the existing preview → edit → save
+    flow. Thumbnail becomes the cover image; `source_url` is preserved — including
+    through the paste-text fallback, which now sends the originally-attempted URL.
+  - **UI:** ReciMe-style Add-a-recipe bottom sheet (`add-recipe-sheet.tsx`) from the
+    library pill and Home "+": social platform picker → per-platform share instructions
+    (share-sheet steps, paste-link field, "Open app" shortcut).
+  - Manual pipeline test: `node --env-file=.env.local scripts/test-video-import.mts <url>`.
+- **Not built (stretch):** keyframe vision extraction, per-step timestamp sync.
 
 ---
 
@@ -479,17 +519,36 @@ Why 10x: Skrimp has flyers and 300 curated recipes — no cooking history, no pe
 
 ---
 
+### 18 - Recipe Library Sort Preferences
+
+**Priority: 3 - see [`features/18-recipe-library-sort-preferences.md`](features/18-recipe-library-sort-preferences.md) for the full spec**
+
+The recipe library gets a sort control that lets users choose how their recipes are ordered:
+- **Ranking** - default option, best ranked recipes first.
+- **Most recently cooked** - recipes with the newest `last_cooked_at` first.
+- **Most cooked** - recipes with the highest `cooked_count` first.
+
+Changing the sort option also changes the user's saved default. The next time they log in or return to `/recipes`, PrepTable opens with that saved sort selected.
+
+Why useful: this is a small control that makes the library feel personal. Users who treat PrepTable as a favourites list want Ranking; users cooking on habit want recency or frequency.
+
+**Depends on:** Existing `/recipes` library, `recipes.rank`, `recipes.last_cooked_at`, `recipes.cooked_count`, and `profiles`.
+**New data:** `recipe_sort_preference` column on `profiles` with allowed values `ranking`, `recently_cooked`, and `most_cooked`.
+
+---
+
 ### Priority summary
 
 | # | Feature | Effort | Impact | Differentiator vs. ReciMe |
 |---|---------|--------|--------|---------------------------|
 | 08 | Smart Meal Planning | Medium | Very High | ReciMe: blank grid, no personalization |
-| 09 | AI Recipe Adaptation | Medium | Very High | No competitor does it |
+| 09 | AI Recipe Adaptation ✅ | Medium | Very High | No competitor does it |
 | 10 | Grocery Pipeline 2.0 | Medium | High | Fixes ReciMe's #1 complaint |
 | 11 | Household Sharing | Medium | High | ReciMe has nothing |
 | 12 | Multi-Week Calendar + Templates | Medium | High | ReciMe: single week only |
 | 13 | Guided Cook Mode | Medium | Medium-High | ReciMe: static text |
-| 14 | Video Import (TikTok/IG/YT) | Medium-High | Very High | ReciMe's flagship, done better |
+| 14 | Video Import (TikTok/IG/YT) | Medium-High | Very High | ✅ Built — ReciMe's flagship, done better |
 | 15 | Habit Feedback Loop | Low-Medium | Medium | Makes the app sticky |
 | 16 | Cooking Streak | Low | Medium | Flexible cadence — not a Duolingo clone |
 | 17 | Grocery Savings Engine | Medium-High | Very High | Skrimp: flyer-only, no personalization. Ours: sale + preference + budget |
+| 18 | Recipe Library Sort Preferences | Low | Medium | Personal default library ordering by rank, recency, or cooking frequency |

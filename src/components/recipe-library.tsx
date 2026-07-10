@@ -1,16 +1,18 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { RecipeWithIngredients, CookbookWithCount } from '@/types/database'
-import { Plus, Search, Clock, X, Globe, ChevronDown, BookOpen, Loader2, Sparkles } from 'lucide-react'
+import type { RecipeWithIngredients, CookbookWithCount, RecipeSortPreference } from '@/types/database'
+import { Plus, Search, Clock, X, Globe, ChevronDown, BookOpen, Loader2, Sparkles, SlidersHorizontal, Check } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { BottomSheet } from '@/components/ui/bottom-sheet'
 import { toast } from 'sonner'
 import { getCuisineEmoji } from '@/lib/cuisine-emoji'
+import { computeScores } from '@/lib/scoring'
 import { RecipeCard } from '@/components/recipe-card'
+import { AddRecipeSheet } from '@/components/add-recipe-sheet'
 import { EmptyState, RecipeBookIllustration } from '@/components/ui/empty-state'
 import { Shimmer } from '@/components/ui/shimmer'
 
@@ -20,6 +22,49 @@ const RECIPE_TYPES = [
   { value: 'dessert', label: 'Dessert', emoji: '🍰' },
   { value: 'drink', label: 'Drink', emoji: '🍹' },
 ]
+
+const SORT_OPTIONS = [
+  { value: 'ranking', label: 'Ranking' },
+  { value: 'recently_cooked', label: 'Most recently cooked' },
+  { value: 'most_cooked', label: 'Most cooked' },
+] as const
+
+function compareDateDesc(a: string | null, b: string | null) {
+  if (!a && !b) return 0
+  if (!a) return 1
+  if (!b) return -1
+
+  const aTime = new Date(a).getTime()
+  const bTime = new Date(b).getTime()
+  if (Number.isNaN(aTime) && Number.isNaN(bTime)) return 0
+  if (Number.isNaN(aTime)) return 1
+  if (Number.isNaN(bTime)) return -1
+  return bTime - aTime
+}
+
+function compareRank(a: number | null, b: number | null) {
+  const aRank = a ?? Number.POSITIVE_INFINITY
+  const bRank = b ?? Number.POSITIVE_INFINITY
+  return aRank - bRank
+}
+
+function compareRecipes(a: RecipeWithIngredients, b: RecipeWithIngredients, sort: RecipeSortPreference) {
+  if (sort === 'ranking') {
+    return compareRank(a.rank, b.rank)
+      || compareDateDesc(a.last_cooked_at, b.last_cooked_at)
+      || a.name.localeCompare(b.name)
+  }
+
+  if (sort === 'recently_cooked') {
+    return compareDateDesc(a.last_cooked_at, b.last_cooked_at)
+      || compareRank(a.rank, b.rank)
+      || a.name.localeCompare(b.name)
+  }
+
+  return (b.cooked_count ?? 0) - (a.cooked_count ?? 0)
+    || compareRank(a.rank, b.rank)
+    || a.name.localeCompare(b.name)
+}
 
 interface OnlineResult {
   name: string
@@ -40,10 +85,12 @@ export default function RecipeLibrary({
   initialRecipes,
   initialCookbooks,
   hasHousehold = false,
+  initialSortPreference = 'ranking',
 }: {
   initialRecipes: RecipeWithIngredients[]
   initialCookbooks: CookbookWithCount[]
   hasHousehold?: boolean
+  initialSortPreference?: RecipeSortPreference
 }) {
   const router = useRouter()
   const [search, setSearch] = useState('')
@@ -53,6 +100,7 @@ export default function RecipeLibrary({
   const [selectedTag, setSelectedTag] = useState<string | null>(null)
   const [selectedCookbook, setSelectedCookbook] = useState<string | null>(null)
   const [selectedCategory, setSelectedCategory] = useState<'cooked' | 'bookmarked'>('cooked')
+  const [sortPreference, setSortPreference] = useState<RecipeSortPreference>(initialSortPreference)
   const [cookbooks, setCookbooks] = useState<CookbookWithCount[]>(initialCookbooks)
   const [onlineResults, setOnlineResults] = useState<OnlineResult[]>([])
   const [loadingOnline, setLoadingOnline] = useState(false)
@@ -62,15 +110,17 @@ export default function RecipeLibrary({
   const [recommendations, setRecommendations] = useState<Recommendation[]>([])
   const [recommendationsLoading, setRecommendationsLoading] = useState(false)
   const [recommendationsError, setRecommendationsError] = useState('')
-  const [openDropdown, setOpenDropdown] = useState<'type' | 'cuisine' | 'cookbook' | null>(null)
+  const [openDropdown, setOpenDropdown] = useState<'type' | 'cuisine' | 'cookbook' | 'sort' | null>(null)
 
   // Create cookbook sheet
   const [showCreateCookbook, setShowCreateCookbook] = useState(false)
+  const [showAddRecipe, setShowAddRecipe] = useState(false)
   const [newCookbookName, setNewCookbookName] = useState('')
   const [newCookbookRecipes, setNewCookbookRecipes] = useState<string[]>([])
   const [creatingCookbook, setCreatingCookbook] = useState(false)
 
   const searchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const saveSortSeq = useRef(0)
 
   useEffect(() => {
     if (searchDebounce.current) clearTimeout(searchDebounce.current)
@@ -162,6 +212,26 @@ export default function RecipeLibrary({
     }
   }
 
+  const handleSortPreferenceChange = async (nextSort: RecipeSortPreference) => {
+    setSortPreference(nextSort)
+    setOpenDropdown(null)
+    const requestSeq = saveSortSeq.current + 1
+    saveSortSeq.current = requestSeq
+
+    try {
+      const res = await fetch('/api/profile/preferences', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recipe_sort_preference: nextSort }),
+      })
+      if (!res.ok) throw new Error('Could not save sort preference')
+    } catch {
+      if (saveSortSeq.current === requestSeq) {
+        toast.error('Could not save sort preference')
+      }
+    }
+  }
+
   const openCreateCookbook = () => {
     setOpenDropdown(null)
     setShowCreateCookbook(true)
@@ -212,6 +282,9 @@ export default function RecipeLibrary({
     new Set(initialRecipes.flatMap(r => r.tags || []))
   ).sort()
 
+  // Per-tier 0–10 scores, keyed by recipe id.
+  const scores = computeScores(initialRecipes)
+
   const scopedRecipes = initialRecipes.filter(r => {
     const matchesCookbook = !selectedCookbook ||
       (r.cookbook_recipes || []).some(cr => cr.cookbook_id === selectedCookbook)
@@ -235,6 +308,11 @@ export default function RecipeLibrary({
     const matchesTag = !selectedTag || (r.tags || []).includes(selectedTag)
     return matchesCategory && matchesSearch && matchesCuisine && matchesType && matchesTag
   })
+
+  const sortedRecipes = useMemo(
+    () => [...filtered].sort((a, b) => compareRecipes(a, b, sortPreference)),
+    [filtered, sortPreference]
+  )
 
   /* ── Chip style helpers ─────────────────────────────────────────── */
   const allChipClass = (isNullSelected: boolean) =>
@@ -388,98 +466,138 @@ export default function RecipeLibrary({
         )}
       </div>
 
-      <Link
-        href="/recipes/new"
+      <button
+        onClick={() => setShowAddRecipe(true)}
         className="fixed bottom-28 right-5 z-30 inline-flex h-10 items-center justify-center gap-1.5 rounded-full bg-sage px-3.5 text-xs font-bold text-sage-foreground shadow-float transition-all hover:bg-sage/90 active:scale-[0.95] md:bottom-8 md:right-8"
         aria-label="Add recipe"
         title="Add recipe"
       >
         <Plus className="h-3.5 w-3.5" />
         <span>Add Recipe</span>
-      </Link>
+      </button>
+
+      <AddRecipeSheet open={showAddRecipe} onClose={() => setShowAddRecipe(false)} />
 
       {/* Filter dropdowns */}
-      <div className="mb-5 flex flex-wrap gap-2">
-        {/* Type dropdown */}
-        <div className="relative">
-          <button
-            onClick={() => setOpenDropdown(openDropdown === 'type' ? null : 'type')}
-            className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium border transition-colors active:scale-[0.95] ${
-              selectedType
-                ? 'bg-brand text-brand-foreground border-transparent'
-                : 'bg-card border-border text-foreground hover:border-brand'
-            }`}
-          >
-            {selectedType
-              ? <>{RECIPE_TYPES.find(t => t.value === selectedType)?.emoji} {RECIPE_TYPES.find(t => t.value === selectedType)?.label}</>
-              : 'Type'}
-            <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-150 ${openDropdown === 'type' ? 'rotate-180' : ''}`} />
-          </button>
-          {openDropdown === 'type' && (
-            <>
-              <div className="fixed inset-0 z-10" onClick={() => setOpenDropdown(null)} />
-              <div className="absolute left-0 top-full mt-1.5 z-20 min-w-[152px] overflow-hidden rounded-xl border border-border bg-card shadow-lg">
-                <button
-                  onClick={() => { setSelectedType(null); setOpenDropdown(null) }}
-                  className={`w-full text-left px-4 py-2.5 text-sm font-medium transition-colors ${!selectedType ? 'text-brand bg-brand-subtle' : 'text-foreground hover:bg-muted'}`}
-                >
-                  All types
-                </button>
-                {RECIPE_TYPES.map(t => (
-                  <button
-                    key={t.value}
-                    onClick={() => { setSelectedType(t.value); setOpenDropdown(null) }}
-                    className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${selectedType === t.value ? 'text-brand bg-brand-subtle font-medium' : 'text-foreground hover:bg-muted'}`}
-                  >
-                    {t.emoji} {t.label}
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* Cuisine dropdown */}
-        {cuisines.length > 0 && (
+      <div className="mb-5 flex items-start justify-between gap-2">
+        <div className="flex flex-wrap gap-2">
+          {/* Type dropdown */}
           <div className="relative">
             <button
-              onClick={() => setOpenDropdown(openDropdown === 'cuisine' ? null : 'cuisine')}
+              onClick={() => setOpenDropdown(openDropdown === 'type' ? null : 'type')}
               className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium border transition-colors active:scale-[0.95] ${
-                selectedCuisine
+                selectedType
                   ? 'bg-brand text-brand-foreground border-transparent'
                   : 'bg-card border-border text-foreground hover:border-brand'
               }`}
             >
-              {selectedCuisine
-                ? <><span>{getCuisineEmoji(selectedCuisine)}</span> <span className="capitalize">{selectedCuisine}</span></>
-                : 'Cuisine'}
-              <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-150 ${openDropdown === 'cuisine' ? 'rotate-180' : ''}`} />
+              {selectedType
+                ? <>{RECIPE_TYPES.find(t => t.value === selectedType)?.emoji} {RECIPE_TYPES.find(t => t.value === selectedType)?.label}</>
+                : 'Type'}
+              <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-150 ${openDropdown === 'type' ? 'rotate-180' : ''}`} />
             </button>
-            {openDropdown === 'cuisine' && (
+            {openDropdown === 'type' && (
               <>
                 <div className="fixed inset-0 z-10" onClick={() => setOpenDropdown(null)} />
-                <div className="absolute left-0 top-full mt-1.5 z-20 min-w-[160px] overflow-hidden rounded-xl border border-border bg-card shadow-lg">
+                <div className="absolute left-0 top-full mt-1.5 z-20 min-w-[152px] overflow-hidden rounded-xl border border-border bg-card shadow-lg">
                   <button
-                    onClick={() => { setSelectedCuisine(null); setOpenDropdown(null) }}
-                    className={`w-full text-left px-4 py-2.5 text-sm font-medium transition-colors ${!selectedCuisine ? 'text-brand bg-brand-subtle' : 'text-foreground hover:bg-muted'}`}
+                    onClick={() => { setSelectedType(null); setOpenDropdown(null) }}
+                    className={`w-full text-left px-4 py-2.5 text-sm font-medium transition-colors ${!selectedType ? 'text-brand bg-brand-subtle' : 'text-foreground hover:bg-muted'}`}
                   >
-                    All cuisines
+                    All types
                   </button>
-                  {cuisines.map(cuisine => (
+                  {RECIPE_TYPES.map(t => (
                     <button
-                      key={cuisine}
-                      onClick={() => { setSelectedCuisine(cuisine); setOpenDropdown(null) }}
-                      className={`w-full text-left px-4 py-2.5 text-sm capitalize transition-colors ${selectedCuisine === cuisine ? 'text-brand bg-brand-subtle font-medium' : 'text-foreground hover:bg-muted'}`}
+                      key={t.value}
+                      onClick={() => { setSelectedType(t.value); setOpenDropdown(null) }}
+                      className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${selectedType === t.value ? 'text-brand bg-brand-subtle font-medium' : 'text-foreground hover:bg-muted'}`}
                     >
-                      {getCuisineEmoji(cuisine)} {cuisine}
+                      {t.emoji} {t.label}
                     </button>
                   ))}
                 </div>
               </>
             )}
           </div>
-        )}
 
+          {/* Cuisine dropdown */}
+          {cuisines.length > 0 && (
+            <div className="relative">
+              <button
+                onClick={() => setOpenDropdown(openDropdown === 'cuisine' ? null : 'cuisine')}
+                className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium border transition-colors active:scale-[0.95] ${
+                  selectedCuisine
+                    ? 'bg-brand text-brand-foreground border-transparent'
+                    : 'bg-card border-border text-foreground hover:border-brand'
+                }`}
+              >
+                {selectedCuisine
+                  ? <><span>{getCuisineEmoji(selectedCuisine)}</span> <span className="capitalize">{selectedCuisine}</span></>
+                  : 'Cuisine'}
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-150 ${openDropdown === 'cuisine' ? 'rotate-180' : ''}`} />
+              </button>
+              {openDropdown === 'cuisine' && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setOpenDropdown(null)} />
+                  <div className="absolute left-0 top-full mt-1.5 z-20 min-w-[160px] overflow-hidden rounded-xl border border-border bg-card shadow-lg">
+                    <button
+                      onClick={() => { setSelectedCuisine(null); setOpenDropdown(null) }}
+                      className={`w-full text-left px-4 py-2.5 text-sm font-medium transition-colors ${!selectedCuisine ? 'text-brand bg-brand-subtle' : 'text-foreground hover:bg-muted'}`}
+                    >
+                      All cuisines
+                    </button>
+                    {cuisines.map(cuisine => (
+                      <button
+                        key={cuisine}
+                        onClick={() => { setSelectedCuisine(cuisine); setOpenDropdown(null) }}
+                        className={`w-full text-left px-4 py-2.5 text-sm capitalize transition-colors ${selectedCuisine === cuisine ? 'text-brand bg-brand-subtle font-medium' : 'text-foreground hover:bg-muted'}`}
+                      >
+                        {getCuisineEmoji(cuisine)} {cuisine}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="relative ml-auto shrink-0">
+          <button
+            onClick={() => setOpenDropdown(openDropdown === 'sort' ? null : 'sort')}
+            className={`grid h-8 w-8 place-items-center rounded-full border transition-colors active:scale-[0.95] ${
+              openDropdown === 'sort'
+                ? 'border-transparent bg-brand text-brand-foreground'
+                : 'border-border bg-card text-foreground hover:border-brand'
+            }`}
+            aria-label="Sort recipes"
+            title="Sort recipes"
+          >
+            <SlidersHorizontal className="h-4 w-4" />
+          </button>
+          {openDropdown === 'sort' && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setOpenDropdown(null)} />
+              <div className="absolute right-0 top-full z-20 mt-1.5 min-w-[220px] overflow-hidden rounded-xl border border-border bg-card shadow-lg">
+                {SORT_OPTIONS.map(option => {
+                  const active = sortPreference === option.value
+                  return (
+                    <button
+                      key={option.value}
+                      onClick={() => handleSortPreferenceChange(option.value)}
+                      className={`flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm transition-colors ${
+                        active ? 'bg-brand-subtle font-medium text-brand' : 'text-foreground hover:bg-muted'
+                      }`}
+                    >
+                      <span className="flex-1">{option.label}</span>
+                      {active && <Check className="h-3.5 w-3.5 shrink-0" />}
+                    </button>
+                  )
+                })}
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Tag filter chips */}
@@ -508,7 +626,7 @@ export default function RecipeLibrary({
 
 
       {/* Recipe list */}
-      {filtered.length === 0 && !search ? (
+      {sortedRecipes.length === 0 && !search ? (
         <EmptyState
           illustration={<RecipeBookIllustration />}
           title={selectedCategory === 'cooked' ? 'No cooked recipes yet' : 'No recipes to try yet'}
@@ -524,13 +642,14 @@ export default function RecipeLibrary({
         />
       ) : (
         <div className="pb-24 space-y-6">
-          {filtered.length > 0 && (
+          {sortedRecipes.length > 0 && (
             <div className="grid gap-3 md:grid-cols-2">
-              {filtered.map((recipe, i) => (
+              {sortedRecipes.map((recipe, i) => (
                 <RecipeCard
                   key={recipe.id}
                   recipe={recipe}
                   variant="list"
+                  score={scores[recipe.id] ?? null}
                   onClick={() => router.push(`/recipes/${recipe.id}`)}
                   className="animate-fade-in-up"
                   style={{ animationDelay: `${i * 40}ms` }}

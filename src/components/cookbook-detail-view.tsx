@@ -13,9 +13,11 @@ interface CookbookDetailViewProps {
   cookbook: CookbookWithRecipes
   canManage?: boolean
   hasHousehold?: boolean
+  /** Per-tier 0–10 scores for the user's ranked recipes, keyed by recipe id. */
+  scores: Record<string, number>
 }
 
-export default function CookbookDetailView({ cookbook, canManage = true, hasHousehold = false }: CookbookDetailViewProps) {
+export default function CookbookDetailView({ cookbook, canManage = true, hasHousehold = false, scores }: CookbookDetailViewProps) {
   const router = useRouter()
   const [name, setName] = useState(cookbook.name)
   const [recipes, setRecipes] = useState<Recipe[]>(
@@ -250,6 +252,7 @@ export default function CookbookDetailView({ cookbook, canManage = true, hasHous
               key={recipe.id}
               recipe={recipe}
               variant="list"
+              score={scores[recipe.id] ?? null}
               onClick={() => router.push(`/recipes/${recipe.id}`)}
               action={
                 canManage ? (

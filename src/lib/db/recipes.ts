@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { RecipeWithIngredients, RecipeWithDetails } from '@/types/database'
 import { emitActivity } from '@/lib/db/activity'
+import { computeScores, type RankedInput } from '@/lib/scoring'
 
 export async function getRecipes() {
   const supabase = await createClient()
@@ -37,6 +38,29 @@ export async function getRecipes() {
     return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   })
   return recipes as unknown as RecipeWithIngredients[]
+}
+
+/** Map of recipe id → 0.0–10.0 score for the current user's ranked recipes,
+ *  grouped and spread within each feedback tier. Rank is per-user (recipe_rankings)
+ *  so household members score the same shared recipe independently; the tier
+ *  (feedback) is a property of the recipe. */
+export async function getRankedScores(): Promise<Record<string, number>> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return {}
+
+  const { data, error } = await supabase
+    .from('recipe_rankings')
+    .select('recipe_id, rank, recipe:recipes(feedback)')
+    .eq('user_id', user.id)
+
+  if (error) { console.error(error); return {} }
+  const input: RankedInput[] = (data ?? []).map((r: any) => ({
+    id: r.recipe_id,
+    rank: r.rank,
+    feedback: r.recipe?.feedback ?? null,
+  }))
+  return computeScores(input)
 }
 
 export async function getRecipe(id: string) {
