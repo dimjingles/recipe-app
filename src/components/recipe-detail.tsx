@@ -16,6 +16,7 @@ import ChefAiChat from '@/components/chef-ai-chat'
 import InstructionSteps from '@/components/instruction-steps'
 import { isRecipeTechnique, resolveTechniqueState } from '@/lib/skills'
 import { getCuisineEmoji } from '@/lib/cuisine-emoji'
+import { bucketScore, formatScore, FEEDBACK_OPTIONS, FEEDBACK_ADJECTIVE, type Feedback } from '@/lib/scoring'
 
 const CATEGORY_EMOJI: Record<string, string> = {
   produce: '🥦', dairy: '🧀', meat: '🥩', seafood: '🐟',
@@ -23,6 +24,13 @@ const CATEGORY_EMOJI: Record<string, string> = {
 }
 
 const CATEGORY_ORDER = ['produce', 'meat', 'seafood', 'dairy', 'bakery', 'pantry', 'spices', 'frozen', 'other']
+
+// Active-state styling for each feedback choice — green / yellow / red.
+const FEEDBACK_ACTIVE: Record<Feedback, string> = {
+  like: 'border-green-500 bg-green-50 text-green-700',
+  okay: 'border-yellow-500 bg-yellow-50 text-yellow-700',
+  dislike: 'border-red-500 bg-red-50 text-red-700',
+}
 
 function groupIngredients(ingredients: RecipeWithDetails['ingredients']) {
   const groups: Record<string, typeof ingredients> = {}
@@ -38,13 +46,15 @@ function groupIngredients(ingredients: RecipeWithDetails['ingredients']) {
 
 interface CookDialogProps {
   recipeId: string
+  initialFeedback: Feedback | null
   onClose: () => void
-  onSaved: (wasUnranked: boolean) => void
+  onSaved: (wasUnranked: boolean, feedback: Feedback | null) => void
   isAlreadyRanked: boolean
 }
 
-function CookDialog({ recipeId, onClose, onSaved, isAlreadyRanked }: CookDialogProps) {
+function CookDialog({ recipeId, initialFeedback, onClose, onSaved, isAlreadyRanked }: CookDialogProps) {
   const [notes, setNotes] = useState('')
+  const [feedback, setFeedback] = useState<Feedback | null>(initialFeedback)
   const [saving, setSaving] = useState(false)
 
   const save = async () => {
@@ -56,8 +66,16 @@ function CookDialog({ recipeId, onClose, onSaved, isAlreadyRanked }: CookDialogP
         body: JSON.stringify({ notes: notes || undefined }),
       })
       if (!res.ok) throw new Error('Failed')
+      // Persist the taste verdict alongside the cook, if the user set one.
+      if (feedback !== initialFeedback) {
+        await fetch(`/api/recipes/${recipeId}/feedback`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ feedback }),
+        })
+      }
       toast.success('Cooking logged! 🎉')
-      onSaved(!isAlreadyRanked)
+      onSaved(!isAlreadyRanked, feedback)
       onClose()
     } catch {
       toast.error('Could not save log')
@@ -70,6 +88,33 @@ function CookDialog({ recipeId, onClose, onSaved, isAlreadyRanked }: CookDialogP
     <BottomSheet open onClose={onClose} zIndex="elevated">
       <div className="px-6 pb-10">
         <h3 className="font-heading text-lg font-bold text-foreground mb-4">Log Cooking Session</h3>
+
+        {/* How was it? — required taste feedback that calibrates the score */}
+        <div className="mb-5">
+          <p className="text-sm font-medium text-foreground mb-2">
+            How was it? <span className="text-destructive">*</span>
+          </p>
+          <div className="grid grid-cols-3 gap-2">
+            {FEEDBACK_OPTIONS.map(opt => {
+              const active = feedback === opt.value
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setFeedback(opt.value)}
+                  aria-pressed={active}
+                  className={`flex flex-col items-center gap-1 rounded-2xl border-2 px-3 py-2.5 text-xs font-semibold transition-all active:scale-[0.97] ${
+                    active ? FEEDBACK_ACTIVE[opt.value] : 'border-border bg-card text-muted-foreground hover:border-brand/40'
+                  }`}
+                >
+                  <span className="text-lg leading-none">{opt.emoji}</span>
+                  {opt.label}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
         <div className="mb-6">
           <p className="text-sm font-medium text-foreground mb-2">Notes (optional)</p>
           <textarea
@@ -86,10 +131,10 @@ function CookDialog({ recipeId, onClose, onSaved, isAlreadyRanked }: CookDialogP
         )}
         <Button
           onClick={save}
-          disabled={saving}
+          disabled={saving || !feedback}
           className="w-full bg-brand hover:bg-brand/90 text-brand-foreground h-12 text-base"
         >
-          {saving ? 'Saving...' : 'Log it!'}
+          {saving ? 'Saving...' : feedback ? 'Log it!' : 'Rate it to log'}
         </Button>
       </div>
     </BottomSheet>
@@ -103,10 +148,11 @@ interface RankedRecipe {
   name: string
   cuisine: string | null
   rank: number
+  feedback: Feedback | null
 }
 
 interface ComparisonDialogProps {
-  thisRecipe: { id: string; name: string }
+  thisRecipe: { id: string; name: string; feedback: Feedback | null }
   onClose: () => void
   onRanked: (rank: number) => void
 }
@@ -119,9 +165,16 @@ function ComparisonDialog({ thisRecipe, onClose, onRanked }: ComparisonDialogPro
   const [saving, setSaving] = useState(false)
 
   useState(() => {
-    fetch('/api/rankings')
-      .then(r => r.json())
-      .then((data: RankedRecipe[]) => {
+    // Only compare against recipes in the same like/okay/dislike tier.
+    fetch(`/api/rankings?feedback=${thisRecipe.feedback ?? 'none'}`)
+      .then(async r => {
+        const body = await r.json()
+        if (!r.ok || !Array.isArray(body)) {
+          throw new Error(body?.error || 'Failed to load rankings')
+        }
+        return body as RankedRecipe[]
+      })
+      .then(data => {
         const others = data.filter(r => r.id !== thisRecipe.id)
         setRanked(others)
         setLo(0)
@@ -129,8 +182,8 @@ function ComparisonDialog({ thisRecipe, onClose, onRanked }: ComparisonDialogPro
         setLoading(false)
         if (others.length === 0) saveRank(1)
       })
-      .catch(() => {
-        toast.error('Could not load rankings')
+      .catch(err => {
+        toast.error(err?.message || 'Could not load rankings')
         onClose()
       })
   })
@@ -143,8 +196,9 @@ function ComparisonDialog({ thisRecipe, onClose, onRanked }: ComparisonDialogPro
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ position }),
       })
-      if (!res.ok) throw new Error('Failed')
-      onRanked(position)
+      const data = await res.json()
+      if (!res.ok) throw new Error(data?.error || 'Failed')
+      onRanked(data.rank ?? position) // endpoint returns the new global rank
       onClose()
     } catch {
       toast.error('Could not save ranking')
@@ -211,7 +265,7 @@ function ComparisonDialog({ thisRecipe, onClose, onRanked }: ComparisonDialogPro
             onClick={() => choose(false)}
             className="bg-muted border-2 border-border hover:border-muted-foreground hover:bg-border active:scale-[0.97] transition-all rounded-2xl p-4 text-left"
           >
-            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide mb-1">#{opponent.rank}</p>
+            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide mb-1">Score {formatScore(bucketScore(mid, ranked.length, thisRecipe.feedback))}</p>
             <p className="font-semibold text-foreground text-sm leading-snug">{opponent.name}</p>
           </button>
         </div>
@@ -384,12 +438,14 @@ export default function RecipeDetail({
   skillProfile,
   techniques,
   variants = [],
+  score,
 }: {
   recipe: RecipeWithDetails
   initialCookbooks: Cookbook[]
   skillProfile?: SkillProfile | null
   techniques?: Technique[]
   variants?: RecipeVariantLink[]
+  score: number | null
 }) {
   const router = useRouter()
   const [showCook, setShowCook] = useState(false)
@@ -400,6 +456,7 @@ export default function RecipeDetail({
   const [chefInitialPrompt, setChefInitialPrompt] = useState<string | undefined>(undefined)
   const [cookedCount, setCookedCount] = useState(recipe.cooked_count)
   const [currentRank, setCurrentRank] = useState<number | null>(recipe.rank)
+  const [currentFeedback, setCurrentFeedback] = useState<Feedback | null>(recipe.feedback)
   const [cookbooks, setCookbooks] = useState<Cookbook[]>(initialCookbooks)
   const [cookbookIds, setCookbookIds] = useState<string[]>(
     (recipe.cookbook_recipes || []).map(cr => cr.cookbook_id)
@@ -415,8 +472,9 @@ export default function RecipeDetail({
   const recipeTechniqueKeys = (recipe.techniques || []).filter(key => techniquesMap.has(key))
   const masteredTechniques = skillProfile?.techniques_mastered ?? []
 
-  const handleCookSaved = (triggerRanking: boolean) => {
+  const handleCookSaved = (triggerRanking: boolean, feedback: Feedback | null) => {
     setCookedCount(c => c + 1)
+    setCurrentFeedback(feedback)
     if (triggerRanking) setShowRank(true)
     else router.refresh()
   }
@@ -456,8 +514,32 @@ export default function RecipeDetail({
 
   const handleRanked = (rank: number) => {
     setCurrentRank(rank)
-    toast.success(`Ranked #${rank} 🏆`)
+    toast.success(
+      currentFeedback
+        ? `Ranked among your ${FEEDBACK_ADJECTIVE[currentFeedback]} recipes 🏆`
+        : 'Ranked! 🏆'
+    )
     router.refresh()
+  }
+
+  const saveFeedback = async (next: Feedback) => {
+    const prev = currentFeedback
+    setCurrentFeedback(next) // optimistic
+    try {
+      const res = await fetch(`/api/recipes/${recipe.id}/feedback`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ feedback: next }),
+      })
+      if (!res.ok) throw new Error('Failed')
+      // Changing the tier requires re-ranking within it — reopen the comparison
+      // (it auto-places if the new tier is otherwise empty).
+      if (currentRank !== null) setShowRank(true)
+      else router.refresh()
+    } catch {
+      setCurrentFeedback(prev) // revert
+      toast.error('Could not save feedback')
+    }
   }
 
   const emoji = getCuisineEmoji(recipe.cuisine)
@@ -514,9 +596,9 @@ export default function RecipeDetail({
                 <ChefHat className="w-3.5 h-3.5" /> Cooked {cookedCount}×
               </span>
             )}
-            {currentRank !== null && (
+            {score !== null && (
               <span className="flex items-center gap-1 text-white font-semibold text-sm">
-                <Trophy className="w-3.5 h-3.5" /> Ranked #{currentRank}
+                <Trophy className="w-3.5 h-3.5" /> {formatScore(score)}
               </span>
             )}
             {recipe.difficulty && (
@@ -567,9 +649,9 @@ export default function RecipeDetail({
                 <ChefHat className="w-3.5 h-3.5" /> Cooked {cookedCount}×
               </span>
             )}
-            {currentRank !== null && (
+            {score !== null && (
               <span className="flex items-center gap-1 text-brand font-semibold text-sm">
-                <Trophy className="w-3.5 h-3.5" /> Ranked #{currentRank}
+                <Trophy className="w-3.5 h-3.5" /> {formatScore(score)}
               </span>
             )}
             {recipe.difficulty && (
@@ -640,6 +722,31 @@ export default function RecipeDetail({
         >
           <Sparkles className="w-4 h-4" /> Adapt recipe
         </Button>
+
+        {/* Taste feedback — calibrates the score into a like / okay / dislike band */}
+        {currentRank !== null && (
+          <div className="mb-6">
+            <p className="text-sm font-medium text-foreground mb-2">How was it?</p>
+            <div className="grid grid-cols-3 gap-2">
+              {FEEDBACK_OPTIONS.map(opt => {
+                const active = currentFeedback === opt.value
+                return (
+                  <button
+                    key={opt.value}
+                    onClick={() => { if (!active) saveFeedback(opt.value) }}
+                    aria-pressed={active}
+                    className={`flex flex-col items-center gap-1 rounded-2xl border-2 px-3 py-2.5 text-xs font-semibold transition-all active:scale-[0.97] ${
+                      active ? FEEDBACK_ACTIVE[opt.value] : 'border-border bg-card text-muted-foreground hover:border-brand/40'
+                    }`}
+                  >
+                    <span className="text-lg leading-none">{opt.emoji}</span>
+                    {opt.label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Gallery */}
         <RecipeGallery
@@ -812,6 +919,7 @@ export default function RecipeDetail({
       {showCook && (
         <CookDialog
           recipeId={recipe.id}
+          initialFeedback={currentFeedback}
           onClose={() => setShowCook(false)}
           onSaved={handleCookSaved}
           isAlreadyRanked={currentRank !== null}
@@ -820,7 +928,7 @@ export default function RecipeDetail({
 
       {showRank && (
         <ComparisonDialog
-          thisRecipe={{ id: recipe.id, name: recipe.name }}
+          thisRecipe={{ id: recipe.id, name: recipe.name, feedback: currentFeedback }}
           onClose={() => setShowRank(false)}
           onRanked={handleRanked}
         />

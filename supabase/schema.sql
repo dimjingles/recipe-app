@@ -56,6 +56,7 @@ create table if not exists recipes (
   cooked_count integer default 0,
   last_cooked_at timestamptz,
   rank integer,
+  feedback text check (feedback in ('like', 'okay', 'dislike')),
   recipe_type text,
   -- AI Recipe Adaptation: link a variant back to the recipe it was adapted from.
   original_recipe_id uuid references recipes(id) on delete set null,

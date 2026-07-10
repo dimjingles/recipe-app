@@ -11,9 +11,11 @@ import { CookbookWithRecipes, Recipe } from '@/types/database'
 
 interface CookbookDetailViewProps {
   cookbook: CookbookWithRecipes
+  /** Per-tier 0–10 scores for the user's ranked recipes, keyed by recipe id. */
+  scores: Record<string, number>
 }
 
-export default function CookbookDetailView({ cookbook }: CookbookDetailViewProps) {
+export default function CookbookDetailView({ cookbook, scores }: CookbookDetailViewProps) {
   const router = useRouter()
   const [name, setName] = useState(cookbook.name)
   const [recipes, setRecipes] = useState<Recipe[]>(
@@ -166,6 +168,7 @@ export default function CookbookDetailView({ cookbook }: CookbookDetailViewProps
               key={recipe.id}
               recipe={recipe}
               variant="list"
+              score={scores[recipe.id] ?? null}
               onClick={() => router.push(`/recipes/${recipe.id}`)}
               action={
                 <button
