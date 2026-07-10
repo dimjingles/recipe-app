@@ -549,7 +549,7 @@ export default function RecipeLibrary({
                 }`}
               >
                 {selectedCuisine
-                  ? <><span>{getCuisineEmoji(selectedCuisine)}</span> <span className="capitalize">{selectedCuisine}</span></>
+                  ? <span className="capitalize">{selectedCuisine}</span>
                   : 'Cuisine'}
                 <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-150 ${openDropdown === 'cuisine' ? 'rotate-180' : ''}`} />
               </button>
@@ -569,7 +569,7 @@ export default function RecipeLibrary({
                         onClick={() => { setSelectedCuisine(cuisine); setOpenDropdown(null) }}
                         className={`w-full text-left px-4 py-2.5 text-sm capitalize transition-colors ${selectedCuisine === cuisine ? 'text-brand bg-brand-subtle font-medium' : 'text-foreground hover:bg-muted'}`}
                       >
-                        {getCuisineEmoji(cuisine)} {cuisine}
+                        {cuisine}
                       </button>
                     ))}
                   </div>
