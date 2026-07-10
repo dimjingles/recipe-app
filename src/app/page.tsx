@@ -5,7 +5,7 @@ import { getWeekPlan, getWeekStart } from '@/lib/db/planner'
 import { getProfile } from '@/lib/db/profile'
 import { getFeed } from '@/lib/db/activity'
 import Link from 'next/link'
-import { ChefHat, CalendarDays, Clock, Plus, LogOut, ShoppingCart, Sparkles, Users } from 'lucide-react'
+import { ChefHat, CalendarDays, Clock, Plus, LogOut, ShoppingCart, Sparkles, Users, Settings } from 'lucide-react'
 import { format, addDays } from 'date-fns'
 import { getCuisineEmoji } from '@/lib/cuisine-emoji'
 import { AddRecipeLauncher } from '@/components/add-recipe-sheet'
@@ -62,6 +62,13 @@ export default async function HomePage() {
             className="rounded-full shadow-card ring-1 ring-border transition-all hover:opacity-90 active:scale-[0.95]"
           >
             <UserAvatar name={profile?.display_name || profile?.username} src={profile?.avatar_url} size={44} />
+          </Link>
+          <Link
+            href="/settings"
+            title="Settings"
+            className="grid h-11 w-11 place-items-center rounded-xl bg-card text-muted-foreground shadow-card ring-1 ring-border transition-all hover:text-foreground active:scale-[0.95]"
+          >
+            <Settings className="h-4 w-4" />
           </Link>
           <form action="/auth/signout" method="POST">
             <button
