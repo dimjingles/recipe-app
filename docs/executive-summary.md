@@ -54,6 +54,7 @@ What the app does today:
 | Feature | What it does |
 |---------|-------------|
 | **Recipe management** | Save recipes manually, import from any URL or video, paste text, or let AI autofill from just a dish name. AI can write instructions and infer difficulty. |
+| **AI Recipe Adaptation** | Transform any saved recipe into a new variant in one tap — dietary swap (vegan/veg/GF/dairy-free), portion scaling, "I don't have…" pantry substitution, or freeform. Claude flags material changes and never overwrites the original; variants link back to their source. |
 | **Recipe library** | All your recipes in one place. Search, filter by cuisine, meal type, tag, or cookbook. AI surfaces recommendations based on your collection. |
 | **Cookbooks** | Group recipes into named collections (e.g. "Date Night", "Weeknight Easy"). |
 | **Weekly meal planner** | Assign recipes to days Mon–Sun. Persists week-over-week. |
@@ -70,7 +71,6 @@ What the app does today:
 
 The roadmap ladders directly up to the north star. Everything planned is designed to close the loop tighter, reduce friction in the plan→cook cycle, or give users a reason to open the app more often:
 
-- **AI Recipe Adaptation** — transform any recipe for your diet, pantry, or household size in one tap
 - **Grocery Pipeline 2.0** — real-time sync, smart dedup, customisable categories, pantry deductions, cost estimates
 - **Household Sharing** — partner sees the same plan, same grocery list, in real time
 - **Multi-Week Calendar + Saved Templates** — plan ahead, reuse your best weeks

@@ -1,6 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { anthropic, HAIKU } from '@/lib/anthropic'
+import { fetchPage, getMeta, stripTags } from '@/lib/import/html'
+import {
+  classifyVideoUrl,
+  fetchVideoContext,
+  hasRecipeText,
+  buildVideoContextText,
+  videoExtractionPrompt,
+  getYouTubeVideoId,
+  youtubeThumbnailUrl,
+  VideoImportError,
+  PLATFORM_LABEL,
+  type VideoPlatform,
+} from '@/lib/import/video'
 import type { ExtractedRecipe, ExtractedIngredient } from '@/types/database'
 
 // ── SSRF protection ───────────────────────────────────────────────────────────
@@ -42,64 +55,6 @@ function validateUrl(raw: string): URL {
     throw new Error('URL not allowed')
   }
   return url
-}
-
-// ── HTML fetch ────────────────────────────────────────────────────────────────
-
-const MAX_BODY_BYTES = 500 * 1024 // 500 KB
-
-async function fetchHtml(url: string): Promise<string> {
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), 15000)
-  try {
-    const res = await fetch(url, {
-      signal: controller.signal,
-      cache: 'no-store',
-      headers: {
-        'User-Agent':
-          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Cache-Control': 'no-cache',
-        'Pragma': 'no-cache',
-        'Sec-Fetch-Dest': 'document',
-        'Sec-Fetch-Mode': 'navigate',
-        'Sec-Fetch-Site': 'none',
-        'Upgrade-Insecure-Requests': '1',
-      },
-      redirect: 'follow',
-    })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-
-    const reader = res.body?.getReader()
-    if (!reader) throw new Error('No response body')
-
-    const chunks: Uint8Array[] = []
-    let total = 0
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      if (value) {
-        const remaining = MAX_BODY_BYTES - total
-        if (value.length >= remaining) {
-          chunks.push(value.slice(0, remaining))
-          total += remaining
-          reader.cancel()
-          break
-        }
-        chunks.push(value)
-        total += value.length
-      }
-    }
-
-    const buf = new Uint8Array(total)
-    let off = 0
-    for (const c of chunks) { buf.set(c, off); off += c.length }
-    return new TextDecoder('utf-8', { fatal: false }).decode(buf)
-  } finally {
-    clearTimeout(timer)
-  }
 }
 
 // ── JSON-LD extraction ────────────────────────────────────────────────────────
@@ -177,35 +132,6 @@ function parseInstructions(raw: unknown): string {
   return ''
 }
 
-// ── Meta-tag helpers ──────────────────────────────────────────────────────────
-
-function getMeta(html: string, prop: string): string {
-  const esc = prop.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  // property/name can appear before or after content; handle single & double quotes
-  const patterns = [
-    new RegExp(`<meta[^>]+(?:property|name)=["']${esc}["'][^>]+content=["']([^"'<>]+)["']`, 'i'),
-    new RegExp(`<meta[^>]+content=["']([^"'<>]+)["'][^>]+(?:property|name)=["']${esc}["']`, 'i'),
-  ]
-  for (const p of patterns) {
-    const m = html.match(p)
-    if (m) return m[1].trim()
-  }
-  return ''
-}
-
-function stripTags(html: string): string {
-  return html
-    .replace(/<script[\s\S]*?<\/script>/gi, '')
-    .replace(/<style[\s\S]*?<\/style>/gi, '')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-}
-
 // ── Claude helpers ────────────────────────────────────────────────────────────
 
 async function categorizeIngredients(raw: string[]): Promise<ExtractedIngredient[]> {
@@ -239,13 +165,25 @@ Category must be one of: produce, dairy, meat, seafood, pantry, spices, bakery, 
   }
 }
 
-async function extractFromText(text: string, sourceUrl?: string): Promise<ExtractedRecipe> {
+/** Run a recipe-extraction prompt through Haiku and parse the JSON reply. */
+async function runRecipeExtraction(prompt: string, sourceUrl?: string): Promise<ExtractedRecipe> {
   const msg = await anthropic.messages.create({
     model: HAIKU,
-    max_tokens: 2048,
-    messages: [{
-      role: 'user',
-      content: `Extract a recipe from the following text. Return ONLY valid JSON (no markdown, no explanation).
+    max_tokens: 3000,
+    messages: [{ role: 'user', content: prompt }],
+  })
+
+  const c = msg.content[0]
+  if (c.type !== 'text') throw new Error('Unexpected AI response')
+  const jsonMatch = c.text.match(/\{[\s\S]*\}/)
+  if (!jsonMatch) throw new Error('Could not parse AI response')
+  const data = JSON.parse(jsonMatch[0]) as { error?: string } & Partial<ExtractedRecipe>
+  if (data.error) throw new Error(data.error)
+  return { ...data, ingredients: data.ingredients ?? [], name: data.name ?? 'Untitled Recipe', source_url: sourceUrl }
+}
+
+function textExtractionPrompt(text: string): string {
+  return `Extract a recipe from the following text. Return ONLY valid JSON (no markdown, no explanation).
 
 ${text.slice(0, 8000)}
 
@@ -263,17 +201,11 @@ Return this exact structure:
 }
 
 If you cannot find a clear recipe in the text, return: { "error": "no recipe found" }
-Category must be one of: produce, dairy, meat, seafood, pantry, spices, bakery, frozen, other.`,
-    }],
-  })
+Category must be one of: produce, dairy, meat, seafood, pantry, spices, bakery, frozen, other.`
+}
 
-  const c = msg.content[0]
-  if (c.type !== 'text') throw new Error('Unexpected AI response')
-  const jsonMatch = c.text.match(/\{[\s\S]*\}/)
-  if (!jsonMatch) throw new Error('Could not parse AI response')
-  const data = JSON.parse(jsonMatch[0]) as { error?: string } & Partial<ExtractedRecipe>
-  if (data.error) throw new Error(data.error)
-  return { ...data, ingredients: data.ingredients ?? [], name: data.name ?? 'Untitled Recipe', source_url: sourceUrl }
+async function extractFromText(text: string, sourceUrl?: string): Promise<ExtractedRecipe> {
+  return runRecipeExtraction(textExtractionPrompt(text), sourceUrl)
 }
 
 // ── Gallery image extraction ──────────────────────────────────────────────────
@@ -325,6 +257,45 @@ function extractGalleryImages(
   return result.slice(0, 4)
 }
 
+// ── Video / social import ─────────────────────────────────────────────────────
+
+function noRecipeHint(platform: VideoPlatform): string {
+  const where =
+    platform === 'youtube' ? "the video's description or captions" : "this post's caption"
+  return `We read the ${PLATFORM_LABEL[platform]} post but couldn't find a full recipe in ${where}. Paste the recipe text (or the caption) below and we'll extract it from there.`
+}
+
+async function importFromVideo(platform: VideoPlatform, url: URL): Promise<NextResponse> {
+  let contextText: string
+  let sourceUrl: string
+  let imageUrl: string | undefined
+
+  try {
+    const ctx = await fetchVideoContext(platform, url)
+    if (!hasRecipeText(ctx)) {
+      return NextResponse.json({ needsText: true, hint: noRecipeHint(platform) })
+    }
+    contextText = buildVideoContextText(ctx)
+    sourceUrl = ctx.url
+    imageUrl = ctx.imageUrl
+  } catch (err: unknown) {
+    console.error(`[import] ${platform} context fetch failed:`, (err as Error).message)
+    const hint = err instanceof VideoImportError
+      ? err.hint
+      : `We couldn't load that ${PLATFORM_LABEL[platform]} link. Copy the caption or recipe text and paste it below.`
+    return NextResponse.json({ needsText: true, hint })
+  }
+
+  try {
+    const recipe = await runRecipeExtraction(videoExtractionPrompt(contextText), sourceUrl)
+    if (imageUrl && !recipe.image_url) recipe.image_url = imageUrl
+    return NextResponse.json({ ...recipe, gallery_images: [] })
+  } catch (err: unknown) {
+    console.error(`[import] ${platform} extraction failed:`, (err as Error).message)
+    return NextResponse.json({ needsText: true, hint: noRecipeHint(platform) })
+  }
+}
+
 // ── Route handler ─────────────────────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
@@ -339,7 +310,20 @@ export async function POST(request: NextRequest) {
 
     // ── Path 1: plain text (captions, pasted recipe content) ──────────────────
     if (text?.trim()) {
-      const recipe = await extractFromText(text.trim())
+      // A url sent alongside text is provenance only (the paste-text fallback
+      // keeps the link the user originally tried) — it is never fetched.
+      let sourceUrl: string | undefined
+      let thumb: string | undefined
+      if (url?.trim()) {
+        try {
+          const parsed = validateUrl(url.trim())
+          sourceUrl = parsed.href
+          const videoId = classifyVideoUrl(parsed) === 'youtube' ? getYouTubeVideoId(parsed) : null
+          if (videoId) thumb = youtubeThumbnailUrl(videoId)
+        } catch { /* ignore bad provenance URLs */ }
+      }
+      const recipe = await extractFromText(text.trim(), sourceUrl)
+      if (thumb && !recipe.image_url) recipe.image_url = thumb
       return NextResponse.json(recipe)
     }
 
@@ -355,13 +339,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: (e as Error).message }, { status: 400 })
     }
 
+    // ── 2a: video/social platforms (YouTube, TikTok, Instagram) ───────────────
+    const platform = classifyVideoUrl(parsed)
+    if (platform) {
+      return importFromVideo(platform, parsed)
+    }
+
     // Fetch the page HTML
     let html: string
     try {
-      html = await fetchHtml(parsed.href)
+      html = await fetchPage(parsed.href)
     } catch (fetchErr: unknown) {
       const msg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr)
-      console.error('[import] fetchHtml failed:', parsed.href, msg)
+      console.error('[import] fetchPage failed:', parsed.href, msg)
       return NextResponse.json({
         needsText: true,
         hint: "We couldn't load that page. Copy the recipe text and paste it below.",
@@ -369,7 +359,7 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // ── 2a: JSON-LD structured data (most recipe blogs) ───────────────────────
+    // ── 2b: JSON-LD structured data (most recipe blogs) ───────────────────────
     const ld = findJsonLdRecipe(html)
     if (ld) {
       const rawIngredients = Array.isArray(ld.recipeIngredient)
@@ -401,7 +391,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ...recipe, gallery_images: gallery })
     }
 
-    // ── 2b: Claude fallback (YouTube, social media, non-JSON-LD sites) ─────────
+    // ── 2c: Claude fallback (non-JSON-LD sites) ────────────────────────────────
     const ogTitle = getMeta(html, 'og:title')
     const ogDesc = getMeta(html, 'og:description')
     const ogImage = getMeta(html, 'og:image')
