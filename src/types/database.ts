@@ -34,6 +34,8 @@ export interface SkillProfile {
   last_stretch_technique: string | null
 }
 
+export type RecipeSortPreference = 'ranking' | 'recently_cooked' | 'most_cooked'
+
 export interface Database {
   public: {
     Tables: {
@@ -51,6 +53,7 @@ export interface Database {
           skill_level: string | null
           meal_reminders: boolean
           skill_profile: SkillProfile | null
+          recipe_sort_preference: RecipeSortPreference
           created_at: string
           updated_at: string
         }
@@ -67,6 +70,7 @@ export interface Database {
           skill_level?: string | null
           meal_reminders?: boolean
           skill_profile?: SkillProfile | null
+          recipe_sort_preference?: RecipeSortPreference
           created_at?: string
           updated_at?: string
         }

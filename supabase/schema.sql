@@ -17,6 +17,7 @@ create table if not exists profiles (
   skill_level      text,        -- 'beginner'|'getting_there'|'confident'|'pro'
   meal_reminders   boolean default false,
   skill_profile jsonb default '{}'::jsonb,
+  recipe_sort_preference text not null default 'ranking' check (recipe_sort_preference in ('ranking', 'recently_cooked', 'most_cooked')),
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
