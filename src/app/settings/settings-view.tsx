@@ -1,26 +1,15 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { useTheme } from 'next-themes'
 import {
   ArrowLeft,
   ChevronRight,
   LogOut,
-  Monitor,
-  Moon,
-  Sun,
   Trophy,
   User,
   Users,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-
-const THEME_OPTIONS = [
-  { value: 'light', label: 'Light', icon: Sun },
-  { value: 'dark', label: 'Dark', icon: Moon },
-  { value: 'system', label: 'System', icon: Monitor },
-] as const
 
 const LINKS = [
   { href: '/profile', label: 'Edit profile', description: 'Name, username & photo', icon: User },
@@ -29,10 +18,6 @@ const LINKS = [
 ]
 
 export default function SettingsView({ email, version }: { email: string; version: string }) {
-  const { theme, setTheme } = useTheme()
-  const [mounted, setMounted] = useState(false)
-  useEffect(() => setMounted(true), [])
-
   return (
     <div className="mx-auto max-w-lg px-5 pt-8 pb-24">
       <div className="mb-8 flex items-center gap-3">
@@ -44,33 +29,6 @@ export default function SettingsView({ email, version }: { email: string; versio
         </Link>
         <h1 className="font-heading text-3xl font-bold tracking-tight text-foreground">Settings</h1>
       </div>
-
-      {/* Appearance */}
-      <section className="mb-8">
-        <h2 className="mb-2.5 text-sm font-semibold text-foreground">Appearance</h2>
-        <div className="flex gap-1 rounded-xl border border-border bg-card p-1">
-          {THEME_OPTIONS.map(({ value, label, icon: Icon }) => {
-            const active = mounted && theme === value
-            return (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setTheme(value)}
-                className={cn(
-                  'flex flex-1 flex-col items-center gap-1.5 rounded-lg py-3 text-xs font-semibold transition-all active:scale-[0.97]',
-                  active
-                    ? 'bg-muted text-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground',
-                )}
-                aria-pressed={active}
-              >
-                <Icon className="h-5 w-5" />
-                {label}
-              </button>
-            )
-          })}
-        </div>
-      </section>
 
       {/* Account */}
       <section className="mb-8">

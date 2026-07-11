@@ -2,8 +2,6 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
-@custom-variant dark (&:is(.dark *));
-
 /* ─── Custom keyframes ───────────────────────────────────────────────────── */
 
 @keyframes shimmer {
@@ -166,65 +164,6 @@
   --info-foreground:     oklch(1 0 0);
   --info-subtle:         oklch(0.965 0.020 210);
   --lavender-subtle:     oklch(0.965 0.018 300);
-}
-
-/* ─── Dark mode tokens (authored; ThemeProvider wiring deferred) ─────────── */
-
-.dark {
-  --background:           oklch(0.145 0 0);
-  --foreground:           oklch(0.985 0 0);
-  --card:                 oklch(0.205 0 0);
-  --card-foreground:      oklch(0.985 0 0);
-  --popover:              oklch(0.205 0 0);
-  --popover-foreground:   oklch(0.985 0 0);
-  --primary:              oklch(0.922 0 0);
-  --primary-foreground:   oklch(0.205 0 0);
-  --secondary:            oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted:                oklch(0.269 0 0);
-  --muted-foreground:     oklch(0.708 0 0);
-  --accent:               oklch(0.269 0 0);
-  --accent-foreground:    oklch(0.985 0 0);
-  --destructive:          oklch(0.704 0.191 22.216);
-  --border:               oklch(1 0 0 / 10%);
-  --input:                oklch(1 0 0 / 15%);
-  --ring:                 oklch(0.750 0.180 46.6);
-  --chart-1:              oklch(0.87 0 0);
-  --chart-2:              oklch(0.556 0 0);
-  --chart-3:              oklch(0.439 0 0);
-  --chart-4:              oklch(0.371 0 0);
-  --chart-5:              oklch(0.269 0 0);
-  --sidebar:                     oklch(0.205 0 0);
-  --sidebar-foreground:          oklch(0.985 0 0);
-  --sidebar-primary:             oklch(0.750 0.180 46.6);
-  --sidebar-primary-foreground:  oklch(0.145 0 0);
-  --sidebar-accent:              oklch(0.269 0 0);
-  --sidebar-accent-foreground:   oklch(0.985 0 0);
-  --sidebar-border:              oklch(1 0 0 / 10%);
-  --sidebar-ring:                oklch(0.750 0.180 46.6);
-
-  /* Brand - dark */
-  --brand:            oklch(0.750 0.180 46.6);
-  --brand-foreground: oklch(0.145 0 0);
-  --brand-subtle:     oklch(0.260 0.050 46);
-
-  /* Sage - dark */
-  --sage:             oklch(0.680 0.090 158);
-  --sage-foreground:  oklch(0.145 0 0);
-  --sage-subtle:      oklch(0.220 0.040 158);
-
-  /* Cooking / amber - dark */
-  --cooking:             oklch(0.800 0.120 72);
-  --cooking-foreground:  oklch(0.145 0 0);
-  --cooking-subtle:      oklch(0.220 0.040 72);
-
-  --tomato:              oklch(0.690 0.190 25);
-  --tomato-foreground:   oklch(0.145 0 0);
-  --tomato-subtle:       oklch(0.260 0.050 25);
-  --info:                oklch(0.760 0.110 210);
-  --info-foreground:     oklch(0.145 0 0);
-  --info-subtle:         oklch(0.220 0.040 210);
-  --lavender-subtle:     oklch(0.220 0.035 300);
 }
 
 /* ─── Base layer ────────────────────────────────────────────────────────── */
