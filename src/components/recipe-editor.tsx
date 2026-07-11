@@ -87,7 +87,6 @@ export default function RecipeEditor({ initialValues, showLookup, autoLookup }: 
   const [imageUrl] = useState(initialValues?.image_url ?? '')
   const [galleryImages] = useState<string[]>(initialValues?.gallery_images ?? [])
   const [lookupLoading, setLookupLoading] = useState(false)
-  const [genLoading, setGenLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [looked, setLooked] = useState(false)
 
@@ -202,38 +201,6 @@ export default function RecipeEditor({ initialValues, showLookup, autoLookup }: 
       toast.error((e as Error).message || 'Could not fill recipe. Try again.')
     } finally {
       setLookupLoading(false)
-    }
-  }
-
-  const handleGenerateInstructions = async () => {
-    if (!name.trim()) { toast.error('Enter a recipe name first'); return }
-    if (ingredients.length === 0 || !ingredients.some(i => i.name.trim())) {
-      toast.error('Add at least one ingredient first')
-      return
-    }
-    setGenLoading(true)
-    try {
-      const res = await fetch('/api/recipes/generate-instructions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: name.trim(),
-          ingredients: ingredients.filter(i => i.name.trim()),
-        }),
-      })
-      const data = await res.json()
-      if (data.error) throw new Error(data.error)
-      // AI returns a numbered blob — split it into separate editable steps.
-      if (data.instructions) {
-        setSteps(textToSteps(splitSourceNote(data.instructions).body))
-        setSourceNote('')
-      }
-      if (data.difficulty && !difficulty) setDifficulty(data.difficulty)
-      toast.success('Instructions generated!')
-    } catch {
-      toast.error('Could not generate instructions. Try again.')
-    } finally {
-      setGenLoading(false)
     }
   }
 
@@ -568,14 +535,12 @@ export default function RecipeEditor({ initialValues, showLookup, autoLookup }: 
         </div>
       </div>
 
-      {/* Instructions — step-based editor with AI generation */}
+      {/* Instructions — step-based editor. Instruction generation is handled by
+          the AI "Fill" button alongside the rest of the recipe. */}
       <InstructionsEditor
         steps={steps}
         onStepsChange={setSteps}
         ingredientNames={ingredients.map(i => i.name).filter(Boolean)}
-        onGenerate={handleGenerateInstructions}
-        generating={genLoading || (lookupLoading && showLookup)}
-        generateDisabled={!name.trim()}
       />
 
       {/* Tags - Chip multi-select */}
