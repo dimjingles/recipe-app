@@ -66,7 +66,6 @@ export default function EditRecipeForm({ recipe }: { recipe: RecipeWithIngredien
   )
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
-  const [instructionsLoading, setInstructionsLoading] = useState(false)
 
   const addIngredient = () => {
     setIngredients(prev => [...prev, { name: '', quantity: '', unit: '', category: 'other' }])
@@ -93,38 +92,6 @@ export default function EditRecipeForm({ recipe }: { recipe: RecipeWithIngredien
       setTags(prev => [...prev, t])
     }
     setCustomTagInput('')
-  }
-
-  const handleGenerateInstructions = async () => {
-    if (!name.trim()) {
-      toast.error('Enter a recipe name first')
-      return
-    }
-    if (ingredients.length === 0 || !ingredients.some(i => i.name.trim())) {
-      toast.error('Add at least one ingredient first')
-      return
-    }
-    setInstructionsLoading(true)
-    try {
-      const res = await fetch('/api/recipes/generate-instructions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: name.trim(),
-          ingredients: ingredients.filter(i => i.name.trim()),
-        }),
-      })
-      const data = await res.json()
-      if (data.error) throw new Error(data.error)
-      // AI returns a numbered blob — split it into separate editable steps.
-      if (data.instructions) setSteps(textToSteps(splitSourceNote(data.instructions).body))
-      if (data.difficulty && !difficulty) setDifficulty(data.difficulty)
-      toast.success('Instructions generated!')
-    } catch {
-      toast.error('Could not generate instructions. Try again.')
-    } finally {
-      setInstructionsLoading(false)
-    }
   }
 
   const handleDelete = async () => {
@@ -266,14 +233,11 @@ export default function EditRecipeForm({ recipe }: { recipe: RecipeWithIngredien
           </div>
         </div>
 
-        {/* Instructions — step-based editor with AI generation */}
+        {/* Instructions — step-based editor. */}
         <InstructionsEditor
           steps={steps}
           onStepsChange={setSteps}
           ingredientNames={ingredients.map(i => i.name).filter(Boolean)}
-          onGenerate={handleGenerateInstructions}
-          generating={instructionsLoading}
-          generateDisabled={!name.trim()}
         />
 
         {/* Tags - Chip multi-select */}
