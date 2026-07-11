@@ -266,6 +266,7 @@ export default function RecipeEditor({ initialValues, showLookup, autoLookup }: 
 
   const handleSave = async () => {
     if (!name.trim()) { toast.error('Recipe name is required'); return }
+    if (!stepsToText(steps).trim()) { toast.error('Add at least one instruction step'); return }
     setSaving(true)
     try {
       const body = stepsToText(steps)
@@ -634,7 +635,7 @@ export default function RecipeEditor({ initialValues, showLookup, autoLookup }: 
       {/* Save */}
       <Button
         onClick={handleSave}
-        disabled={saving || !name.trim()}
+        disabled={saving || !name.trim() || !steps.some(s => s.trim())}
         className="w-full bg-orange-500 hover:bg-orange-600 text-white h-12 text-base font-semibold"
       >
         {saving && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
