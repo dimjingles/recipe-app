@@ -4,10 +4,11 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   X, ChevronLeft, ChevronRight, Timer, Plus, Check,
-  Mic, Volume2, ListChecks,
+  Mic, Volume2, ListChecks, ChefHat, Send, Loader2, Play,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import { Textarea } from '@/components/ui/textarea'
 import { BottomSheet } from '@/components/ui/bottom-sheet'
 import { splitStepsFromText } from '@/lib/instructions'
 import { detectDurations, formatClock } from '@/lib/cook/durations'
@@ -18,6 +19,19 @@ import type { RecipeWithDetails, InstructionStep } from '@/types/database'
 
 const MANUAL_PRESETS = [1, 2, 3, 5, 10, 15, 20, 30, 45, 60] // minutes
 
+type Stage = 'welcome' | 'cooking' | 'finish'
+type Role = 'user' | 'assistant'
+// `hidden` control turns steer the chef (welcome / "present step N") but are
+// never rendered in the transcript — the user only sees the chef's replies and
+// their own typed questions.
+interface Msg { role: Role; content: string; hidden?: boolean }
+
+const WELCOME_PROMPT =
+  'Welcome me to cooking this recipe. Give a warm 2-3 sentence overview of the dish — what we are making and the general vibe — without listing any steps. End by asking if I am ready to begin.'
+
+const presentStepPrompt = (n: number, text: string) =>
+  `I'm ready. Please walk me through Step ${n} now: "${text}". Narrate exactly this step in a warm, spoken style. If it has cooking jargon or a vague doneness cue, explain it briefly. Then stop and wait — do not give me the next step yet.`
+
 export default function CookMode({ recipe }: { recipe: RecipeWithDetails }) {
   const router = useRouter()
 
@@ -26,8 +40,26 @@ export default function CookMode({ recipe }: { recipe: RecipeWithDetails }) {
     if (structured && structured.length > 0) return structured
     return splitStepsFromText(recipe.instructions)
   }, [recipe.instruction_steps, recipe.instructions])
+  const total = steps.length
 
+  const [stage, setStage] = useState<Stage>('welcome')
   const [stepIndex, setStepIndex] = useState(0)
+
+  // Chef conversation. We mirror it in a ref so button/voice handlers can read
+  // the live transcript without waiting for a state flush.
+  const [messages, setMessagesState] = useState<Msg[]>([])
+  const messagesRef = useRef<Msg[]>([])
+  const setMessages = (updater: Msg[] | ((prev: Msg[]) => Msg[])) =>
+    setMessagesState(prev => {
+      const next = typeof updater === 'function' ? (updater as (p: Msg[]) => Msg[])(prev) : updater
+      messagesRef.current = next
+      return next
+    })
+  const [streaming, setStreaming] = useState(false)
+  const [waitingFirstChunk, setWaitingFirstChunk] = useState(false)
+  const [input, setInput] = useState('')
+  const scrollRef = useRef<HTMLDivElement>(null)
+
   const [checked, setChecked] = useState<Set<string>>(new Set())
   const [showIngredients, setShowIngredients] = useState(false)
   const [showManualTimer, setShowManualTimer] = useState(false)
@@ -36,27 +68,122 @@ export default function CookMode({ recipe }: { recipe: RecipeWithDetails }) {
 
   const { timers, startTimer, toggleTimer, dismissTimer } = useCookTimers()
 
-  const total = steps.length
-  const onFinish = stepIndex >= total
-  const currentStep = onFinish ? null : steps[stepIndex]
-
-  // Keep the screen awake for the whole session (best-effort).
-  useWakeLock(true)
-
+  const currentStep = stage === 'cooking' ? steps[stepIndex] : null
   const currentDurations = useMemo(
     () => (currentStep ? detectDurations(currentStep.text) : []),
     [currentStep],
   )
 
+  // Keep the screen awake for the whole session (best-effort).
+  useWakeLock(true)
+
   const exit = () => router.push(`/recipes/${recipe.id}`)
 
-  const goNext = () => setStepIndex(i => Math.min(total, i + 1))
-  const goBack = () => setStepIndex(i => Math.max(0, i - 1))
+  // ── Chef streaming ────────────────────────────────────────────────────────
+  async function runTurn(userMsg: Msg, fallback?: string) {
+    const next = [...messagesRef.current, userMsg]
+    setMessages([...next, { role: 'assistant', content: '' }])
+    setStreaming(true)
+    setWaitingFirstChunk(true)
+    try {
+      const res = await fetch(`/api/recipes/${recipe.id}/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: next.map(m => ({ role: m.role, content: m.content })) }),
+      })
+      if (!res.ok || !res.body) throw new Error('Chef AI unavailable')
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const chunks = buffer.split('\n\n')
+        buffer = chunks.pop() || ''
+        for (const chunk of chunks) {
+          const line = chunk.split('\n').find(l => l.startsWith('data: '))
+          if (!line) continue
+          const data = line.slice(6)
+          if (data === '[DONE]') { setStreaming(false); setWaitingFirstChunk(false); return }
+          const parsed = JSON.parse(data)
+          setWaitingFirstChunk(false)
+          setMessages(prev => prev.map((m, i) => i === prev.length - 1 ? { ...m, content: m.content + parsed.text } : m))
+        }
+      }
+    } catch {
+      // Fall back to the canonical step text so the user can still cook offline.
+      setMessages(prev => prev.map((m, i) =>
+        i === prev.length - 1
+          ? { ...m, content: m.content || fallback || 'Chef AI is unavailable right now — carry on with the step shown and I will try to reconnect.' }
+          : m,
+      ))
+    } finally {
+      setStreaming(false)
+      setWaitingFirstChunk(false)
+    }
+  }
 
-  const speakCurrent = () => {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window) || !currentStep) return
+  const presentStep = (i: number) => runTurn(
+    { role: 'user', content: presentStepPrompt(steps[i].n, steps[i].text), hidden: true },
+    `Step ${steps[i].n}. ${steps[i].text}`,
+  )
+
+  // Kick off the welcome once on mount.
+  const startedRef = useRef(false)
+  useEffect(() => {
+    if (startedRef.current || total === 0) return
+    startedRef.current = true
+    runTurn({ role: 'user', content: WELCOME_PROMPT, hidden: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Auto-scroll the transcript.
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
+  }, [messages, streaming])
+
+  // ── Navigation ────────────────────────────────────────────────────────────
+  const goNext = () => {
+    if (streaming) return
+    if (stage === 'welcome') {
+      setStage('cooking')
+      setStepIndex(0)
+      presentStep(0)
+    } else if (stage === 'cooking') {
+      if (stepIndex >= total - 1) {
+        setStage('finish')
+      } else {
+        const n = stepIndex + 1
+        setStepIndex(n)
+        presentStep(n)
+      }
+    }
+  }
+
+  const goBack = () => {
+    if (streaming) return
+    if (stage === 'cooking' && stepIndex > 0) {
+      const n = stepIndex - 1
+      setStepIndex(n)
+      presentStep(n)
+    }
+  }
+
+  const ask = (raw: string) => {
+    const text = raw.trim()
+    if (!text || streaming) return
+    setInput('')
+    runTurn({ role: 'user', content: text })
+  }
+
+  // ── Text-to-speech (reads the chef's latest message) ──────────────────────
+  const speakLatest = () => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return
+    const last = [...messagesRef.current].reverse().find(m => m.role === 'assistant' && m.content.trim())
+    if (!last) return
     window.speechSynthesis.cancel()
-    const u = new SpeechSynthesisUtterance(`Step ${currentStep.n}. ${currentStep.text}`)
+    const u = new SpeechSynthesisUtterance(last.content)
     u.rate = 0.95
     window.speechSynthesis.speak(u)
   }
@@ -75,7 +202,7 @@ export default function CookMode({ recipe }: { recipe: RecipeWithDetails }) {
   const handleCommand = (cmd: VoiceCommand) => {
     if (cmd === 'next') goNext()
     else if (cmd === 'back') goBack()
-    else if (cmd === 'repeat') speakCurrent()
+    else if (cmd === 'repeat') speakLatest()
     else if (cmd === 'timer') startFirstTimer()
   }
   const voice = useVoiceControl(handleCommand)
@@ -91,9 +218,9 @@ export default function CookMode({ recipe }: { recipe: RecipeWithDetails }) {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [total])
+  }, [stage, stepIndex, streaming, total])
 
-  // Stop any spoken step when leaving cook mode.
+  // Stop any spoken message when leaving cook mode.
   useEffect(() => {
     return () => {
       if (typeof window !== 'undefined' && 'speechSynthesis' in window) window.speechSynthesis.cancel()
@@ -139,7 +266,12 @@ export default function CookMode({ recipe }: { recipe: RecipeWithDetails }) {
     )
   }
 
-  const progress = Math.round((Math.min(stepIndex, total) / total) * 100)
+  const progress =
+    stage === 'welcome' ? 0 : stage === 'finish' ? 100 : Math.round(((stepIndex + 1) / total) * 100)
+  const stageLabel =
+    stage === 'welcome' ? 'Getting ready' : stage === 'finish' ? 'Complete' : `Step ${stepIndex + 1} of ${total}`
+
+  const visible = messages.filter(m => !m.hidden)
 
   return (
     <div className="fixed inset-0 z-50 bg-background text-foreground flex flex-col">
@@ -160,8 +292,8 @@ export default function CookMode({ recipe }: { recipe: RecipeWithDetails }) {
 
           <div className="flex items-center gap-1">
             <button
-              onClick={speakCurrent}
-              aria-label="Read step aloud"
+              onClick={speakLatest}
+              aria-label="Read the chef's message aloud"
               className="p-2 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted active:scale-95 transition-all"
             >
               <Volume2 className="w-5 h-5" />
@@ -204,50 +336,66 @@ export default function CookMode({ recipe }: { recipe: RecipeWithDetails }) {
             />
           </div>
           <p className="mt-1.5 text-xs font-medium text-muted-foreground text-center">
-            {onFinish ? 'Complete' : `Step ${stepIndex + 1} of ${total}`}
+            {stageLabel}
           </p>
         </div>
       </div>
 
       {/* ── Body ───────────────────────────────────────────────────────── */}
-      {onFinish ? (
+      {stage === 'finish' ? (
         <FinishScreen
           notes={notes}
           setNotes={setNotes}
           saving={saving}
           onCook={markCooked}
-          onBack={goBack}
+          onBack={() => { setStage('cooking'); setStepIndex(total - 1) }}
           onExit={exit}
         />
       ) : (
         <>
-          <div className="flex-1 overflow-y-auto px-6 flex flex-col justify-center">
-            <div className="max-w-lg mx-auto w-full py-6">
-              <span className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-brand text-brand-foreground font-bold text-lg mb-5">
-                {currentStep!.n}
-              </span>
-              <p className="text-2xl sm:text-3xl leading-relaxed font-medium text-foreground">
-                {currentStep!.text}
-              </p>
-
-              {/* Detected-duration timer buttons */}
-              {currentDurations.length > 0 && (
-                <div className="mt-6 flex flex-wrap gap-2">
-                  {currentDurations.map((d, i) => (
-                    <button
-                      key={i}
-                      onClick={() => {
-                        startTimer(d.ms, d.label)
-                        toast.success(`Timer started — ${d.label}`)
-                      }}
-                      className="inline-flex items-center gap-2 rounded-full bg-cooking-subtle text-cooking border border-cooking/30 px-4 py-2 text-sm font-semibold active:scale-95 transition-all"
-                    >
-                      <Timer className="w-4 h-4" /> Start {d.label} timer
-                    </button>
-                  ))}
+          {/* Chef transcript */}
+          <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+            {visible.map((message, index) => {
+              const isLast = index === visible.length - 1
+              return (
+                <div key={index} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  {message.role === 'assistant' && (
+                    <span className="w-8 h-8 mr-2 shrink-0 rounded-full bg-cooking-subtle text-cooking flex items-center justify-center self-end">
+                      <ChefHat className="w-4 h-4" />
+                    </span>
+                  )}
+                  <div
+                    className={`max-w-[82%] rounded-2xl px-4 py-2.5 whitespace-pre-wrap ${
+                      message.role === 'user'
+                        ? 'bg-brand text-brand-foreground text-sm'
+                        : 'bg-card border border-border text-foreground text-base leading-relaxed'
+                    }`}
+                  >
+                    {message.content || (waitingFirstChunk && isLast
+                      ? <span className="inline-flex items-center gap-1 text-muted-foreground"><Loader2 className="w-3 h-3 animate-spin" /> chef is thinking…</span>
+                      : '')}
+                  </div>
                 </div>
-              )}
-            </div>
+              )
+            })}
+
+            {/* Detected-duration timer buttons for the current step */}
+            {stage === 'cooking' && currentDurations.length > 0 && (
+              <div className="flex flex-wrap gap-2 pl-10">
+                {currentDurations.map((d, i) => (
+                  <button
+                    key={i}
+                    onClick={() => {
+                      startTimer(d.ms, d.label)
+                      toast.success(`Timer started — ${d.label}`)
+                    }}
+                    className="inline-flex items-center gap-2 rounded-full bg-cooking-subtle text-cooking border border-cooking/30 px-4 py-2 text-sm font-semibold active:scale-95 transition-all"
+                  >
+                    <Timer className="w-4 h-4" /> Start {d.label} timer
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* ── Active timers tray ──────────────────────────────────────── */}
@@ -258,23 +406,56 @@ export default function CookMode({ recipe }: { recipe: RecipeWithDetails }) {
             onAdd={() => setShowManualTimer(true)}
           />
 
+          {/* ── Ask the chef ────────────────────────────────────────────── */}
+          <div className="shrink-0 px-4 pt-2 flex gap-2">
+            <Textarea
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); ask(input) } }}
+              placeholder="Ask the chef anything…"
+              className="min-h-11 max-h-28 resize-none bg-card"
+              disabled={streaming}
+            />
+            <Button
+              onClick={() => ask(input)}
+              disabled={streaming || !input.trim()}
+              aria-label="Send question"
+              className="self-end h-11 px-3 bg-cooking hover:bg-cooking/90 text-cooking-foreground"
+            >
+              {streaming ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+            </Button>
+          </div>
+
           {/* ── Footer nav ──────────────────────────────────────────────── */}
           <div className="shrink-0 px-4 pt-2 pb-[max(1rem,env(safe-area-inset-bottom))] flex gap-3">
-            <Button
-              onClick={goBack}
-              disabled={stepIndex === 0}
-              variant="outline"
-              className="flex-1 h-14 rounded-2xl text-base font-semibold disabled:opacity-40"
-            >
-              <ChevronLeft className="w-5 h-5" /> Back
-            </Button>
-            <Button
-              onClick={goNext}
-              className="flex-[2] h-14 rounded-2xl text-base font-semibold bg-brand text-brand-foreground hover:bg-brand/90"
-            >
-              {stepIndex === total - 1 ? 'Finish' : 'Next'}
-              <ChevronRight className="w-5 h-5" />
-            </Button>
+            {stage === 'welcome' ? (
+              <Button
+                onClick={goNext}
+                disabled={streaming}
+                className="flex-1 h-14 rounded-2xl text-base font-semibold bg-brand text-brand-foreground hover:bg-brand/90 disabled:opacity-60"
+              >
+                <Play className="w-5 h-5" /> I&apos;m ready — let&apos;s cook
+              </Button>
+            ) : (
+              <>
+                <Button
+                  onClick={goBack}
+                  disabled={stepIndex === 0 || streaming}
+                  variant="outline"
+                  className="flex-1 h-14 rounded-2xl text-base font-semibold disabled:opacity-40"
+                >
+                  <ChevronLeft className="w-5 h-5" /> Back
+                </Button>
+                <Button
+                  onClick={goNext}
+                  disabled={streaming}
+                  className="flex-[2] h-14 rounded-2xl text-base font-semibold bg-brand text-brand-foreground hover:bg-brand/90 disabled:opacity-60"
+                >
+                  {stepIndex === total - 1 ? 'Finish' : 'Next'}
+                  <ChevronRight className="w-5 h-5" />
+                </Button>
+              </>
+            )}
           </div>
         </>
       )}
