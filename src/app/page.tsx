@@ -5,12 +5,11 @@ import { getWeekPlan, getWeekStart } from '@/lib/db/planner'
 import { getProfile } from '@/lib/db/profile'
 import { getFeed } from '@/lib/db/activity'
 import Link from 'next/link'
-import { ChefHat, CalendarDays, Clock, Plus, ShoppingCart, Sparkles, Users, Settings } from 'lucide-react'
+import { ChefHat, CalendarDays, Clock, Plus, ShoppingCart, Sparkles, Users } from 'lucide-react'
 import { format, addDays } from 'date-fns'
 import { getCuisineEmoji } from '@/lib/cuisine-emoji'
 import { AddRecipeLauncher } from '@/components/add-recipe-sheet'
 import { EmptyState, RecipeBookIllustration } from '@/components/ui/empty-state'
-import { UserAvatar } from '@/components/user-avatar'
 import { FeedItemRow } from '@/components/feed-item'
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -45,32 +44,14 @@ export default async function HomePage() {
 
   return (
     <div className="mx-auto max-w-6xl px-5 pt-8 pb-4 md:px-8">
-      <div className="mb-8 flex items-start justify-between gap-4">
-        <div>
-          <div className="mb-2 flex items-center gap-2 text-foreground">
-            <ChefHat className="h-8 w-8 text-brand" />
-            <h1 className="font-heading text-4xl font-bold tracking-tight">PrepTable</h1>
-          </div>
-          <p className="text-sm font-medium text-muted-foreground">
-            {format(new Date(), 'EEEE, MMMM d')}
-          </p>
+      <div className="mb-8">
+        <div className="mb-2 flex items-center gap-2 text-foreground">
+          <ChefHat className="h-8 w-8 text-brand" />
+          <h1 className="font-heading text-4xl font-bold tracking-tight">PrepTable</h1>
         </div>
-        <div className="flex items-center gap-2">
-          <Link
-            href="/profile"
-            title="Profile"
-            className="rounded-full shadow-card ring-1 ring-border transition-all hover:opacity-90 active:scale-[0.95]"
-          >
-            <UserAvatar name={profile?.display_name || profile?.username} src={profile?.avatar_url} size={44} />
-          </Link>
-          <Link
-            href="/settings"
-            title="Settings"
-            className="grid h-11 w-11 place-items-center rounded-xl bg-card text-muted-foreground shadow-card ring-1 ring-border transition-all hover:text-foreground active:scale-[0.95]"
-          >
-            <Settings className="h-4 w-4" />
-          </Link>
-        </div>
+        <p className="text-sm font-medium text-muted-foreground">
+          {format(new Date(), 'EEEE, MMMM d')}
+        </p>
       </div>
 
       <div className="mb-8 grid gap-6 lg:grid-cols-[minmax(0,1.35fr)_360px] lg:items-start">
