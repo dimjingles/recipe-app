@@ -770,12 +770,6 @@ export default function RecipeDetail({
             </Button>
           )}
           <Button
-            onClick={() => { setChefInitialPrompt(undefined); setShowChefAi(true) }}
-            className="flex-1 bg-cooking text-cooking-foreground hover:bg-cooking/90 font-semibold h-12 rounded-2xl shadow-md active:scale-[0.98] transition-all"
-          >
-            <ChefHat className="w-4 h-4" /> Cook with Chef AI
-          </Button>
-          <Button
             onClick={() => setShowCookbook(true)}
             className={`bg-card border font-semibold h-12 rounded-2xl shadow-md px-4 active:scale-[0.98] transition-all ${
               cookbookIds.length > 0
