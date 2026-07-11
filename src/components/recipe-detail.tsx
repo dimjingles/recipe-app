@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Clock, Users, Edit, ChefHat, Trophy, X, BookOpen, Plus, Home, Lock, Play, Sparkles, GitBranch, Maximize2, Images, Check } from 'lucide-react'
+import { ArrowLeft, Clock, Users, Edit, ChefHat, Trophy, X, BookOpen, Plus, Home, Play, Sparkles, GitBranch, Maximize2, Images, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { BottomSheet } from '@/components/ui/bottom-sheet'
 import { Input } from '@/components/ui/input'
@@ -465,9 +465,6 @@ export default function RecipeDetail({
   const [currentFeedback, setCurrentFeedback] = useState<Feedback | null>(recipe.feedback)
   const [ownerScope, setOwnerScope] = useState<string>((recipe as { owner_scope?: string }).owner_scope ?? 'user')
   const [sharing, setSharing] = useState(false)
-  const [visibility, setVisibility] = useState<string>((recipe as { visibility?: string }).visibility ?? 'friends')
-  const [savingVisibility, setSavingVisibility] = useState(false)
-
   // ── Display (hero) image + gallery — shared state so a gallery photo can
   //    be promoted to the hero shown at the top of the page. ──────────────
   const [heroUrl, setHeroUrl] = useState<string | null>(recipe.image_url)
@@ -490,26 +487,6 @@ export default function RecipeDetail({
     } catch (e: any) {
       setHeroUrl(prev) // revert
       toast.error(e.message || 'Could not update display image')
-    }
-  }
-
-  const toggleVisibility = async () => {
-    const next = visibility === 'friends' ? 'private' : 'friends'
-    setSavingVisibility(true)
-    try {
-      const res = await fetch(`/api/recipes/${recipe.id}/visibility`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ visibility: next }),
-      })
-      if (!res.ok) throw new Error((await res.json()).error || 'Failed')
-      setVisibility(next)
-      toast.success(next === 'friends' ? 'Visible to friends' : 'Now private')
-      router.refresh()
-    } catch (e: any) {
-      toast.error(e.message || 'Could not update visibility')
-    } finally {
-      setSavingVisibility(false)
     }
   }
 
@@ -810,22 +787,6 @@ export default function RecipeDetail({
             <BookOpen className="w-4 h-4" />
           </Button>
         </div>
-        )}
-
-        {/* Visibility (owner only) */}
-        {isOwner && !readOnly && (
-          <button
-            onClick={toggleVisibility}
-            disabled={savingVisibility}
-            className={`mb-3 flex w-full items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-sm font-semibold transition-all active:scale-[0.98] disabled:opacity-60 ${
-              visibility === 'friends'
-                ? 'border-brand/30 bg-brand-subtle text-brand'
-                : 'border-border bg-card text-muted-foreground'
-            }`}
-          >
-            {visibility === 'friends' ? <Users className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
-            {visibility === 'friends' ? 'Visible to friends · tap to make private' : 'Private · tap to share with friends'}
-          </button>
         )}
 
         {/* Household sharing */}
