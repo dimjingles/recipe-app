@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import type { RecipeWithIngredients, CookbookWithCount, RecipeSortPreference, RecipeSortDirection } from '@/types/database'
-import { Plus, Search, Clock, X, Globe, ChevronDown, BookOpen, Loader2, Sparkles, ArrowDownUp, ArrowDown, ArrowUp } from 'lucide-react'
+import { Plus, Search, Clock, X, Globe, ChevronDown, BookOpen, Loader2, Sparkles, ArrowDownUp, ArrowDown, ArrowUp, Trophy } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { BottomSheet } from '@/components/ui/bottom-sheet'
@@ -457,6 +457,13 @@ export default function RecipeLibrary({
             </button>
           )
         })}
+        <Link
+          href="/skills"
+          className="relative -mb-px ml-auto flex items-center gap-1.5 pb-3 text-lg font-bold text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <Trophy className="h-4 w-4" />
+          Skills
+        </Link>
       </div>
 
       {/* Personal | Household | All scope */}

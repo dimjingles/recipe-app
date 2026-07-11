@@ -1,8 +1,7 @@
 'use client'
 
 import { ReactNode, CSSProperties } from 'react'
-import { Clock, ImageIcon } from 'lucide-react'
-import { getCuisineEmoji } from '@/lib/cuisine-emoji'
+import { Clock } from 'lucide-react'
 import { formatScore } from '@/lib/scoring'
 import { cn } from '@/lib/utils'
 
@@ -38,8 +37,6 @@ export function RecipeCard({
   className,
   showCookTime = true,
 }: RecipeCardProps) {
-  const emoji = getCuisineEmoji(recipe.cuisine)
-
   if (variant === 'list') {
     return (
       <div
@@ -55,20 +52,6 @@ export function RecipeCard({
           <span className="grid h-8 min-w-8 shrink-0 place-items-center rounded-xl bg-brand-subtle px-1.5 text-xs font-bold tabular-nums text-brand ring-1 ring-brand/15">
             {formatScore(score)}
           </span>
-        )}
-
-        {recipe.image_url ? (
-          <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-muted">
-            <img
-              src={recipe.image_url}
-              alt={recipe.name}
-              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-            />
-          </div>
-        ) : (
-          <div className="food-placeholder grid h-14 w-14 shrink-0 place-items-center rounded-xl border border-border/70">
-            <span className="text-2xl" aria-hidden>{emoji}</span>
-          </div>
         )}
 
         <div className="min-w-0 flex-1">
@@ -100,25 +83,6 @@ export function RecipeCard({
       onClick={onClick}
       style={style}
     >
-      {recipe.image_url ? (
-        <div className="aspect-[4/3] overflow-hidden bg-muted">
-          <img
-            src={recipe.image_url}
-            alt={recipe.name}
-            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-          />
-        </div>
-      ) : (
-        <div className="food-placeholder relative aspect-[4/3] overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-white/40 to-transparent" />
-          <div className="relative grid h-full place-items-center">
-            <div className="grid h-16 w-16 place-items-center rounded-2xl bg-card/80 shadow-sm ring-1 ring-border">
-              <ImageIcon className="h-6 w-6 text-muted-foreground" />
-            </div>
-          </div>
-        </div>
-      )}
-
       <div className="space-y-2 p-4">
         <p className="line-clamp-2 text-sm font-bold leading-snug text-foreground">
           {recipe.name}
