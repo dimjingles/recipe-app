@@ -478,6 +478,10 @@ export interface Database {
         Args: { p_household: string }
         Returns: string
       }
+      invite_household_friend: {
+        Args: { p_household: string; p_friend: string }
+        Returns: undefined
+      }
       household_invite_info: {
         Args: { p_token: string }
         Returns: { household_id: string; name: string }[]
