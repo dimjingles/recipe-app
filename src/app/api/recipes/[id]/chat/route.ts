@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getRecipe } from '@/lib/db/recipes'
 import { getProfile, updateSkillProfile } from '@/lib/db/profile'
 import { findReadyTechnique, isRecipeTechnique, normalizeSkillProfile } from '@/lib/skills'
+import { buildChefStyleDirectives, chefPreferencesFromProfile } from '@/lib/cook/chef-preferences'
 import type { Technique } from '@/types/database'
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -95,6 +96,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     `- If the user says done, next, ok, ready, or similar, advance to the next step.`,
     `- If the user asks what to cook next or what to learn next, give a concise recommendation grounded in this recipe and suggest one technique to practise.`,
     `- When all steps are complete, congratulate the user.`,
+    ``,
+    ...buildChefStyleDirectives(chefPreferencesFromProfile(profile)),
   ].join('\n')
 
   const messages = Array.isArray(body.messages) && body.messages.length

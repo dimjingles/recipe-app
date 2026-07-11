@@ -10,6 +10,8 @@ import {
   Users,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import type { ChefPreferences } from '@/lib/cook/chef-preferences'
+import ChefPreferencesCard from './chef-preferences-card'
 
 const LINKS = [
   { href: '/profile', label: 'Edit profile', description: 'Name, username & photo', icon: User },
@@ -17,7 +19,15 @@ const LINKS = [
   { href: '/skills', label: 'Skills', description: 'Techniques & badges', icon: Trophy },
 ]
 
-export default function SettingsView({ email, version }: { email: string; version: string }) {
+export default function SettingsView({
+  email,
+  version,
+  chef,
+}: {
+  email: string
+  version: string
+  chef: ChefPreferences
+}) {
   return (
     <div className="mx-auto max-w-lg px-5 pt-8 pb-24">
       <div className="mb-8 flex items-center gap-3">
@@ -56,6 +66,9 @@ export default function SettingsView({ email, version }: { email: string; versio
         </div>
         <p className="mt-2.5 px-1 text-xs text-muted-foreground">Signed in as {email}</p>
       </section>
+
+      {/* Cook with AI */}
+      <ChefPreferencesCard initial={chef} />
 
       {/* Sign out */}
       <form action="/auth/signout" method="POST">

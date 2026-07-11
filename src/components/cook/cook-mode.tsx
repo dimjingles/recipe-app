@@ -16,7 +16,7 @@ import { buildInstructionUpdateCandidate, shouldOfferInstructionUpdate } from '@
 import { useWakeLock } from '@/lib/cook/use-wake-lock'
 import { useVoiceControl, type VoiceCommand } from '@/lib/cook/use-voice-control'
 import { useCookTimers } from '@/lib/cook/use-cook-timers'
-import type { RecipeWithDetails, InstructionStep } from '@/types/database'
+import type { RecipeWithDetails, InstructionStep, ChefPacing } from '@/types/database'
 
 const MANUAL_PRESETS = [1, 2, 3, 5, 10, 15, 20, 30, 45, 60] // minutes
 
@@ -34,7 +34,17 @@ const WELCOME_PROMPT =
 const presentStepPrompt = (n: number, text: string) =>
   `I'm ready. Please walk me through Step ${n} now: "${text}". Narrate exactly this step in a warm, spoken style. If it has cooking jargon or a vague doneness cue, explain it briefly. Then stop and wait — do not give me the next step yet.`
 
-export default function CookMode({ recipe }: { recipe: RecipeWithDetails }) {
+export default function CookMode({
+  recipe,
+  voiceURI = null,
+  pacing = 'step_by_step',
+}: {
+  recipe: RecipeWithDetails
+  /** SpeechSynthesis voiceURI the user picked in settings (device-specific). */
+  voiceURI?: string | null
+  /** Chef AI pacing preference — 'hands_free' auto-reads each reply aloud. */
+  pacing?: ChefPacing
+}) {
   const router = useRouter()
 
   const steps: InstructionStep[] = useMemo(() => {
@@ -235,6 +245,17 @@ export default function CookMode({ recipe }: { recipe: RecipeWithDetails }) {
   }
 
   // ── Text-to-speech (reads the chef's latest message) ──────────────────────
+  // Device voices can load asynchronously, so refresh on `voiceschanged` too.
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([])
+  const lastSpokenRef = useRef('')
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return
+    const load = () => setVoices(window.speechSynthesis.getVoices())
+    load()
+    window.speechSynthesis.addEventListener('voiceschanged', load)
+    return () => window.speechSynthesis.removeEventListener('voiceschanged', load)
+  }, [])
+
   const speakLatest = () => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) return
     const last = [...messagesRef.current].reverse().find(m => m.role === 'assistant' && m.content.trim())
@@ -242,8 +263,24 @@ export default function CookMode({ recipe }: { recipe: RecipeWithDetails }) {
     window.speechSynthesis.cancel()
     const u = new SpeechSynthesisUtterance(last.content)
     u.rate = 0.95
+    // Apply the user's chosen voice if it exists on this device; otherwise default.
+    const match = voiceURI ? voices.find(v => v.voiceURI === voiceURI) : undefined
+    if (match) u.voice = match
+    lastSpokenRef.current = last.content
     window.speechSynthesis.speak(u)
   }
+
+  // Hands-free pacing: read each chef reply aloud automatically once it finishes
+  // streaming (skipping any message already spoken via the speaker button).
+  const prevStreamingRef = useRef(false)
+  useEffect(() => {
+    if (pacing === 'hands_free' && prevStreamingRef.current && !streaming) {
+      const last = [...messagesRef.current].reverse().find(m => m.role === 'assistant' && m.content.trim())
+      if (last && last.content !== lastSpokenRef.current) speakLatest()
+    }
+    prevStreamingRef.current = streaming
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [streaming, pacing])
 
   const startFirstTimer = () => {
     if (currentDurations.length > 0) {
