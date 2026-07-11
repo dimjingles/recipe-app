@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { Plus, X, Link2, Upload, Loader2, Search } from 'lucide-react'
+import { Plus, X, Link2, Upload, Loader2, Search, Star } from 'lucide-react'
 import { toast } from 'sonner'
 import { BottomSheet } from '@/components/ui/bottom-sheet'
 import { CameraIllustration } from '@/components/ui/empty-state'
@@ -19,11 +19,25 @@ interface ImageResult {
 interface Props {
   recipeId: string
   recipeName: string
-  initialImages: string[]
+  /** Gallery photos (controlled by the parent so the hero image can share state). */
+  images: string[]
+  onImagesChange: (images: string[]) => void
+  /** The currently-selected display / hero image, if any. */
+  heroUrl: string | null
+  /** Promote a gallery photo to the display / hero image. */
+  onSetHero: (url: string) => void
+  readOnly?: boolean
 }
 
-export default function RecipeGallery({ recipeId, recipeName, initialImages }: Props) {
-  const [images, setImages] = useState<string[]>(initialImages)
+export default function RecipeGallery({
+  recipeId,
+  recipeName,
+  images,
+  onImagesChange,
+  heroUrl,
+  onSetHero,
+  readOnly = false,
+}: Props) {
   const [showSheet, setShowSheet] = useState(false)
   const [tab, setTab] = useState<'url' | 'upload' | 'search'>('url')
   const [urlInput, setUrlInput] = useState('')
@@ -52,7 +66,7 @@ export default function RecipeGallery({ recipeId, recipeName, initialImages }: P
       })
       const data = await res.json()
       if (data.error) throw new Error(data.error)
-      setImages(data.gallery_images)
+      onImagesChange(data.gallery_images)
       setUrlInput('')
       setShowSheet(false)
       toast.success('Photo added')
@@ -141,7 +155,7 @@ export default function RecipeGallery({ recipeId, recipeName, initialImages }: P
       })
       const data = await res.json()
       if (data.error) throw new Error(data.error)
-      setImages(data.gallery_images)
+      onImagesChange(data.gallery_images)
       toast.success('Photo removed')
     } catch (e: unknown) {
       toast.error((e as Error).message || 'Could not remove photo')
@@ -150,14 +164,19 @@ export default function RecipeGallery({ recipeId, recipeName, initialImages }: P
     }
   }
 
+  // Nothing to show for a read-only viewer with no photos.
+  if (readOnly && images.length === 0) return null
+
   return (
     <>
       <div className="mb-6">
         <div className="flex items-center justify-between mb-3">
           <h2 className="font-heading font-bold text-foreground text-lg">Photos</h2>
-          <button onClick={() => setShowSheet(true)} className="flex items-center gap-1 text-sm text-brand font-medium hover:text-brand/80 active:scale-[0.95] transition-all">
-            <Plus className="w-4 h-4" /> Add
-          </button>
+          {!readOnly && (
+            <button onClick={() => setShowSheet(true)} className="flex items-center gap-1 text-sm text-brand font-medium hover:text-brand/80 active:scale-[0.95] transition-all">
+              <Plus className="w-4 h-4" /> Add
+            </button>
+          )}
         </div>
 
         {images.length === 0 ? (
@@ -167,14 +186,37 @@ export default function RecipeGallery({ recipeId, recipeName, initialImages }: P
           </button>
         ) : (
           <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
-            {images.map((url) => (
-              <div key={url} className="relative shrink-0">
-                <img src={url} alt="" className="w-32 h-24 rounded-xl object-cover cursor-pointer active:scale-[0.97] transition-all" onClick={() => setLightbox(url)} />
-                <button onClick={() => deleteImage(url)} disabled={deleting === url} className="absolute top-1 right-1 bg-black/50 hover:bg-black/70 text-white rounded-full w-5 h-5 flex items-center justify-center transition-colors">
-                  {deleting === url ? <Loader2 className="w-3 h-3 animate-spin" /> : <X className="w-3 h-3" />}
-                </button>
-              </div>
-            ))}
+            {images.map((url) => {
+              const isHero = url === heroUrl
+              return (
+                <div key={url} className="relative shrink-0">
+                  <img
+                    src={url}
+                    alt=""
+                    className={`w-32 h-24 rounded-xl object-cover cursor-pointer active:scale-[0.97] transition-all ${isHero ? 'ring-2 ring-brand ring-offset-2 ring-offset-background' : ''}`}
+                    onClick={() => setLightbox(url)}
+                  />
+                  {isHero ? (
+                    <span className="absolute bottom-1 left-1 bg-brand text-brand-foreground text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                      <Star className="w-2.5 h-2.5 fill-current" /> Display
+                    </span>
+                  ) : !readOnly && (
+                    <button
+                      onClick={() => onSetHero(url)}
+                      title="Set as display image"
+                      className="absolute bottom-1 left-1 bg-black/50 hover:bg-black/70 text-white rounded-full w-6 h-6 flex items-center justify-center transition-colors"
+                    >
+                      <Star className="w-3 h-3" />
+                    </button>
+                  )}
+                  {!readOnly && (
+                    <button onClick={() => deleteImage(url)} disabled={deleting === url} className="absolute top-1 right-1 bg-black/50 hover:bg-black/70 text-white rounded-full w-5 h-5 flex items-center justify-center transition-colors">
+                      {deleting === url ? <Loader2 className="w-3 h-3 animate-spin" /> : <X className="w-3 h-3" />}
+                    </button>
+                  )}
+                </div>
+              )
+            })}
           </div>
         )}
       </div>
