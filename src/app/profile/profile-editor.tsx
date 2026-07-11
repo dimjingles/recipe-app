@@ -3,7 +3,7 @@
 import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Camera, LogOut, Loader2 } from 'lucide-react'
+import { ArrowLeft, Camera, LogOut, Loader2, Settings } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -99,6 +99,13 @@ export default function ProfileEditor({
           <ArrowLeft className="h-5 w-5" />
         </Link>
         <h1 className="font-heading text-3xl font-bold tracking-tight text-foreground">Profile</h1>
+        <Link
+          href="/settings"
+          title="Settings"
+          className="ml-auto grid h-11 w-11 place-items-center rounded-xl bg-card text-muted-foreground shadow-card ring-1 ring-border transition-all hover:text-foreground active:scale-[0.95]"
+        >
+          <Settings className="h-4 w-4" />
+        </Link>
       </div>
 
       {/* Avatar */}
