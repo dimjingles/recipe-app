@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import type { RecipeWithIngredients, CookbookWithCount, RecipeSortPreference, RecipeSortDirection } from '@/types/database'
-import { Plus, Search, Clock, X, Globe, ChevronDown, BookOpen, Loader2, Sparkles, SlidersHorizontal, ArrowDown, ArrowUp, Trophy } from 'lucide-react'
+import { Plus, Search, Clock, X, Globe, ChevronDown, BookOpen, Loader2, Sparkles, ArrowDownUp, ArrowDown, ArrowUp, Trophy } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { BottomSheet } from '@/components/ui/bottom-sheet'
@@ -31,11 +31,6 @@ const SORT_OPTIONS = [
   { value: 'recently_cooked', label: 'Most recently cooked' },
   { value: 'most_cooked', label: 'Most cooked' },
   { value: 'cook_time', label: 'Quickest to cook' },
-] as const
-
-const SORT_DIRECTIONS = [
-  { value: 'default', label: 'Top to bottom', icon: ArrowDown },
-  { value: 'reversed', label: 'Bottom to top', icon: ArrowUp },
 ] as const
 
 function compareDateDesc(a: string | null, b: string | null) {
@@ -118,6 +113,7 @@ export default function RecipeLibrary({
 }) {
   const router = useRouter()
   const [search, setSearch] = useState('')
+  const [searchOpen, setSearchOpen] = useState(false)
   const [scope, setScope] = useState<'all' | 'personal' | 'household'>('all')
   const [selectedCuisine, setSelectedCuisine] = useState<string | null>(null)
   const [selectedType, setSelectedType] = useState<string | null>(null)
@@ -487,22 +483,6 @@ export default function RecipeLibrary({
         </div>
       )}
 
-      {/* Search */}
-      <div className="relative mb-4">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          placeholder="Search recipes..."
-          className="bg-card pl-9 pr-9"
-        />
-        {search && (
-          <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2">
-            <X className="h-4 w-4 text-muted-foreground" />
-          </button>
-        )}
-      </div>
-
       <button
         onClick={() => setShowAddRecipe(true)}
         className="fixed bottom-28 right-5 z-30 inline-flex h-10 items-center justify-center gap-1.5 rounded-full bg-sage px-3.5 text-xs font-bold text-sage-foreground shadow-float transition-all hover:bg-sage/90 active:scale-[0.95] md:bottom-8 md:right-8"
@@ -516,7 +496,7 @@ export default function RecipeLibrary({
       <AddRecipeSheet open={showAddRecipe} onClose={() => setShowAddRecipe(false)} />
 
       {/* Filter dropdowns */}
-      <div className="mb-5 flex items-start justify-between gap-2">
+      <div className="mb-4 flex items-start gap-2">
         <div className="flex flex-wrap gap-2">
           {/* Type dropdown */}
           <div className="relative">
@@ -599,25 +579,32 @@ export default function RecipeLibrary({
           )}
         </div>
 
-        <div className="relative ml-auto shrink-0">
+      </div>
+
+      {/* Sort + search row */}
+      <div className="mb-4 flex items-center justify-between gap-2">
+        <div className="relative">
           <button
             onClick={() => setOpenDropdown(openDropdown === 'sort' ? null : 'sort')}
-            className={`grid h-8 w-8 place-items-center rounded-full border transition-colors active:scale-[0.95] ${
-              openDropdown === 'sort'
-                ? 'border-transparent bg-brand text-brand-foreground'
-                : 'border-border bg-card text-foreground hover:border-brand'
-            }`}
+            className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand transition-opacity active:opacity-70"
             aria-label="Sort recipes"
             title="Sort recipes"
           >
-            <SlidersHorizontal className="h-4 w-4" />
+            <ArrowDownUp className="h-4 w-4" />
+            <span>{SORT_OPTIONS.find(o => o.value === sortPreference)?.label}</span>
           </button>
           {openDropdown === 'sort' && (
             <>
               <div className="fixed inset-0 z-10" onClick={() => setOpenDropdown(null)} />
-              <div className="absolute right-0 top-full z-20 mt-1.5 min-w-[248px] overflow-hidden rounded-xl border border-border bg-card shadow-lg">
+              <div className="absolute left-0 top-full z-20 mt-1.5 min-w-[248px] overflow-hidden rounded-xl border border-border bg-card shadow-lg">
                 {SORT_OPTIONS.map(option => {
                   const active = sortPreference === option.value
+                  const reversed = active && sortDirection === 'reversed'
+                  const DirIcon = reversed ? ArrowUp : ArrowDown
+                  const dirLabel = reversed ? 'Bottom to top' : 'Top to bottom'
+                  // Single toggle: selecting an inactive option starts top-to-bottom;
+                  // tapping the active option flips its direction.
+                  const nextDirection = active && sortDirection === 'default' ? 'reversed' : 'default'
                   return (
                     <div
                       key={option.value}
@@ -626,28 +613,19 @@ export default function RecipeLibrary({
                       <span className={`flex-1 ${active ? 'font-medium text-brand' : 'text-foreground'}`}>
                         {option.label}
                       </span>
-                      <div className="flex shrink-0 items-center gap-1">
-                        {SORT_DIRECTIONS.map(direction => {
-                          const dirActive = active && sortDirection === direction.value
-                          const Icon = direction.icon
-                          return (
-                            <button
-                              key={direction.value}
-                              onClick={() => handleSortChange(option.value, direction.value)}
-                              className={`grid h-7 w-7 place-items-center rounded-lg border transition-colors active:scale-[0.95] ${
-                                dirActive
-                                  ? 'border-transparent bg-brand text-brand-foreground'
-                                  : 'border-border bg-card text-muted-foreground hover:border-brand hover:text-foreground'
-                              }`}
-                              aria-label={`Sort by ${option.label}, ${direction.label.toLowerCase()}`}
-                              aria-pressed={dirActive}
-                              title={direction.label}
-                            >
-                              <Icon className="h-3.5 w-3.5" />
-                            </button>
-                          )
-                        })}
-                      </div>
+                      <button
+                        onClick={() => handleSortChange(option.value, nextDirection)}
+                        className={`grid h-7 w-7 shrink-0 place-items-center rounded-lg border transition-colors active:scale-[0.95] ${
+                          active
+                            ? 'border-transparent bg-brand text-brand-foreground'
+                            : 'border-border bg-card text-muted-foreground hover:border-brand hover:text-foreground'
+                        }`}
+                        aria-label={active ? `Sorted by ${option.label}, ${dirLabel.toLowerCase()} — tap to reverse` : `Sort by ${option.label}`}
+                        aria-pressed={reversed}
+                        title={active ? `${dirLabel} — tap to reverse` : `Sort by ${option.label}`}
+                      >
+                        <DirIcon className="h-3.5 w-3.5" />
+                      </button>
                     </div>
                   )
                 })}
@@ -655,7 +633,37 @@ export default function RecipeLibrary({
             </>
           )}
         </div>
+        <button
+          onClick={() => setSearchOpen(open => !open)}
+          className={`grid h-8 w-8 shrink-0 place-items-center rounded-full transition-colors active:scale-[0.95] ${
+            searchOpen || search ? 'text-brand' : 'text-foreground hover:text-brand'
+          }`}
+          aria-label="Search recipes"
+          aria-pressed={searchOpen || !!search}
+          title="Search recipes"
+        >
+          <Search className="h-5 w-5" />
+        </button>
       </div>
+
+      {/* Search input, revealed by the search icon */}
+      {(searchOpen || search) && (
+        <div className="relative mb-4">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search recipes..."
+            autoFocus
+            className="bg-card pl-9 pr-9"
+          />
+          {search && (
+            <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2">
+              <X className="h-4 w-4 text-muted-foreground" />
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Tag filter chips */}
       {uniqueTags.length > 0 && (
