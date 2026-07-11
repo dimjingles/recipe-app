@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Clock, Users, Edit, ChefHat, Trophy, X, BookOpen, Plus, Home, Lock, Play, Sparkles, GitBranch } from 'lucide-react'
+import { ArrowLeft, Clock, Users, Edit, ChefHat, Trophy, X, BookOpen, Plus, Home, Lock, Play, Sparkles, GitBranch, Maximize2, Images, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { BottomSheet } from '@/components/ui/bottom-sheet'
 import { Input } from '@/components/ui/input'
@@ -468,6 +468,31 @@ export default function RecipeDetail({
   const [visibility, setVisibility] = useState<string>((recipe as { visibility?: string }).visibility ?? 'friends')
   const [savingVisibility, setSavingVisibility] = useState(false)
 
+  // ── Display (hero) image + gallery — shared state so a gallery photo can
+  //    be promoted to the hero shown at the top of the page. ──────────────
+  const [heroUrl, setHeroUrl] = useState<string | null>(recipe.image_url)
+  const [galleryImages, setGalleryImages] = useState<string[]>(recipe.gallery_images ?? [])
+  const [heroMenu, setHeroMenu] = useState(false) // action sheet when the hero is tapped
+  const [heroLightbox, setHeroLightbox] = useState(false) // full-screen shaded view
+  const [showChooser, setShowChooser] = useState(false) // "choose a different display image"
+
+  const setAsDisplay = async (url: string) => {
+    const prev = heroUrl
+    setHeroUrl(url) // optimistic
+    try {
+      const res = await fetch(`/api/recipes/${recipe.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image_url: url }),
+      })
+      if (!res.ok) throw new Error((await res.json()).error || 'Failed')
+      toast.success('Display image updated')
+    } catch (e: any) {
+      setHeroUrl(prev) // revert
+      toast.error(e.message || 'Could not update display image')
+    }
+  }
+
   const toggleVisibility = async () => {
     const next = visibility === 'friends' ? 'private' : 'friends'
     setSavingVisibility(true)
@@ -599,16 +624,21 @@ export default function RecipeDetail({
   return (
     <div className="max-w-lg mx-auto pb-8">
 
-      {/* ── Hero: with image ─────────────────────────────────────────── */}
-      {recipe.image_url && (
+      {/* ── Hero: the selected display image ─────────────────────────── */}
+      {heroUrl && (
         <div className="relative">
-          <img
-            src={recipe.image_url}
-            alt={recipe.name}
-            className="w-full h-56 object-cover"
-          />
-          {/* Soft fade into the header band below */}
-          <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-brand/70 to-transparent" />
+          <button
+            type="button"
+            onClick={() => (readOnly ? setHeroLightbox(true) : setHeroMenu(true))}
+            className="block w-full active:opacity-95 transition-opacity"
+            aria-label="Recipe display image"
+          >
+            <img
+              src={heroUrl}
+              alt={recipe.name}
+              className="w-full h-auto"
+            />
+          </button>
           <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-4 pt-5">
             <Link href="/recipes" className="text-white/90 hover:text-white bg-black/20 rounded-full p-1.5">
               <ArrowLeft className="w-5 h-5" />
@@ -623,7 +653,7 @@ export default function RecipeDetail({
       )}
 
       {/* ── Header band (with image = gradient; without = warm-white) ── */}
-      {recipe.image_url ? (
+      {heroUrl ? (
         /* Gradient header — only shown when there IS a hero image */
         <div className="bg-gradient-to-br from-brand to-cooking/80 px-4 pt-3 pb-8">
           <h1 className="font-heading text-2xl font-bold text-white leading-tight">{recipe.name}</h1>
@@ -719,7 +749,7 @@ export default function RecipeDetail({
       )}
 
       {/* ── Content (pulled up over gradient, or flush after warm header) ── */}
-      <div className={`px-4 ${recipe.image_url ? '-mt-4' : 'mt-4'}`}>
+      <div className={`px-4 ${heroUrl ? '-mt-4' : 'mt-4'}`}>
         {/* Adapted-from banner (shown on variants) */}
         {adaptedFrom && (
           <Link
@@ -854,13 +884,6 @@ export default function RecipeDetail({
           </div>
         )}
 
-        {/* Gallery */}
-        <RecipeGallery
-          recipeId={recipe.id}
-          recipeName={recipe.name}
-          initialImages={recipe.gallery_images ?? []}
-        />
-
         {/* Techniques */}
         {recipeTechniqueKeys.length > 0 && techniquesMap.size > 0 && (
           <div className="mb-6">
@@ -979,6 +1002,18 @@ export default function RecipeDetail({
           </div>
         )}
 
+        {/* Photos gallery — sits between the instructions and cooking history.
+            Promoting a photo here updates the display image shown at the top. */}
+        <RecipeGallery
+          recipeId={recipe.id}
+          recipeName={recipe.name}
+          images={galleryImages}
+          onImagesChange={setGalleryImages}
+          heroUrl={heroUrl}
+          onSetHero={setAsDisplay}
+          readOnly={readOnly}
+        />
+
         {/* Cooking history — amber accent */}
         {!readOnly && logs.length > 0 && (
           <div className="mb-6">
@@ -1067,6 +1102,74 @@ export default function RecipeDetail({
           }}
           onCookbookCreated={(cb) => setCookbooks(prev => [...prev, cb])}
         />
+      )}
+
+      {/* Tapping the display image → view it full-screen, or swap it out */}
+      {heroMenu && (
+        <BottomSheet open onClose={() => setHeroMenu(false)} zIndex="elevated">
+          <div className="px-6 pb-10">
+            <h3 className="font-heading text-lg font-bold text-foreground mb-4">Display image</h3>
+            <div className="space-y-2">
+              <button
+                onClick={() => { setHeroMenu(false); setHeroLightbox(true) }}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl border border-border bg-card hover:bg-muted text-foreground text-sm font-medium active:scale-[0.99] transition-all"
+              >
+                <Maximize2 className="w-4 h-4 text-brand" /> View photo
+              </button>
+              {!readOnly && (
+                <button
+                  onClick={() => { setHeroMenu(false); setShowChooser(true) }}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl border border-border bg-card hover:bg-muted text-foreground text-sm font-medium active:scale-[0.99] transition-all"
+                >
+                  <Images className="w-4 h-4 text-brand" /> Choose a different display image
+                </button>
+              )}
+            </div>
+          </div>
+        </BottomSheet>
+      )}
+
+      {/* Choose which gallery photo is the display image */}
+      {showChooser && (
+        <BottomSheet open onClose={() => setShowChooser(false)} zIndex="elevated" maxHeight="80vh">
+          <div className="px-6 pb-10">
+            <h3 className="font-heading text-lg font-bold text-foreground mb-1">Choose display image</h3>
+            <p className="text-sm text-muted-foreground mb-4">Pick a photo from your gallery to feature at the top.</p>
+            {galleryImages.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">
+                No photos yet. Add some in the Photos section first.
+              </p>
+            ) : (
+              <div className="grid grid-cols-3 gap-2">
+                {galleryImages.map(url => {
+                  const active = url === heroUrl
+                  return (
+                    <button
+                      key={url}
+                      onClick={() => { setAsDisplay(url); setShowChooser(false) }}
+                      className={`relative aspect-square rounded-xl overflow-hidden border-2 active:scale-[0.97] transition-all ${active ? 'border-brand' : 'border-border'}`}
+                    >
+                      <img src={url} alt="" className="w-full h-full object-cover" />
+                      {active && (
+                        <span className="absolute inset-0 bg-brand/20 flex items-center justify-center">
+                          <span className="bg-brand text-brand-foreground rounded-full p-1"><Check className="w-4 h-4" /></span>
+                        </span>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        </BottomSheet>
+      )}
+
+      {/* Full-screen shaded view of the display image */}
+      {heroLightbox && heroUrl && (
+        <div className="fixed inset-0 z-[70] bg-black/90 flex items-center justify-center p-4" onClick={() => setHeroLightbox(false)}>
+          <button className="absolute top-4 right-4 text-white/70 hover:text-white active:scale-[0.95] transition-all"><X className="w-6 h-6" /></button>
+          <img src={heroUrl} alt={recipe.name} className="max-w-full max-h-full rounded-xl object-contain" onClick={e => e.stopPropagation()} />
+        </div>
       )}
     </div>
   )
