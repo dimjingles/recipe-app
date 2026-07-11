@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { BottomSheet } from '@/components/ui/bottom-sheet'
 import { splitStepsFromText } from '@/lib/instructions'
 import { detectDurations, formatClock } from '@/lib/cook/durations'
+import { buildInstructionUpdateCandidate, shouldOfferInstructionUpdate } from '@/lib/cook/instruction-update-detection'
 import { useWakeLock } from '@/lib/cook/use-wake-lock'
 import { useVoiceControl, type VoiceCommand } from '@/lib/cook/use-voice-control'
 import { useCookTimers } from '@/lib/cook/use-cook-timers'
@@ -25,6 +26,7 @@ type Role = 'user' | 'assistant'
 // never rendered in the transcript — the user only sees the chef's replies and
 // their own typed questions.
 interface Msg { role: Role; content: string; hidden?: boolean }
+type PendingInstructionUpdate = ReturnType<typeof buildInstructionUpdateCandidate>
 
 const WELCOME_PROMPT =
   'Welcome me to cooking this recipe. Give a warm 2-3 sentence overview of the dish — what we are making and the general vibe — without listing any steps. End by asking if I am ready to begin.'
@@ -58,6 +60,8 @@ export default function CookMode({ recipe }: { recipe: RecipeWithDetails }) {
   const [streaming, setStreaming] = useState(false)
   const [waitingFirstChunk, setWaitingFirstChunk] = useState(false)
   const [input, setInput] = useState('')
+  const [pendingInstructionUpdate, setPendingInstructionUpdate] = useState<PendingInstructionUpdate | null>(null)
+  const [savingInstructionUpdate, setSavingInstructionUpdate] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const [checked, setChecked] = useState<Set<string>>(new Set())
@@ -170,11 +174,64 @@ export default function CookMode({ recipe }: { recipe: RecipeWithDetails }) {
     }
   }
 
-  const ask = (raw: string) => {
+  const ask = async (raw: string) => {
     const text = raw.trim()
     if (!text || streaming) return
     setInput('')
-    runTurn({ role: 'user', content: text })
+    setPendingInstructionUpdate(null)
+
+    const candidate = stage === 'cooking' && currentStep && shouldOfferInstructionUpdate(text)
+      ? buildInstructionUpdateCandidate({
+          stepNumber: currentStep.n,
+          stepText: currentStep.text,
+          userMessage: text,
+        })
+      : null
+
+    await runTurn({ role: 'user', content: text })
+
+    if (candidate) {
+      setPendingInstructionUpdate(candidate)
+      setMessages(prev => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: 'That sounds like a useful recipe change. Do you want me to save it into these instructions for next time, or keep it as a one-time adjustment?',
+        },
+      ])
+    }
+  }
+
+  const acceptInstructionUpdate = async () => {
+    if (!pendingInstructionUpdate || savingInstructionUpdate) return
+    setSavingInstructionUpdate(true)
+    try {
+      const res = await fetch(`/api/recipes/${recipe.id}/instructions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(pendingInstructionUpdate),
+      })
+      if (!res.ok) throw new Error('Failed to update instructions')
+      setPendingInstructionUpdate(null)
+      setMessages(prev => [
+        ...prev,
+        { role: 'assistant', content: 'Saved. I updated the recipe instructions so that change is there next time.' },
+      ])
+      toast.success('Recipe instructions updated')
+      router.refresh()
+    } catch {
+      toast.error('Could not update instructions')
+    } finally {
+      setSavingInstructionUpdate(false)
+    }
+  }
+
+  const skipInstructionUpdate = () => {
+    setPendingInstructionUpdate(null)
+    setMessages(prev => [
+      ...prev,
+      { role: 'assistant', content: 'Got it. I will treat that as a one-time adjustment for this cook.' },
+    ])
   }
 
   // ── Text-to-speech (reads the chef's latest message) ──────────────────────
@@ -394,6 +451,32 @@ export default function CookMode({ recipe }: { recipe: RecipeWithDetails }) {
                     <Timer className="w-4 h-4" /> Start {d.label} timer
                   </button>
                 ))}
+              </div>
+            )}
+
+            {pendingInstructionUpdate && (
+              <div className="ml-10 rounded-2xl border border-cooking/30 bg-cooking-subtle p-3 space-y-3">
+                <p className="text-sm font-medium text-cooking">Save this change to the recipe instructions?</p>
+                <p className="text-xs text-muted-foreground">{pendingInstructionUpdate.summary}</p>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <Button
+                    onClick={acceptInstructionUpdate}
+                    disabled={savingInstructionUpdate || streaming}
+                    className="bg-cooking hover:bg-cooking/90 text-cooking-foreground"
+                    size="sm"
+                  >
+                    {savingInstructionUpdate ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                    Add to instructions
+                  </Button>
+                  <Button
+                    onClick={skipInstructionUpdate}
+                    disabled={savingInstructionUpdate || streaming}
+                    variant="outline"
+                    size="sm"
+                  >
+                    Skip - one time only
+                  </Button>
+                </div>
               </div>
             )}
           </div>
