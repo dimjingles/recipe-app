@@ -575,26 +575,6 @@ export default function RecipeDetail({
     router.refresh()
   }
 
-  const saveFeedback = async (next: Feedback) => {
-    const prev = currentFeedback
-    setCurrentFeedback(next) // optimistic
-    try {
-      const res = await fetch(`/api/recipes/${recipe.id}/feedback`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ feedback: next }),
-      })
-      if (!res.ok) throw new Error('Failed')
-      // Changing the tier requires re-ranking within it — reopen the comparison
-      // (it auto-places if the new tier is otherwise empty).
-      if (currentRank !== null) setShowRank(true)
-      else router.refresh()
-    } catch {
-      setCurrentFeedback(prev) // revert
-      toast.error('Could not save feedback')
-    }
-  }
-
   const emoji = getCuisineEmoji(recipe.cuisine)
   const adaptedFrom = recipe.adaptation_metadata
 
@@ -811,32 +791,6 @@ export default function RecipeDetail({
           >
             <Sparkles className="w-4 h-4" /> Adapt recipe
           </Button>
-        )}
-
-        {/* Taste feedback — calibrates the score into a like / okay / dislike band.
-            The tier is a recipe-level property, so only the owner sets it. */}
-        {!readOnly && isOwner && currentRank !== null && (
-          <div className="mb-6">
-            <p className="text-sm font-medium text-foreground mb-2">How was it?</p>
-            <div className="grid grid-cols-3 gap-2">
-              {FEEDBACK_OPTIONS.map(opt => {
-                const active = currentFeedback === opt.value
-                return (
-                  <button
-                    key={opt.value}
-                    onClick={() => { if (!active) saveFeedback(opt.value) }}
-                    aria-pressed={active}
-                    className={`flex flex-col items-center gap-1 rounded-2xl border-2 px-3 py-2.5 text-xs font-semibold transition-all active:scale-[0.97] ${
-                      active ? FEEDBACK_ACTIVE[opt.value] : 'border-border bg-card text-muted-foreground hover:border-brand/40'
-                    }`}
-                  >
-                    <span className="text-lg leading-none">{opt.emoji}</span>
-                    {opt.label}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
         )}
 
         {/* Techniques */}
