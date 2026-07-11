@@ -5,7 +5,7 @@ import { getWeekPlan, getWeekStart } from '@/lib/db/planner'
 import { getProfile } from '@/lib/db/profile'
 import { getFeed } from '@/lib/db/activity'
 import Link from 'next/link'
-import { ChefHat, CalendarDays, Clock, Plus, LogOut, ShoppingCart, Sparkles, Users, Settings } from 'lucide-react'
+import { ChefHat, CalendarDays, Clock, Plus, ShoppingCart, Sparkles, Users, Settings } from 'lucide-react'
 import { format, addDays } from 'date-fns'
 import { getCuisineEmoji } from '@/lib/cuisine-emoji'
 import { AddRecipeLauncher } from '@/components/add-recipe-sheet'
@@ -70,15 +70,6 @@ export default async function HomePage() {
           >
             <Settings className="h-4 w-4" />
           </Link>
-          <form action="/auth/signout" method="POST">
-            <button
-              type="submit"
-              title="Sign out"
-              className="grid h-11 w-11 place-items-center rounded-xl bg-card text-muted-foreground shadow-card ring-1 ring-border transition-all hover:text-foreground active:scale-[0.95]"
-            >
-              <LogOut className="h-4 w-4" />
-            </button>
-          </form>
         </div>
       </div>
 
