@@ -32,6 +32,32 @@ const FEEDBACK_ACTIVE: Record<Feedback, string> = {
   dislike: 'border-red-500 bg-red-50 text-red-700',
 }
 
+// Shared like / okay / dislike picker — used both when logging a cook and when
+// re-ranking, so the taste verdict is chosen the same way in both places.
+function FeedbackButtons({ value, onChange }: { value: Feedback | null; onChange: (f: Feedback) => void }) {
+  return (
+    <div className="grid grid-cols-3 gap-2">
+      {FEEDBACK_OPTIONS.map(opt => {
+        const active = value === opt.value
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => onChange(opt.value)}
+            aria-pressed={active}
+            className={`flex flex-col items-center gap-1 rounded-2xl border-2 px-3 py-2.5 text-xs font-semibold transition-all active:scale-[0.97] ${
+              active ? FEEDBACK_ACTIVE[opt.value] : 'border-border bg-card text-muted-foreground hover:border-brand/40'
+            }`}
+          >
+            <span className="text-lg leading-none">{opt.emoji}</span>
+            {opt.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 function groupIngredients(ingredients: RecipeWithDetails['ingredients']) {
   const groups: Record<string, typeof ingredients> = {}
   for (const ing of ingredients) {
@@ -94,25 +120,7 @@ function CookDialog({ recipeId, initialFeedback, onClose, onSaved, isAlreadyRank
           <p className="text-sm font-medium text-foreground mb-2">
             How was it? <span className="text-destructive">*</span>
           </p>
-          <div className="grid grid-cols-3 gap-2">
-            {FEEDBACK_OPTIONS.map(opt => {
-              const active = feedback === opt.value
-              return (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => setFeedback(opt.value)}
-                  aria-pressed={active}
-                  className={`flex flex-col items-center gap-1 rounded-2xl border-2 px-3 py-2.5 text-xs font-semibold transition-all active:scale-[0.97] ${
-                    active ? FEEDBACK_ACTIVE[opt.value] : 'border-border bg-card text-muted-foreground hover:border-brand/40'
-                  }`}
-                >
-                  <span className="text-lg leading-none">{opt.emoji}</span>
-                  {opt.label}
-                </button>
-              )
-            })}
-          </div>
+          <FeedbackButtons value={feedback} onChange={setFeedback} />
         </div>
 
         <div className="mb-6">
@@ -273,6 +281,41 @@ function ComparisonDialog({ thisRecipe, onClose, onRanked }: ComparisonDialogPro
         <button onClick={onClose} className="mt-4 w-full text-sm text-muted-foreground hover:text-foreground">
           Skip for now
         </button>
+      </div>
+    </BottomSheet>
+  )
+}
+
+// ─── Re-rank Feedback Dialog ──────────────────────────────────────────────────
+
+// When re-ranking, ask for the like/okay/dislike verdict again first — just like
+// the initial ranking flow — then hand the chosen tier off to the comparison.
+interface RankFeedbackDialogProps {
+  initialFeedback: Feedback | null
+  onClose: () => void
+  onConfirm: (feedback: Feedback) => void
+}
+
+function RankFeedbackDialog({ initialFeedback, onClose, onConfirm }: RankFeedbackDialogProps) {
+  const [feedback, setFeedback] = useState<Feedback | null>(initialFeedback)
+
+  return (
+    <BottomSheet open onClose={onClose} zIndex="elevated">
+      <div className="px-6 pb-10">
+        <h3 className="font-heading text-lg font-bold text-foreground mb-1">How was it?</h3>
+        <p className="text-sm text-muted-foreground mb-4">
+          Confirm how you feel about this recipe, then we&apos;ll rank it.
+        </p>
+        <div className="mb-6">
+          <FeedbackButtons value={feedback} onChange={setFeedback} />
+        </div>
+        <Button
+          onClick={() => feedback && onConfirm(feedback)}
+          disabled={!feedback}
+          className="w-full bg-brand hover:bg-brand/90 text-brand-foreground h-12 text-base"
+        >
+          {feedback ? 'Continue to ranking' : 'Pick one to continue'}
+        </Button>
       </div>
     </BottomSheet>
   )
@@ -455,6 +498,7 @@ export default function RecipeDetail({
 }) {
   const router = useRouter()
   const [showCook, setShowCook] = useState(false)
+  const [showRerankFeedback, setShowRerankFeedback] = useState(false)
   const [showRank, setShowRank] = useState(false)
   const [showCookbook, setShowCookbook] = useState(false)
   const [showChefAi, setShowChefAi] = useState(false)
@@ -563,6 +607,27 @@ export default function RecipeDetail({
       toast.error('Could not delete log entry')
       router.refresh()
     }
+  }
+
+  // Re-rank: the user re-confirms their like/okay/dislike verdict, we persist any
+  // change, then open the head-to-head comparison within that tier.
+  const handleRerankFeedback = async (feedback: Feedback) => {
+    setShowRerankFeedback(false)
+    if (feedback !== currentFeedback) {
+      try {
+        const res = await fetch(`/api/recipes/${recipe.id}/feedback`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ feedback }),
+        })
+        if (!res.ok) throw new Error('Failed')
+      } catch {
+        toast.error('Could not save your rating')
+        return
+      }
+    }
+    setCurrentFeedback(feedback)
+    setShowRank(true)
   }
 
   const handleRanked = (rank: number) => {
@@ -743,7 +808,7 @@ export default function RecipeDetail({
           )}
           {currentRank !== null && (
             <Button
-              onClick={() => setShowRank(true)}
+              onClick={() => setShowRerankFeedback(true)}
               className="bg-card text-brand hover:bg-brand-subtle border border-brand/30 font-semibold h-12 rounded-2xl shadow-md px-4 active:scale-[0.98] transition-all"
             >
               <Trophy className="w-4 h-4" />
@@ -973,6 +1038,14 @@ export default function RecipeDetail({
           onClose={() => setShowCook(false)}
           onSaved={handleCookSaved}
           isAlreadyRanked={currentRank !== null}
+        />
+      )}
+
+      {showRerankFeedback && (
+        <RankFeedbackDialog
+          initialFeedback={currentFeedback}
+          onClose={() => setShowRerankFeedback(false)}
+          onConfirm={handleRerankFeedback}
         />
       )}
 
