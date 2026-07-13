@@ -17,6 +17,8 @@ import { buildInstructionUpdateCandidate, shouldOfferInstructionUpdate } from '@
 import { useWakeLock } from '@/lib/cook/use-wake-lock'
 import { useVoiceControl, type VoiceCommand } from '@/lib/cook/use-voice-control'
 import { useCookTimers } from '@/lib/cook/use-cook-timers'
+import { FeedbackButtons, ComparisonDialog } from '@/components/ranking-flow'
+import type { Feedback } from '@/lib/scoring'
 import type { RecipeWithDetails, InstructionStep, ChefPacing } from '@/types/database'
 
 const MANUAL_PRESETS = [1, 2, 3, 5, 10, 15, 20, 30, 45, 60] // minutes
@@ -80,7 +82,11 @@ export default function CookMode({
   const [showIngredients, setShowIngredients] = useState(false)
   const [showManualTimer, setShowManualTimer] = useState(false)
   const [notes, setNotes] = useState('')
+  const [feedback, setFeedback] = useState<Feedback | null>(recipe.feedback)
   const [saving, setSaving] = useState(false)
+  // After logging the cook we rank it against the other recipes — same flow as
+  // the recipe page's "Mark as Cooked" and re-rank.
+  const [showRank, setShowRank] = useState(false)
 
   const { timers, startTimer, toggleTimer, dismissTimer } = useCookTimers()
 
@@ -323,7 +329,15 @@ export default function CookMode({
     }
   }, [])
 
+  // Head back to the recipe page once we're done logging + ranking.
+  const finishToRecipe = () => {
+    invalidate.recipesChanged()
+    router.push(`/recipes/${recipe.id}`)
+    router.refresh()
+  }
+
   const markCooked = async () => {
+    if (!feedback) return
     setSaving(true)
     try {
       const res = await fetch(`/api/recipes/${recipe.id}/log`, {
@@ -332,10 +346,18 @@ export default function CookMode({
         body: JSON.stringify({ notes: notes.trim() || undefined }),
       })
       if (!res.ok) throw new Error('Failed')
+      // Persist the taste verdict before ranking so it buckets in the right tier.
+      if (feedback !== recipe.feedback) {
+        const fb = await fetch(`/api/recipes/${recipe.id}/feedback`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ feedback }),
+        })
+        if (!fb.ok) throw new Error('Failed')
+      }
       toast.success('Cooking logged! 🎉')
-      invalidate.recipesChanged()
-      router.push(`/recipes/${recipe.id}`)
-      router.refresh()
+      setSaving(false)
+      setShowRank(true)
     } catch {
       toast.error('Could not save log')
       setSaving(false)
@@ -443,6 +465,8 @@ export default function CookMode({
         <FinishScreen
           notes={notes}
           setNotes={setNotes}
+          feedback={feedback}
+          setFeedback={setFeedback}
           saving={saving}
           onCook={markCooked}
           onBack={() => { setStage('cooking'); setStepIndex(total - 1) }}
@@ -641,6 +665,18 @@ export default function CookMode({
           }}
         />
       )}
+
+      {/* ── Rank against other recipes ────────────────────────────────────── */}
+      {showRank && (
+        <ComparisonDialog
+          thisRecipe={{ id: recipe.id, name: recipe.name, feedback }}
+          onClose={finishToRecipe}
+          onRanked={() => {
+            toast.success('Ranked! 🏆')
+            finishToRecipe()
+          }}
+        />
+      )}
     </div>
   )
 }
@@ -761,6 +797,8 @@ function ManualTimerSheet({
 function FinishScreen({
   notes,
   setNotes,
+  feedback,
+  setFeedback,
   saving,
   onCook,
   onBack,
@@ -768,6 +806,8 @@ function FinishScreen({
 }: {
   notes: string
   setNotes: (v: string) => void
+  feedback: Feedback | null
+  setFeedback: (f: Feedback) => void
   saving: boolean
   onCook: () => void
   onBack: () => void
@@ -782,6 +822,14 @@ function FinishScreen({
           You cooked every step. Log it to keep your cooking history up to date.
         </p>
 
+        {/* How was it? — required taste feedback, then we rank it against others */}
+        <div className="text-left mb-4">
+          <label className="text-sm font-medium text-foreground mb-2 block">
+            How was it? <span className="text-destructive">*</span>
+          </label>
+          <FeedbackButtons value={feedback} onChange={setFeedback} />
+        </div>
+
         <div className="text-left mb-4">
           <label className="text-sm font-medium text-foreground mb-2 block">Notes (optional)</label>
           <textarea
@@ -792,12 +840,16 @@ function FinishScreen({
           />
         </div>
 
+        <p className="text-xs text-brand bg-brand-subtle rounded-xl px-3 py-2 mb-4 text-left">
+          After logging, you&apos;ll rank this against your other recipes.
+        </p>
+
         <Button
           onClick={onCook}
-          disabled={saving}
+          disabled={saving || !feedback}
           className="w-full h-14 rounded-2xl text-base font-semibold bg-brand text-brand-foreground hover:bg-brand/90"
         >
-          {saving ? 'Saving…' : '🍳 Mark as Cooked'}
+          {saving ? 'Saving…' : feedback ? '🍳 Mark as Cooked' : 'Rate it to log'}
         </Button>
         <div className="flex gap-3 mt-3">
           <Button onClick={onBack} variant="outline" className="flex-1 h-12 rounded-2xl">
