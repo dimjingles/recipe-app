@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useCacheInvalidation } from '@/lib/queries/hooks'
 import Link from 'next/link'
 import { ArrowLeft, Plus, X, Loader2, Trash2 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
@@ -38,6 +39,7 @@ interface IngredientRow {
 
 export default function EditRecipeForm({ recipe }: { recipe: RecipeWithIngredients }) {
   const router = useRouter()
+  const invalidate = useCacheInvalidation()
   const [name, setName] = useState(recipe.name)
   const [description, setDescription] = useState(recipe.description || '')
   const [cuisine, setCuisine] = useState(recipe.cuisine || '')
@@ -100,6 +102,7 @@ export default function EditRecipeForm({ recipe }: { recipe: RecipeWithIngredien
     try {
       await fetch(`/api/recipes/${recipe.id}`, { method: 'DELETE' })
       toast.success('Recipe deleted')
+      invalidate.recipesChanged()
       router.push('/recipes')
     } catch {
       toast.error('Could not delete recipe')
@@ -132,6 +135,7 @@ export default function EditRecipeForm({ recipe }: { recipe: RecipeWithIngredien
       })
       if (!res.ok) throw new Error('Save failed')
       toast.success('Recipe updated!')
+      invalidate.recipesChanged()
       router.push(`/recipes/${recipe.id}`)
     } catch {
       toast.error('Could not save changes')

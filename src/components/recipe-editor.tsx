@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { useCacheInvalidation } from '@/lib/queries/hooks'
 import { Sparkles, Plus, X, Loader2, Link2 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -66,6 +67,7 @@ interface RecipeEditorProps {
 
 export default function RecipeEditor({ initialValues, showLookup, autoLookup }: RecipeEditorProps) {
   const router = useRouter()
+  const invalidate = useCacheInvalidation()
   const [name, setName] = useState(initialValues?.name ?? '')
   const [description, setDescription] = useState(initialValues?.description ?? '')
   const [cuisine, setCuisine] = useState(initialValues?.cuisine ?? '')
@@ -259,6 +261,7 @@ export default function RecipeEditor({ initialValues, showLookup, autoLookup }: 
       const data = await res.json()
       if (data.error) throw new Error(data.error)
       toast.success('Recipe saved!')
+      invalidate.recipesChanged()
       router.push(`/recipes/${data.id}`)
     } catch (e: unknown) {
       toast.error((e as Error).message || 'Could not save recipe')

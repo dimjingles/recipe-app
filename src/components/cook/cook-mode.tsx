@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useCacheInvalidation } from '@/lib/queries/hooks'
 import {
   X, ChevronLeft, ChevronRight, Timer, Plus, Check,
   Mic, Volume2, ListChecks, ChefHat, Send, Loader2, Play,
@@ -46,6 +47,7 @@ export default function CookMode({
   pacing?: ChefPacing
 }) {
   const router = useRouter()
+  const invalidate = useCacheInvalidation()
 
   const steps: InstructionStep[] = useMemo(() => {
     const structured = recipe.instruction_steps
@@ -331,6 +333,7 @@ export default function CookMode({
       })
       if (!res.ok) throw new Error('Failed')
       toast.success('Cooking logged! 🎉')
+      invalidate.recipesChanged()
       router.push(`/recipes/${recipe.id}`)
       router.refresh()
     } catch {

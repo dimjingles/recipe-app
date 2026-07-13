@@ -3,6 +3,7 @@ import { getCookbooks } from '@/lib/db/cookbooks'
 import { getRankedScores } from '@/lib/db/recipes'
 import { getProfile } from '@/lib/db/profile'
 import { notFound } from 'next/navigation'
+import { after } from 'next/server'
 import RecipeDetail from '@/components/recipe-detail'
 import { classifyTechniques, getTechniqueKeys } from '@/lib/ai/classify-techniques'
 
@@ -55,14 +56,24 @@ export default async function RecipePage({ params }: { params: Promise<{ id: str
   const canEdit = isOwner || (r.owner_scope === 'household' && !!r.household_id && r.household_id === myHouseholdId)
   const readOnly = !canEdit
 
-  // Backfill techniques for recipes that predate classification (owner/household only)
+  // Backfill techniques for recipes that predate classification (owner/household
+  // only). This calls the Anthropic API (~1-2s), so it runs via after() once the
+  // response has streamed — the first open renders without techniques and they
+  // appear on the next visit, instead of blocking navigation on an LLM call.
   if (!readOnly && !r.techniques?.length && r.instructions) {
-    const keys = await getTechniqueKeys(supabase)
-    const classified = await classifyTechniques(r.name, r.instructions, keys)
-    if (classified.length) {
-      const { error } = await supabase.from('recipes').update({ techniques: classified }).eq('id', id)
-      if (!error) r.techniques = classified
-    }
+    const name = r.name as string
+    const instructions = r.instructions as string
+    after(async () => {
+      try {
+        const keys = await getTechniqueKeys(supabase)
+        const classified = await classifyTechniques(name, instructions, keys)
+        if (classified.length) {
+          await supabase.from('recipes').update({ techniques: classified }).eq('id', id)
+        }
+      } catch (e) {
+        console.error('technique backfill failed:', e)
+      }
+    })
   }
 
   return (

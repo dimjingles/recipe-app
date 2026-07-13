@@ -101,7 +101,9 @@
   /* Custom animations */
   --animate-shimmer:    shimmer 1.5s linear infinite;
   --animate-fade-in-up: fade-in-up 0.3s ease-out both;
-  --animate-fade-in:    fade-in 0.25s ease-out both;
+  /* Page-transition fade: kept subtle and fast — pages now render instantly
+     from the client cache, and a long fade reads as loading time. */
+  --animate-fade-in:    fade-in 0.1s ease-out both;
 }
 
 /* ─── Light mode tokens ─────────────────────────────────────────────────── */

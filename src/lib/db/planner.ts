@@ -1,10 +1,8 @@
 import { createClient, getUser } from '@/lib/supabase/server'
 import { PlanWithSlots } from '@/types/database'
-import { startOfWeek, format } from 'date-fns'
+import { getWeekStart } from '@/lib/week'
 
-export function getWeekStart(date: Date = new Date()): string {
-  return format(startOfWeek(date, { weekStartsOn: 1 }), 'yyyy-MM-dd')
-}
+export { getWeekStart }
 
 export async function getWeekPlan(weekStart: string): Promise<PlanWithSlots | null> {
   const supabase = await createClient()

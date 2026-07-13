@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useCacheInvalidation } from '@/lib/queries/hooks'
 import Link from 'next/link'
 import { ArrowLeft, Camera, LogOut, Loader2, Settings } from 'lucide-react'
 import { toast } from 'sonner'
@@ -27,6 +28,7 @@ export default function ProfileEditor({
   household: HouseholdData | null
 }) {
   const router = useRouter()
+  const invalidate = useCacheInvalidation()
   const [username, setUsername] = useState(initial.username)
   const [displayName, setDisplayName] = useState(initial.display_name)
   const [avatarUrl, setAvatarUrl] = useState(initial.avatar_url)
@@ -81,6 +83,7 @@ export default function ProfileEditor({
         throw new Error(data.error || 'Failed to save')
       }
       toast.success('Profile saved')
+      invalidate.meChanged()
       router.refresh()
     } catch (e: any) {
       toast.error(e.message || 'Could not save profile')

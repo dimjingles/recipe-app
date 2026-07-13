@@ -1,21 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, getUser } from '@/lib/supabase/server'
 import { emitActivity } from '@/lib/db/activity'
+import { getCookbooks } from '@/lib/db/cookbooks'
 
 export async function GET() {
   try {
-    const supabase = await createClient()
     const user = await getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const { data, error } = await supabase
-      .from('cookbooks')
-      .select('*, cookbook_recipes(recipe_id)')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: true })
-
-    if (error) throw error
-    return NextResponse.json(data)
+    // getCookbooks includes household-shared cookbooks, matching the pages.
+    return NextResponse.json(await getCookbooks())
   } catch (error: any) {
     return NextResponse.json({ error: error.message || 'Failed to fetch cookbooks' }, { status: 500 })
   }

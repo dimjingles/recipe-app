@@ -21,6 +21,7 @@ import { DayCuisinePattern } from '@/lib/db/planner'
 import PlanDiversityBar from '@/components/plan-diversity-bar'
 import RescueRecipeCard from '@/components/rescue-recipe-card'
 import TopCookedCard from '@/components/top-cooked-card'
+import { useCacheInvalidation } from '@/lib/queries/hooks'
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 const FULL_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
@@ -48,6 +49,7 @@ export default function PlannerView({
   patterns,
   cookbooks,
 }: Props) {
+  const invalidate = useCacheInvalidation()
   const [weekStart, setWeekStart] = useState(initialWeekStart)
   const [plan, setPlan] = useState<PlanWithSlots | null>(initialPlan)
   const [slots, setSlots] = useState<SlotWithRecipe[]>((initialPlan?.weekly_plan_slots as SlotWithRecipe[]) || [])
@@ -137,7 +139,10 @@ export default function PlannerView({
       body: JSON.stringify({ weekStart, dayOfWeek: day, recipeId: recipe.id }),
     })
     if (!res.ok) toast.error('Could not save - tap to retry')
-    else toast.success(`${recipe.name} added to ${FULL_DAYS[day]}`)
+    else {
+      toast.success(`${recipe.name} added to ${FULL_DAYS[day]}`)
+      invalidate.planChanged()
+    }
   }
 
   const handlePick = (recipe: ScorableRecipe, hasConflict: boolean) => {
@@ -177,6 +182,7 @@ export default function PlannerView({
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ slotId: slot.id }),
     })
+    invalidate.planChanged()
   }
 
   const runAutoFill = async () => {
@@ -201,6 +207,7 @@ export default function PlannerView({
       const addedDays = new Set(added.map(s => s.day_of_week))
       setSlots(prev => [...prev.filter(s => !addedDays.has(s.day_of_week)), ...added])
       setAutoFillUndo(added)
+      invalidate.planChanged()
       toast.success(`Filled ${added.length} ${added.length === 1 ? 'day' : 'days'}`)
     } catch {
       toast.error('Auto-fill failed')
@@ -223,6 +230,7 @@ export default function PlannerView({
         })
       )
     )
+    invalidate.planChanged()
     toast.success('Auto-fill undone')
   }
 
