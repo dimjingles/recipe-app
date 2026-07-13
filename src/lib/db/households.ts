@@ -59,6 +59,20 @@ export async function createHouseholdInvite(householdId: string): Promise<string
   return data as string
 }
 
+export async function inviteHouseholdFriend(householdId: string, friendId: string): Promise<PublicProfile | null> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc('invite_household_friend', { p_household: householdId, p_friend: friendId })
+  if (error) throw error
+
+  const { data, error: profileError } = await supabase
+    .from('public_profiles')
+    .select('*')
+    .eq('id', friendId)
+    .maybeSingle()
+  if (profileError) { console.error('inviteHouseholdFriend profile error:', profileError); return null }
+  return data ?? null
+}
+
 export async function getHouseholdInviteInfo(token: string): Promise<{ household_id: string; name: string } | null> {
   const supabase = await createClient()
   const { data, error } = await supabase.rpc('household_invite_info', { p_token: token })

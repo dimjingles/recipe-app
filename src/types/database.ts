@@ -82,6 +82,7 @@ export interface Database {
           cook_frequency: string | null
           referral_source: string | null
           primary_goal: string | null
+          primary_goals: string[]
           diet: string | null
           allergies: string[]
           favorite_cuisines: string[]
@@ -107,6 +108,7 @@ export interface Database {
           cook_frequency?: string | null
           referral_source?: string | null
           primary_goal?: string | null
+          primary_goals?: string[]
           diet?: string | null
           allergies?: string[]
           favorite_cuisines?: string[]
@@ -492,6 +494,10 @@ export interface Database {
       create_household_invite: {
         Args: { p_household: string }
         Returns: string
+      }
+      invite_household_friend: {
+        Args: { p_household: string; p_friend: string }
+        Returns: undefined
       }
       household_invite_info: {
         Args: { p_token: string }
