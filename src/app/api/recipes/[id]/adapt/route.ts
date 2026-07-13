@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { getUser } from '@/lib/supabase/server'
 import { getRecipe } from '@/lib/db/recipes'
 import { adaptRecipe } from '@/lib/ai/adapt-recipe'
 import type { AdaptationType } from '@/types/database'
@@ -14,8 +14,7 @@ const ADAPTATION_TYPES: AdaptationType[] = [
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+  const user = await getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const body = await request.json()

@@ -2,7 +2,15 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function updateSession(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({ request })
+  // Start from the incoming headers but strip any client-supplied identity
+  // headers — we set these ourselves below so they can't be spoofed.
+  const requestHeaders = new Headers(request.headers)
+  requestHeaders.delete('x-user-id')
+  requestHeaders.delete('x-user-email')
+
+  // Collect refreshed auth cookies and apply them to the single response we
+  // build at the end (so the forwarded request also carries our headers).
+  const pendingCookies: { name: string; value: string; options: any }[] = []
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -16,10 +24,7 @@ export async function updateSession(request: NextRequest) {
           cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value)
           )
-          supabaseResponse = NextResponse.next({ request })
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
-          )
+          pendingCookies.push(...cookiesToSet)
         },
       },
     }
@@ -27,6 +32,13 @@ export async function updateSession(request: NextRequest) {
 
   // Refresh session on every request (prevents stale-token 401s)
   const { data: { user } } = await supabase.auth.getUser()
+
+  // Forward the validated identity so Server Components / route handlers don't
+  // each re-validate over the network. Data access is still guarded by RLS.
+  if (user) {
+    requestHeaders.set('x-user-id', user.id)
+    if (user.email) requestHeaders.set('x-user-email', user.email)
+  }
 
   const pathname = request.nextUrl.pathname
   const isLoginPage     = pathname.startsWith('/login')
@@ -49,5 +61,9 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
+  const supabaseResponse = NextResponse.next({ request: { headers: requestHeaders } })
+  pendingCookies.forEach(({ name, value, options }) =>
+    supabaseResponse.cookies.set(name, value, options)
+  )
   return supabaseResponse
 }

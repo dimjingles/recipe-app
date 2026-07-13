@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, getUser } from '@/lib/supabase/server'
 import { TIER_ORDER, type Feedback } from '@/lib/scoring'
 
 type Row = { recipe_id: string; rank: number; feedback: Feedback | null }
@@ -12,7 +12,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   try {
     const { id } = await params
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     // `position` is the target slot WITHIN this recipe's own tier (1-based).

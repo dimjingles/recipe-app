@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, getUser } from '@/lib/supabase/server'
 
 /**
  * PUT /api/recipes/[id]/cookbooks
@@ -13,7 +13,7 @@ export async function PUT(
   try {
     const { id: recipeId } = await params
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const { cookbook_ids = [] } = await request.json()

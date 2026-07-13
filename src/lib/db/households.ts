@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, getUser } from '@/lib/supabase/server'
 import { PublicProfile } from '@/types/database'
 
 export interface MyHousehold {
@@ -11,7 +11,7 @@ export interface MyHousehold {
 /** The current user's household (partners share one), or null. */
 export async function getMyHousehold(): Promise<MyHousehold | null> {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getUser()
   if (!user) return null
 
   const { data: membership } = await supabase
@@ -35,7 +35,7 @@ export async function getMyHousehold(): Promise<MyHousehold | null> {
 /** Just the current user's household id (cheap; used to scope the library). */
 export async function getMyHouseholdId(): Promise<string | null> {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getUser()
   if (!user) return null
   const { data } = await supabase
     .from('household_members')
@@ -84,7 +84,7 @@ export async function leaveHousehold(householdId: string): Promise<void> {
 
 export async function setRecipeHouseholdShared(recipeId: string, shared: boolean): Promise<void> {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getUser()
   if (!user) throw new Error('Not authenticated')
 
   let householdId: string | null = null
@@ -108,7 +108,7 @@ export async function setRecipeHouseholdShared(recipeId: string, shared: boolean
 
 export async function setCookbookHouseholdShared(cookbookId: string, shared: boolean): Promise<void> {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getUser()
   if (!user) throw new Error('Not authenticated')
 
   let householdId: string | null = null
@@ -134,7 +134,7 @@ export async function setCookbookHouseholdShared(cookbookId: string, shared: boo
 /** Map of recipe_id → the current user's personal rank. */
 export async function getMyRankingsMap(): Promise<Map<string, number>> {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getUser()
   if (!user) return new Map()
   const { data } = await supabase
     .from('recipe_rankings')
@@ -145,7 +145,7 @@ export async function getMyRankingsMap(): Promise<Map<string, number>> {
 
 export async function getRecipeRanking(recipeId: string): Promise<number | null> {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getUser()
   if (!user) return null
   const { data } = await supabase
     .from('recipe_rankings')

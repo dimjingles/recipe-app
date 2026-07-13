@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, getUser } from '@/lib/supabase/server'
 import { PlanWithSlots } from '@/types/database'
 import { startOfWeek, format } from 'date-fns'
 
@@ -8,7 +8,7 @@ export function getWeekStart(date: Date = new Date()): string {
 
 export async function getWeekPlan(weekStart: string): Promise<PlanWithSlots | null> {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getUser()
   if (!user) return null
 
   const { data, error } = await supabase
@@ -24,7 +24,7 @@ export async function getWeekPlan(weekStart: string): Promise<PlanWithSlots | nu
 
 export async function upsertSlot(weekStart: string, dayOfWeek: number, recipeId: string, mealType = 'dinner') {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getUser()
   if (!user) throw new Error('Not authenticated')
 
   // Get or create plan for this week
@@ -86,7 +86,7 @@ export interface DayCuisinePattern {
  */
 export async function getCookingPatterns(): Promise<DayCuisinePattern[]> {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getUser()
   if (!user) return []
 
   const { data } = await supabase
