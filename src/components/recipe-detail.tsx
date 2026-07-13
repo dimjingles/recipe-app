@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Clock, Users, Edit, ChefHat, Trophy, X, BookOpen, Plus, Home, Play, Sparkles, GitBranch, Maximize2, Images, Check } from 'lucide-react'
+import { ArrowLeft, Clock, Users, Edit, ChefHat, Trophy, X, BookOpen, Plus, Minus, Home, Play, Sparkles, GitBranch, Maximize2, Images, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { BottomSheet } from '@/components/ui/bottom-sheet'
 import { Input } from '@/components/ui/input'
@@ -18,6 +18,7 @@ import { isRecipeTechnique, resolveTechniqueState } from '@/lib/skills'
 import { getCuisineEmoji } from '@/lib/cuisine-emoji'
 import { useCacheInvalidation } from '@/lib/queries/hooks'
 import { formatScore, FEEDBACK_ADJECTIVE, type Feedback } from '@/lib/scoring'
+import { scaleQuantity } from '@/lib/servings'
 import { FeedbackButtons, ComparisonDialog, RankFeedbackDialog } from '@/components/ranking-flow'
 
 const CATEGORY_EMOJI: Record<string, string> = {
@@ -259,6 +260,52 @@ function CookbookDialog({
   )
 }
 
+// ─── Servings Control ─────────────────────────────────────────────────────────
+
+/** Compact stepper that rescales the displayed ingredient amounts. Purely a view
+ *  adjustment — it never writes to the stored recipe. */
+function ServingsControl({
+  servings,
+  base,
+  onChange,
+}: {
+  servings: number
+  base: number
+  onChange: (n: number) => void
+}) {
+  return (
+    <div className="flex items-center gap-2 shrink-0">
+      {servings !== base && (
+        <button
+          onClick={() => onChange(base)}
+          className="text-xs font-medium text-brand hover:underline"
+        >
+          Reset
+        </button>
+      )}
+      <div className="flex items-center gap-0.5 rounded-full border border-border bg-card p-1 shadow-sm">
+        <button
+          onClick={() => onChange(Math.max(1, servings - 1))}
+          aria-label="Fewer servings"
+          className="flex h-7 w-7 items-center justify-center rounded-full text-foreground hover:bg-muted active:scale-95 transition-all"
+        >
+          <Minus className="h-3.5 w-3.5" />
+        </button>
+        <span className="flex min-w-[52px] items-center justify-center gap-1 px-1 text-sm font-semibold tabular-nums text-foreground">
+          <Users className="h-3.5 w-3.5 text-muted-foreground" /> {servings}
+        </span>
+        <button
+          onClick={() => onChange(Math.min(100, servings + 1))}
+          aria-label="More servings"
+          className="flex h-7 w-7 items-center justify-center rounded-full text-foreground hover:bg-muted active:scale-95 transition-all"
+        >
+          <Plus className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 /** A sibling recipe adapted from this one (or the original this was adapted from). */
@@ -306,6 +353,10 @@ export default function RecipeDetail({
   const [showAdapt, setShowAdapt] = useState(false)
   const [chefInitialPrompt, setChefInitialPrompt] = useState<string | undefined>(undefined)
   const [cookedCount, setCookedCount] = useState(recipe.cooked_count)
+  // Live servings adjuster — rescales displayed ingredient amounts only.
+  const baseServings = recipe.servings || 4
+  const [servings, setServings] = useState(baseServings)
+  const scaleFactor = servings / baseServings
   const [currentRank, setCurrentRank] = useState<number | null>(recipe.rank)
   const [currentFeedback, setCurrentFeedback] = useState<Feedback | null>(recipe.feedback)
   const [ownerScope, setOwnerScope] = useState<string>((recipe as { owner_scope?: string }).owner_scope ?? 'user')
@@ -493,11 +544,6 @@ export default function RecipeDetail({
                 <Clock className="w-3.5 h-3.5" /> {recipe.cook_time_minutes} min
               </span>
             )}
-            {recipe.servings && (
-              <span className="flex items-center gap-1 text-white/90 text-sm">
-                <Users className="w-3.5 h-3.5" /> {recipe.servings} servings
-              </span>
-            )}
             {cookedCount > 0 && (
               <span className="flex items-center gap-1 text-white/90 text-sm">
                 <ChefHat className="w-3.5 h-3.5" /> Cooked {cookedCount}×
@@ -546,11 +592,6 @@ export default function RecipeDetail({
             {recipe.cook_time_minutes && (
               <span className="flex items-center gap-1 text-muted-foreground text-sm">
                 <Clock className="w-3.5 h-3.5" /> {recipe.cook_time_minutes} min
-              </span>
-            )}
-            {recipe.servings && (
-              <span className="flex items-center gap-1 text-muted-foreground text-sm">
-                <Users className="w-3.5 h-3.5" /> {recipe.servings} servings
               </span>
             )}
             {cookedCount > 0 && (
@@ -693,7 +734,15 @@ export default function RecipeDetail({
         {/* Ingredients — sage accent */}
         {grouped.length > 0 && (
           <div className="mb-6">
-            <h2 className="font-heading font-bold text-foreground text-lg mb-3">Ingredients</h2>
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <h2 className="font-heading font-bold text-foreground text-lg">Ingredients</h2>
+              <ServingsControl servings={servings} base={baseServings} onChange={setServings} />
+            </div>
+            {servings !== baseServings && (
+              <p className="text-xs text-muted-foreground mb-3">
+                Amounts scaled for {servings} servings (recipe makes {baseServings}).
+              </p>
+            )}
             <div className="space-y-3">
               {grouped.map(({ category, items }) => (
                 <div key={category} className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
@@ -709,7 +758,7 @@ export default function RecipeDetail({
                         <span className="text-foreground text-sm">{ing.name}</span>
                         {(ing.quantity || ing.unit) && (
                           <span className="text-muted-foreground text-sm font-medium">
-                            {ing.quantity} {ing.unit}
+                            {scaleQuantity(ing.quantity, scaleFactor)} {ing.unit}
                           </span>
                         )}
                       </li>
