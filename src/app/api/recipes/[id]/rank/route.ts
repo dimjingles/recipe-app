@@ -4,8 +4,7 @@ import { TIER_ORDER, type Feedback } from '@/lib/scoring'
 
 type Row = { recipe_id: string; rank: number; feedback: Feedback | null }
 
-// Writes ONLY the current user's ranking (recipe_rankings). Household members
-// each keep their own order for the same recipe; this never touches theirs.
+// Writes ONLY the current user's ranking (recipe_rankings).
 // Recipes are ranked WITHIN their like/okay/dislike tier (recipes.feedback);
 // the stored rank is a global tier-major ordinal.
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {

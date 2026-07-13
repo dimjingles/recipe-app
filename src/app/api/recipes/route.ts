@@ -5,7 +5,7 @@ import { structureInstructions } from '@/lib/ai/structure-instructions'
 import { emitActivity } from '@/lib/db/activity'
 import { getRecipes } from '@/lib/db/recipes'
 
-// The user's recipe library (own + household), same shape the pages render.
+// The user's recipe library, same shape the pages render.
 export async function GET() {
   try {
     const user = await getUser()

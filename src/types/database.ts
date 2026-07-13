@@ -146,14 +146,12 @@ export interface Database {
           rank: number | null
           feedback: 'like' | 'okay' | 'dislike' | null
           recipe_type: string | null
-          owner_scope: string
-          household_id: string | null
           visibility: string
           original_recipe_id: string | null
           adaptation_metadata: AdaptationMetadata | null
           created_at: string
         }
-        Insert: Omit<Database['public']['Tables']['recipes']['Row'], 'id' | 'created_at' | 'cooked_count' | 'last_cooked_at' | 'rank' | 'feedback' | 'recipe_type' | 'gallery_images' | 'techniques' | 'instruction_steps' | 'owner_scope' | 'household_id' | 'visibility' | 'original_recipe_id' | 'adaptation_metadata'> & {
+        Insert: Omit<Database['public']['Tables']['recipes']['Row'], 'id' | 'created_at' | 'cooked_count' | 'last_cooked_at' | 'rank' | 'feedback' | 'recipe_type' | 'gallery_images' | 'techniques' | 'instruction_steps' | 'visibility' | 'original_recipe_id' | 'adaptation_metadata'> & {
           id?: string
           created_at?: string
           cooked_count?: number
@@ -161,8 +159,6 @@ export interface Database {
           rank?: number | null
           feedback?: 'like' | 'okay' | 'dislike' | null
           recipe_type?: string | null
-          owner_scope?: string
-          household_id?: string | null
           visibility?: string
           gallery_images?: string[]
           difficulty?: number | null
@@ -276,15 +272,11 @@ export interface Database {
           id: string
           user_id: string
           name: string
-          owner_scope: string
-          household_id: string | null
           visibility: string
           created_at: string
         }
-        Insert: Omit<Database['public']['Tables']['cookbooks']['Row'], 'id' | 'created_at' | 'owner_scope' | 'household_id' | 'visibility'> & {
+        Insert: Omit<Database['public']['Tables']['cookbooks']['Row'], 'id' | 'created_at' | 'visibility'> & {
           id?: string
-          owner_scope?: string
-          household_id?: string | null
           visibility?: string
           created_at?: string
         }
@@ -339,46 +331,6 @@ export interface Database {
         }
         Update: Partial<Database['public']['Tables']['friendships']['Insert']>
         Relationships: []
-      }
-      households: {
-        Row: {
-          id: string
-          name: string
-          created_by: string
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          name: string
-          created_by: string
-          created_at?: string
-        }
-        Update: Partial<Database['public']['Tables']['households']['Insert']>
-        Relationships: []
-      }
-      household_members: {
-        Row: {
-          household_id: string
-          user_id: string
-          role: string
-          joined_at: string
-        }
-        Insert: {
-          household_id: string
-          user_id: string
-          role?: string
-          joined_at?: string
-        }
-        Update: Partial<Database['public']['Tables']['household_members']['Insert']>
-        Relationships: [
-          {
-            foreignKeyName: 'household_members_household_id_fkey'
-            columns: ['household_id']
-            isOneToOne: false
-            referencedRelation: 'households'
-            referencedColumns: ['id']
-          },
-        ]
       }
       recipe_rankings: {
         Row: {
@@ -477,34 +429,6 @@ export interface Database {
         Args: { other_id: string }
         Returns: undefined
       }
-      same_household: {
-        Args: { u1: string; u2: string }
-        Returns: boolean
-      }
-      is_household_member: {
-        Args: { hh: string }
-        Returns: boolean
-      }
-      create_household: {
-        Args: { p_name: string }
-        Returns: string
-      }
-      create_household_invite: {
-        Args: { p_household: string }
-        Returns: string
-      }
-      household_invite_info: {
-        Args: { p_token: string }
-        Returns: { household_id: string; name: string }[]
-      }
-      accept_household_invite: {
-        Args: { p_token: string }
-        Returns: string
-      }
-      leave_household: {
-        Args: { p_household: string }
-        Returns: undefined
-      }
     }
   }
 }
@@ -523,8 +447,6 @@ export type WeeklyPlan = Database['public']['Tables']['weekly_plans']['Row']
 export type WeeklyPlanSlot = Database['public']['Tables']['weekly_plan_slots']['Row']
 export type Cookbook = Database['public']['Tables']['cookbooks']['Row']
 export type CookbookRecipe = Database['public']['Tables']['cookbook_recipes']['Row']
-export type Household = Database['public']['Tables']['households']['Row']
-export type HouseholdMember = Database['public']['Tables']['household_members']['Row']
 export type RecipeRanking = Database['public']['Tables']['recipe_rankings']['Row']
 
 export type RecipeWithIngredients = Recipe & {
