@@ -17,7 +17,8 @@ import InstructionSteps from '@/components/instruction-steps'
 import { isRecipeTechnique, resolveTechniqueState } from '@/lib/skills'
 import { getCuisineEmoji } from '@/lib/cuisine-emoji'
 import { useCacheInvalidation } from '@/lib/queries/hooks'
-import { bucketScore, formatScore, FEEDBACK_OPTIONS, FEEDBACK_ADJECTIVE, type Feedback } from '@/lib/scoring'
+import { formatScore, FEEDBACK_ADJECTIVE, type Feedback } from '@/lib/scoring'
+import { FeedbackButtons, ComparisonDialog, RankFeedbackDialog } from '@/components/ranking-flow'
 
 const CATEGORY_EMOJI: Record<string, string> = {
   produce: '🥦', dairy: '🧀', meat: '🥩', seafood: '🐟',
@@ -25,39 +26,6 @@ const CATEGORY_EMOJI: Record<string, string> = {
 }
 
 const CATEGORY_ORDER = ['produce', 'meat', 'seafood', 'dairy', 'bakery', 'pantry', 'spices', 'frozen', 'other']
-
-// Active-state styling for each feedback choice — green / yellow / red.
-const FEEDBACK_ACTIVE: Record<Feedback, string> = {
-  like: 'border-green-500 bg-green-50 text-green-700',
-  okay: 'border-yellow-500 bg-yellow-50 text-yellow-700',
-  dislike: 'border-red-500 bg-red-50 text-red-700',
-}
-
-// Shared like / okay / dislike picker — used both when logging a cook and when
-// re-ranking, so the taste verdict is chosen the same way in both places.
-function FeedbackButtons({ value, onChange }: { value: Feedback | null; onChange: (f: Feedback) => void }) {
-  return (
-    <div className="grid grid-cols-3 gap-2">
-      {FEEDBACK_OPTIONS.map(opt => {
-        const active = value === opt.value
-        return (
-          <button
-            key={opt.value}
-            type="button"
-            onClick={() => onChange(opt.value)}
-            aria-pressed={active}
-            className={`flex flex-col items-center gap-1 rounded-2xl border-2 px-3 py-2.5 text-xs font-semibold transition-all active:scale-[0.97] ${
-              active ? FEEDBACK_ACTIVE[opt.value] : 'border-border bg-card text-muted-foreground hover:border-brand/40'
-            }`}
-          >
-            <span className="text-lg leading-none">{opt.emoji}</span>
-            {opt.label}
-          </button>
-        )
-      })}
-    </div>
-  )
-}
 
 function groupIngredients(ingredients: RecipeWithDetails['ingredients']) {
   const groups: Record<string, typeof ingredients> = {}
@@ -75,11 +43,10 @@ interface CookDialogProps {
   recipeId: string
   initialFeedback: Feedback | null
   onClose: () => void
-  onSaved: (wasUnranked: boolean, feedback: Feedback | null) => void
-  isAlreadyRanked: boolean
+  onSaved: (feedback: Feedback) => void
 }
 
-function CookDialog({ recipeId, initialFeedback, onClose, onSaved, isAlreadyRanked }: CookDialogProps) {
+function CookDialog({ recipeId, initialFeedback, onClose, onSaved }: CookDialogProps) {
   const [notes, setNotes] = useState('')
   const [feedback, setFeedback] = useState<Feedback | null>(initialFeedback)
   const [saving, setSaving] = useState(false)
@@ -102,7 +69,7 @@ function CookDialog({ recipeId, initialFeedback, onClose, onSaved, isAlreadyRank
         })
       }
       toast.success('Cooking logged! 🎉')
-      onSaved(!isAlreadyRanked, feedback)
+      onSaved(feedback!)
       onClose()
     } catch {
       toast.error('Could not save log')
@@ -133,189 +100,15 @@ function CookDialog({ recipeId, initialFeedback, onClose, onSaved, isAlreadyRank
             className="w-full border border-border rounded-xl p-3 text-sm resize-none h-24 focus:outline-none focus:ring-2 focus:ring-brand/50 bg-card"
           />
         </div>
-        {!isAlreadyRanked && (
-          <p className="text-xs text-brand bg-brand-subtle rounded-xl px-3 py-2 mb-4">
-            After logging, you'll rank this against your other recipes.
-          </p>
-        )}
+        <p className="text-xs text-brand bg-brand-subtle rounded-xl px-3 py-2 mb-4">
+          After logging, you&apos;ll rank this against your other recipes.
+        </p>
         <Button
           onClick={save}
           disabled={saving || !feedback}
           className="w-full bg-brand hover:bg-brand/90 text-brand-foreground h-12 text-base"
         >
           {saving ? 'Saving...' : feedback ? 'Log it!' : 'Rate it to log'}
-        </Button>
-      </div>
-    </BottomSheet>
-  )
-}
-
-// ─── Comparison / Ranking Dialog ──────────────────────────────────────────────
-
-interface RankedRecipe {
-  id: string
-  name: string
-  cuisine: string | null
-  rank: number
-  feedback: Feedback | null
-}
-
-interface ComparisonDialogProps {
-  thisRecipe: { id: string; name: string; feedback: Feedback | null }
-  onClose: () => void
-  onRanked: (rank: number) => void
-}
-
-function ComparisonDialog({ thisRecipe, onClose, onRanked }: ComparisonDialogProps) {
-  const [ranked, setRanked] = useState<RankedRecipe[] | null>(null)
-  const [lo, setLo] = useState(0)
-  const [hi, setHi] = useState(0)
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-
-  useState(() => {
-    // Only compare against recipes in the same like/okay/dislike tier.
-    fetch(`/api/rankings?feedback=${thisRecipe.feedback ?? 'none'}`)
-      .then(async r => {
-        const body = await r.json()
-        if (!r.ok || !Array.isArray(body)) {
-          throw new Error(body?.error || 'Failed to load rankings')
-        }
-        return body as RankedRecipe[]
-      })
-      .then(data => {
-        const others = data.filter(r => r.id !== thisRecipe.id)
-        setRanked(others)
-        setLo(0)
-        setHi(others.length)
-        setLoading(false)
-        if (others.length === 0) saveRank(1)
-      })
-      .catch(err => {
-        toast.error(err?.message || 'Could not load rankings')
-        onClose()
-      })
-  })
-
-  const saveRank = async (position: number) => {
-    setSaving(true)
-    try {
-      const res = await fetch(`/api/recipes/${thisRecipe.id}/rank`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ position }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data?.error || 'Failed')
-      onRanked(data.rank ?? position) // endpoint returns the new global rank
-      onClose()
-    } catch {
-      toast.error('Could not save ranking')
-      setSaving(false)
-    }
-  }
-
-  const choose = (thisRecipeWins: boolean) => {
-    if (!ranked) return
-    const mid = Math.floor((lo + hi) / 2)
-    const newLo = thisRecipeWins ? lo : mid + 1
-    const newHi = thisRecipeWins ? mid : hi
-    if (newLo >= newHi) saveRank(newLo + 1)
-    else { setLo(newLo); setHi(newHi) }
-  }
-
-  const mid = ranked ? Math.floor((lo + hi) / 2) : 0
-  const opponent = ranked?.[mid]
-
-  if (loading || !ranked) {
-    return (
-      <BottomSheet open onClose={onClose} zIndex="elevated">
-        <div className="px-6 pb-10">
-          <p className="text-center text-muted-foreground py-8">Loading rankings…</p>
-        </div>
-      </BottomSheet>
-    )
-  }
-
-  if (saving) {
-    return (
-      <BottomSheet open onClose={onClose} zIndex="elevated">
-        <div className="px-6 pb-10">
-          <p className="text-center text-muted-foreground py-8">Saving your ranking…</p>
-        </div>
-      </BottomSheet>
-    )
-  }
-
-  if (!opponent) return null
-
-  const total = ranked.length
-  const step = Math.ceil(Math.log2(total + 1)) - Math.ceil(Math.log2(hi - lo + 1)) + 1
-  const totalSteps = Math.ceil(Math.log2(total + 1))
-
-  return (
-    <BottomSheet open onClose={onClose} zIndex="default">
-      <div className="px-6 pb-10">
-        <div className="flex items-center justify-between mb-1">
-          <h3 className="font-heading text-lg font-bold text-foreground">Rank this recipe</h3>
-          <span className="text-xs text-muted-foreground">{step}/{totalSteps}</span>
-        </div>
-        <p className="text-sm text-muted-foreground mb-6">Which did you like better?</p>
-
-        <div className="grid grid-cols-2 gap-3">
-          <button
-            onClick={() => choose(true)}
-            className="bg-brand-subtle border-2 border-brand/30 hover:border-brand hover:bg-brand/10 active:scale-[0.97] transition-all rounded-2xl p-4 text-left"
-          >
-            <p className="text-xs text-brand font-medium uppercase tracking-wide mb-1">This one</p>
-            <p className="font-semibold text-foreground text-sm leading-snug">{thisRecipe.name}</p>
-          </button>
-          <button
-            onClick={() => choose(false)}
-            className="bg-muted border-2 border-border hover:border-muted-foreground hover:bg-border active:scale-[0.97] transition-all rounded-2xl p-4 text-left"
-          >
-            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide mb-1">Score {formatScore(bucketScore(mid, ranked.length, thisRecipe.feedback))}</p>
-            <p className="font-semibold text-foreground text-sm leading-snug">{opponent.name}</p>
-          </button>
-        </div>
-
-        <button onClick={onClose} className="mt-4 w-full text-sm text-muted-foreground hover:text-foreground">
-          Skip for now
-        </button>
-      </div>
-    </BottomSheet>
-  )
-}
-
-// ─── Re-rank Feedback Dialog ──────────────────────────────────────────────────
-
-// When re-ranking, ask for the like/okay/dislike verdict again first — just like
-// the initial ranking flow — then hand the chosen tier off to the comparison.
-interface RankFeedbackDialogProps {
-  initialFeedback: Feedback | null
-  onClose: () => void
-  onConfirm: (feedback: Feedback) => void
-}
-
-function RankFeedbackDialog({ initialFeedback, onClose, onConfirm }: RankFeedbackDialogProps) {
-  const [feedback, setFeedback] = useState<Feedback | null>(initialFeedback)
-
-  return (
-    <BottomSheet open onClose={onClose} zIndex="elevated">
-      <div className="px-6 pb-10">
-        <h3 className="font-heading text-lg font-bold text-foreground mb-1">How was it?</h3>
-        <p className="text-sm text-muted-foreground mb-4">
-          Confirm how you feel about this recipe, then we&apos;ll rank it.
-        </p>
-        <div className="mb-6">
-          <FeedbackButtons value={feedback} onChange={setFeedback} />
-        </div>
-        <Button
-          onClick={() => feedback && onConfirm(feedback)}
-          disabled={!feedback}
-          className="w-full bg-brand hover:bg-brand/90 text-brand-foreground h-12 text-base"
-        >
-          {feedback ? 'Continue to ranking' : 'Pick one to continue'}
         </Button>
       </div>
     </BottomSheet>
@@ -577,11 +370,12 @@ export default function RecipeDetail({
   const recipeTechniqueKeys = (recipe.techniques || []).filter(key => techniquesMap.has(key))
   const masteredTechniques = skillProfile?.techniques_mastered ?? []
 
-  const handleCookSaved = (triggerRanking: boolean, feedback: Feedback | null) => {
+  // After logging a cook, always rank it against the other recipes — same as the
+  // re-rank flow. The taste verdict was just chosen in the cook dialog.
+  const handleCookSaved = (feedback: Feedback) => {
     setCookedCount(c => c + 1)
     setCurrentFeedback(feedback)
-    if (triggerRanking) setShowRank(true)
-    else refreshEverywhere()
+    setShowRank(true)
   }
 
   const handleUpdateLogDate = async (logId: string, dateValue: string) => {
@@ -1045,7 +839,6 @@ export default function RecipeDetail({
           initialFeedback={currentFeedback}
           onClose={() => setShowCook(false)}
           onSaved={handleCookSaved}
-          isAlreadyRanked={currentRank !== null}
         />
       )}
 
