@@ -312,15 +312,19 @@ export default function RecipeDetail({
   const [sharing, setSharing] = useState(false)
   // ── Display (hero) image + gallery — shared state so a gallery photo can
   //    be promoted to the hero shown at the top of the page. ──────────────
-  const [heroUrl, setHeroUrl] = useState<string | null>(recipe.image_url)
+  // The explicitly-chosen display image (persisted as recipe.image_url).
+  const [displayUrl, setDisplayUrl] = useState<string | null>(recipe.image_url)
   const [galleryImages, setGalleryImages] = useState<string[]>(recipe.gallery_images ?? [])
+  // Hero shown at the top of the page: the chosen display image, or — when none
+  // is set — automatically the first gallery photo.
+  const heroUrl = displayUrl ?? galleryImages[0] ?? null
   const [heroMenu, setHeroMenu] = useState(false) // action sheet when the hero is tapped
   const [heroLightbox, setHeroLightbox] = useState(false) // full-screen shaded view
   const [showChooser, setShowChooser] = useState(false) // "choose a different display image"
 
   const setAsDisplay = async (url: string) => {
-    const prev = heroUrl
-    setHeroUrl(url) // optimistic
+    const prev = displayUrl
+    setDisplayUrl(url) // optimistic
     try {
       const res = await fetch(`/api/recipes/${recipe.id}`, {
         method: 'PUT',
@@ -330,7 +334,7 @@ export default function RecipeDetail({
       if (!res.ok) throw new Error((await res.json()).error || 'Failed')
       toast.success('Display image updated')
     } catch (e: any) {
-      setHeroUrl(prev) // revert
+      setDisplayUrl(prev) // revert
       toast.error(e.message || 'Could not update display image')
     }
   }
