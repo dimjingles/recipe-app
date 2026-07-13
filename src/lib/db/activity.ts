@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, getUser } from '@/lib/supabase/server'
 import { PublicProfile } from '@/types/database'
 
 export type ActivityType = 'recipe_created' | 'recipe_cooked' | 'cookbook_created'
@@ -33,7 +33,7 @@ export interface Feed {
  */
 export async function getFeed(cursor?: string, limit = 20): Promise<Feed> {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getUser()
   if (!user) return { items: [], nextCursor: null }
 
   let query = supabase
@@ -85,7 +85,7 @@ export async function emitActivity(
 ): Promise<void> {
   try {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getUser()
     if (!user) return
     await supabase.from('activity').insert({
       actor_id: user.id,

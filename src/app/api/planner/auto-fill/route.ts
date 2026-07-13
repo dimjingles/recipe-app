@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, getUser } from '@/lib/supabase/server'
 import { getProfile, buildPrefLines } from '@/lib/db/profile'
 import { normalizeSkillProfile } from '@/lib/skills'
 import { anthropic, HAIKU, extractJsonObject } from '@/lib/anthropic'
@@ -20,7 +20,7 @@ function targetDays(cookFrequency: string | null | undefined): number {
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const { week_start } = await request.json()

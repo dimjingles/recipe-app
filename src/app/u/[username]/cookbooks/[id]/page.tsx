@@ -1,7 +1,7 @@
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, getUser } from '@/lib/supabase/server'
 import { getPublicProfile } from '@/lib/db/social'
 import { RecipeCard } from '@/components/recipe-card'
 
@@ -11,7 +11,7 @@ import { RecipeCard } from '@/components/recipe-card'
 export default async function FriendCookbookPage({ params }: { params: Promise<{ username: string; id: string }> }) {
   const { username, id } = await params
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getUser()
   if (!user) redirect(`/login?next=/u/${username}/cookbooks/${id}`)
 
   const profile = await getPublicProfile(username)

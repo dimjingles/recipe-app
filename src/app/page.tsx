@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { getUser } from '@/lib/supabase/server'
 import { getRecipes } from '@/lib/db/recipes'
 import { getWeekPlan, getWeekStart } from '@/lib/db/planner'
 import { getProfile } from '@/lib/db/profile'
@@ -16,20 +16,22 @@ import { FeedItemRow } from '@/components/feed-item'
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
 export default async function HomePage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  const profile = user ? await getProfile() : null
-  if (user && !profile?.onboarding_completed) {
-    redirect('/onboarding')
-  }
-
+  const user = await getUser()
   const weekStart = getWeekStart()
-  const [recipes, plan, feed] = await Promise.all([
+
+  // Fetch everything the page needs in one parallel batch. profile is only used
+  // for the onboarding gate + avatar, and the data queries don't depend on it,
+  // so overlapping it with them saves a full sequential round-trip (~90ms).
+  const [profile, recipes, plan, feed] = await Promise.all([
+    user ? getProfile() : Promise.resolve(null),
     getRecipes(),
     getWeekPlan(weekStart),
     getFeed(undefined, 5),
   ])
+
+  if (user && !profile?.onboarding_completed) {
+    redirect('/onboarding')
+  }
 
   const recentRecipes = recipes.slice(0, 6)
   const slots = plan?.weekly_plan_slots ?? []

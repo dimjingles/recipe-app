@@ -1,12 +1,11 @@
 import { redirect, notFound } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { getUser } from '@/lib/supabase/server'
 import { getPublicProfile, getFriendRecipes, getFriendCookbooks, getFriendshipStatus, FriendshipStatus } from '@/lib/db/social'
 import FriendProfileView from './friend-profile-view'
 
 export default async function UserProfilePage({ params }: { params: Promise<{ username: string }> }) {
   const { username } = await params
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getUser()
   if (!user) redirect(`/login?next=/u/${username}`)
 
   const profile = await getPublicProfile(username)

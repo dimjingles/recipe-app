@@ -3,7 +3,7 @@ import { anthropic, extractJsonObject, HAIKU } from '@/lib/anthropic'
 import { classifyTechniques, getTechniqueKeys } from '@/lib/ai/classify-techniques'
 import { structureInstructions } from '@/lib/ai/structure-instructions'
 import { getRecipe } from '@/lib/db/recipes'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, getUser } from '@/lib/supabase/server'
 
 function formatInstructionSource(recipe: Awaited<ReturnType<typeof getRecipe>>): string {
   if (!recipe) return ''
@@ -18,7 +18,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   try {
     const { id } = await params
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const body = await request.json()

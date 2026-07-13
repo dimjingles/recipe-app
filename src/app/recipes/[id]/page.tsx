@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, getUser } from '@/lib/supabase/server'
 import { getCookbooks } from '@/lib/db/cookbooks'
 import { getRankedScores } from '@/lib/db/recipes'
 import { getProfile } from '@/lib/db/profile'
@@ -9,7 +9,7 @@ import { classifyTechniques, getTechniqueKeys } from '@/lib/ai/classify-techniqu
 export default async function RecipePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getUser()
 
   const [{ data: recipe }, cookbooks, profile, { data: techniques }, { data: ranking }, { data: membership }, { data: variantRows }, scores] = await Promise.all([
     supabase

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, getUser } from '@/lib/supabase/server'
 import { classifyTechniques, getTechniqueKeys } from '@/lib/ai/classify-techniques'
 import { structureInstructions } from '@/lib/ai/structure-instructions'
 import { emitActivity } from '@/lib/db/activity'
@@ -7,7 +7,7 @@ import { emitActivity } from '@/lib/db/activity'
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const body = await request.json()

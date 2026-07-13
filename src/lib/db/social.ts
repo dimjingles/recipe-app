@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, getUser } from '@/lib/supabase/server'
 import { SupabaseClient } from '@supabase/supabase-js'
 import { Database, PublicProfile, Recipe, CookbookWithCount } from '@/types/database'
 import { normalizeUsername, sanitizeUsernameQuery, validateUsername } from '@/lib/username'
@@ -33,7 +33,7 @@ export async function searchUsers(query: string): Promise<PublicProfile[]> {
   const q = sanitizeUsernameQuery(query)
   if (q.length < 2) return []
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getUser()
   const { data, error } = await supabase
     .from('public_profiles')
     .select('*')
@@ -70,7 +70,7 @@ export async function updateProfile(fields: {
   avatar_url?: string | null
 }): Promise<PublicProfile> {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getUser()
   if (!user) throw new Error('Not authenticated')
 
   const patch: Database['public']['Tables']['profiles']['Update'] = {
@@ -116,7 +116,7 @@ async function profilesByIds(supabase: Client, ids: string[]): Promise<PublicPro
 /** Accepted friends of the current user. */
 export async function getFriends(): Promise<PublicProfile[]> {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getUser()
   if (!user) return []
   const { data: rows, error } = await supabase
     .from('friendships')
@@ -130,7 +130,7 @@ export async function getFriends(): Promise<PublicProfile[]> {
 /** Incoming pending requests (someone else asked to be my friend). */
 export async function getPendingRequests(): Promise<PublicProfile[]> {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getUser()
   if (!user) return []
   const { data: rows, error } = await supabase
     .from('friendships')
@@ -144,7 +144,7 @@ export async function getPendingRequests(): Promise<PublicProfile[]> {
 /** Outgoing pending requests I've sent that haven't been answered. */
 export async function getSentRequests(): Promise<PublicProfile[]> {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getUser()
   if (!user) return []
   const { data: rows, error } = await supabase
     .from('friendships')
@@ -159,7 +159,7 @@ export async function getSentRequests(): Promise<PublicProfile[]> {
 /** The current user's relationship toward `otherId`. */
 export async function getFriendshipStatus(otherId: string): Promise<FriendshipStatus> {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getUser()
   if (!user || user.id === otherId) return 'none'
   // Canonical uuid string ordering matches Postgres least/greatest.
   const [a, b] = [user.id, otherId].sort()

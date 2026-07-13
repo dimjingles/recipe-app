@@ -1,11 +1,11 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, getUser } from '@/lib/supabase/server'
 import { Database, Profile, RecipeSortPreference, RecipeSortDirection, SkillProfile } from '@/types/database'
 import { normalizeSkillProfile } from '@/lib/skills'
 import { normalizeUsername, validateUsername } from '@/lib/username'
 
 export async function getProfile(): Promise<Profile | null> {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getUser()
   if (!user) return null
 
   const { data, error } = await supabase
@@ -67,7 +67,7 @@ export async function completeOnboarding(answers: {
   username?: string
 }): Promise<{ username_taken: boolean }> {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getUser()
   if (!user) throw new Error('Not authenticated')
 
   const base: Database['public']['Tables']['profiles']['Insert'] = {

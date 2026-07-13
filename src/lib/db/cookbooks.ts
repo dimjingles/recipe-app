@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, getUser } from '@/lib/supabase/server'
 import { Cookbook, CookbookWithCount, CookbookWithRecipes } from '@/types/database'
 import { emitActivity } from '@/lib/db/activity'
 
@@ -14,7 +14,7 @@ async function currentHouseholdId(supabase: Awaited<ReturnType<typeof createClie
 
 export async function getCookbooks(): Promise<CookbookWithCount[]> {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getUser()
   if (!user) return []
 
   const householdId = await currentHouseholdId(supabase, user.id)
@@ -30,7 +30,7 @@ export async function getCookbooks(): Promise<CookbookWithCount[]> {
 
 export async function getCookbook(id: string): Promise<CookbookWithRecipes | null> {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getUser()
   if (!user) return null
 
   const householdId = await currentHouseholdId(supabase, user.id)
@@ -46,7 +46,7 @@ export async function getCookbook(id: string): Promise<CookbookWithRecipes | nul
 
 export async function createCookbook(name: string, recipeIds: string[] = []): Promise<Cookbook> {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getUser()
   if (!user) throw new Error('Not authenticated')
 
   const { data: cookbook, error: cbError } = await supabase
@@ -107,7 +107,7 @@ export async function removeRecipeFromCookbook(cookbookId: string, recipeId: str
  */
 export async function setRecipeCookbooks(recipeId: string, cookbookIds: string[]): Promise<void> {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getUser()
   if (!user) throw new Error('Not authenticated')
 
   // Get all cookbook IDs owned by this user

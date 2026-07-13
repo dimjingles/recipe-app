@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { anthropic, SONNET } from '@/lib/anthropic'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, getUser } from '@/lib/supabase/server'
 import { getRecipe } from '@/lib/db/recipes'
 import { getProfile, updateSkillProfile } from '@/lib/db/profile'
 import { findReadyTechnique, isRecipeTechnique, normalizeSkillProfile } from '@/lib/skills'
@@ -9,7 +9,7 @@ import type { Technique } from '@/types/database'
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json()

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, getUser } from '@/lib/supabase/server'
 
 // Verify the user owns this cookbook
 async function verifyCookbookOwnership(supabase: Awaited<ReturnType<typeof createClient>>, cookbookId: string, userId: string) {
@@ -19,7 +19,7 @@ export async function POST(
   try {
     const { id: cookbookId } = await params
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     if (!await verifyCookbookOwnership(supabase, cookbookId, user.id)) {
@@ -47,7 +47,7 @@ export async function DELETE(
   try {
     const { id: cookbookId } = await params
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     if (!await verifyCookbookOwnership(supabase, cookbookId, user.id)) {

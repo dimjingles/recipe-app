@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, getUser } from '@/lib/supabase/server'
 
 // Normalize unit to a standard for combining
 function normalizeUnit(unit: string | null): string {
@@ -36,7 +36,7 @@ function parseQuantity(qty: string | null): number {
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const weekStart = request.nextUrl.searchParams.get('week_start')

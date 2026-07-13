@@ -1,14 +1,13 @@
 import { getCookbook } from '@/lib/db/cookbooks'
 import { getMyHouseholdId } from '@/lib/db/households'
 import { getRankedScores } from '@/lib/db/recipes'
-import { createClient } from '@/lib/supabase/server'
+import { getUser } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import CookbookDetailView from '@/components/cookbook-detail-view'
 
 export default async function CookbookPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getUser()
 
   const [cookbook, householdId, scores] = await Promise.all([
     getCookbook(id),
