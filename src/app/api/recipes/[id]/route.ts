@@ -13,21 +13,19 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const body = await request.json()
     const { ingredients, ...recipeData } = body
     if ('instructions' in recipeData) {
-      if (recipeData.instructions) {
-        const [techniques, instruction_steps] = await Promise.all([
-          recipeData.techniques?.length
-            ? Promise.resolve(recipeData.techniques as string[])
-            : getTechniqueKeys(supabase).then(keys =>
-                classifyTechniques(recipeData.name || 'Recipe', recipeData.instructions, keys)
-              ),
-          structureInstructions(recipeData.name || 'Recipe', recipeData.instructions),
-        ])
-        if (techniques.length) recipeData.techniques = techniques
-        recipeData.instruction_steps = instruction_steps.length ? instruction_steps : null
-      } else {
-        // Instructions cleared — wipe derived steps too
-        recipeData.instruction_steps = null
+      if (!recipeData.instructions?.trim()) {
+        return NextResponse.json({ error: 'Instructions are required' }, { status: 400 })
       }
+      const [techniques, instruction_steps] = await Promise.all([
+        recipeData.techniques?.length
+          ? Promise.resolve(recipeData.techniques as string[])
+          : getTechniqueKeys(supabase).then(keys =>
+              classifyTechniques(recipeData.name || 'Recipe', recipeData.instructions, keys)
+            ),
+        structureInstructions(recipeData.name || 'Recipe', recipeData.instructions),
+      ])
+      if (techniques.length) recipeData.techniques = techniques
+      recipeData.instruction_steps = instruction_steps.length ? instruction_steps : null
     }
 
     const { data: recipe, error } = await supabase

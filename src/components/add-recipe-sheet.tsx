@@ -13,7 +13,6 @@ import {
   MessageCircle,
   PenLine,
   Send,
-  Type,
 } from 'lucide-react'
 import { BottomSheet } from '@/components/ui/bottom-sheet'
 import { Input } from '@/components/ui/input'
@@ -147,14 +146,13 @@ export function AddRecipeSheet({ open, onClose }: AddRecipeSheetProps) {
             <div className="grid grid-cols-2 gap-3">
               {[
                 { icon: Link2, label: 'Import from web', onClick: () => go('/import') },
-                { icon: Type, label: 'Import from text', onClick: () => go('/import?mode=text') },
-                { icon: PenLine, label: 'Write from scratch', onClick: () => go('/recipes/new'), wide: true },
-              ].map(({ icon: Icon, label, onClick, wide }) => (
+                { icon: PenLine, label: 'Write from scratch', onClick: () => go('/recipes/new') },
+              ].map(({ icon: Icon, label, onClick }) => (
                 <button
                   key={label}
                   onClick={onClick}
                   disabled={navigating}
-                  className={`flex flex-col items-start gap-3 rounded-2xl border border-border bg-card p-4 text-left shadow-card transition-all hover:border-brand/40 active:scale-[0.98] ${wide ? 'col-span-2 flex-row items-center' : ''}`}
+                  className="flex flex-col items-start gap-3 rounded-2xl border border-border bg-card p-4 text-left shadow-card transition-all hover:border-brand/40 active:scale-[0.98]"
                 >
                   <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand-subtle text-brand">
                     <Icon className="h-5 w-5" />

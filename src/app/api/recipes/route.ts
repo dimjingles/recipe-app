@@ -13,6 +13,10 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { ingredients, ...recipeData } = body
 
+    if (!recipeData.instructions?.trim()) {
+      return NextResponse.json({ error: 'Instructions are required' }, { status: 400 })
+    }
+
     const { data: recipe, error: recipeError } = await supabase
       .from('recipes')
       .insert({ ...recipeData, user_id: user.id })

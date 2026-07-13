@@ -66,7 +66,6 @@ export default function EditRecipeForm({ recipe }: { recipe: RecipeWithIngredien
   )
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
-  const [instructionsLoading, setInstructionsLoading] = useState(false)
 
   const addIngredient = () => {
     setIngredients(prev => [...prev, { name: '', quantity: '', unit: '', category: 'other' }])
@@ -95,38 +94,6 @@ export default function EditRecipeForm({ recipe }: { recipe: RecipeWithIngredien
     setCustomTagInput('')
   }
 
-  const handleGenerateInstructions = async () => {
-    if (!name.trim()) {
-      toast.error('Enter a recipe name first')
-      return
-    }
-    if (ingredients.length === 0 || !ingredients.some(i => i.name.trim())) {
-      toast.error('Add at least one ingredient first')
-      return
-    }
-    setInstructionsLoading(true)
-    try {
-      const res = await fetch('/api/recipes/generate-instructions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: name.trim(),
-          ingredients: ingredients.filter(i => i.name.trim()),
-        }),
-      })
-      const data = await res.json()
-      if (data.error) throw new Error(data.error)
-      // AI returns a numbered blob — split it into separate editable steps.
-      if (data.instructions) setSteps(textToSteps(splitSourceNote(data.instructions).body))
-      if (data.difficulty && !difficulty) setDifficulty(data.difficulty)
-      toast.success('Instructions generated!')
-    } catch {
-      toast.error('Could not generate instructions. Try again.')
-    } finally {
-      setInstructionsLoading(false)
-    }
-  }
-
   const handleDelete = async () => {
     if (!confirm('Delete this recipe? This cannot be undone.')) return
     setDeleting(true)
@@ -142,6 +109,7 @@ export default function EditRecipeForm({ recipe }: { recipe: RecipeWithIngredien
 
   const handleSave = async () => {
     if (!name.trim()) { toast.error('Recipe name is required'); return }
+    if (!stepsToText(steps).trim()) { toast.error('Add at least one instruction step'); return }
     setSaving(true)
     try {
       const body = stepsToText(steps)
@@ -266,14 +234,11 @@ export default function EditRecipeForm({ recipe }: { recipe: RecipeWithIngredien
           </div>
         </div>
 
-        {/* Instructions — step-based editor with AI generation */}
+        {/* Instructions — step-based editor. */}
         <InstructionsEditor
           steps={steps}
           onStepsChange={setSteps}
           ingredientNames={ingredients.map(i => i.name).filter(Boolean)}
-          onGenerate={handleGenerateInstructions}
-          generating={instructionsLoading}
-          generateDisabled={!name.trim()}
         />
 
         {/* Tags - Chip multi-select */}
@@ -330,7 +295,7 @@ export default function EditRecipeForm({ recipe }: { recipe: RecipeWithIngredien
           </div>
         </div>
 
-        <Button onClick={handleSave} disabled={saving || deleting || !name.trim()} className="w-full bg-orange-500 hover:bg-orange-600 text-white h-12 text-base font-semibold">
+        <Button onClick={handleSave} disabled={saving || deleting || !name.trim() || !steps.some(s => s.trim())} className="w-full bg-orange-500 hover:bg-orange-600 text-white h-12 text-base font-semibold">
           {saving ? <><Loader2 className="w-4 h-4 animate-spin mr-2" /> Saving...</> : 'Save Changes'}
         </Button>
         <button
