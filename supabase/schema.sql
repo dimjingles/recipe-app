@@ -10,7 +10,8 @@ create table if not exists profiles (
   household_size   text,        -- 'just_me' | 'couple' | 'family'
   cook_frequency   text,        -- '0-2' | '3-5' | '6+'
   referral_source  text,
-  primary_goal     text,        -- 'healthier'|'save_time'|'save_money'|'learn'|'reduce_waste'
+  primary_goal     text,        -- legacy primary selection: 'healthier'|'save_time'|'save_money'|'learn'|'reduce_waste'
+  primary_goals    text[] default '{}', -- multi-select cooking goals
   diet             text,        -- 'balanced'|'whole_food'|'mediterranean'|'flexitarian'|'pescatarian'|'vegetarian'|'vegan'|'low_carb'
   allergies        text[] default '{}',
   favorite_cuisines text[] default '{}',

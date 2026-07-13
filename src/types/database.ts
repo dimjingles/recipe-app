@@ -75,6 +75,7 @@ export interface Database {
           cook_frequency: string | null
           referral_source: string | null
           primary_goal: string | null
+          primary_goals: string[]
           diet: string | null
           allergies: string[]
           favorite_cuisines: string[]
@@ -96,6 +97,7 @@ export interface Database {
           cook_frequency?: string | null
           referral_source?: string | null
           primary_goal?: string | null
+          primary_goals?: string[]
           diet?: string | null
           allergies?: string[]
           favorite_cuisines?: string[]

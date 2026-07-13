@@ -16,7 +16,9 @@ export async function POST(request: NextRequest) {
       household_size:    body.household_size    ?? null,
       cook_frequency:    body.cook_frequency    ?? null,
       referral_source:   body.referral_source   ?? null,
-      primary_goal:      body.primary_goal      ?? null,
+      primary_goals:     Array.isArray(body.primary_goals)
+        ? body.primary_goals
+        : (body.primary_goal ? [body.primary_goal] : []),
       diet:              body.diet              ?? null,
       allergies:         Array.isArray(body.allergies)         ? body.allergies         : [],
       favorite_cuisines: Array.isArray(body.favorite_cuisines) ? body.favorite_cuisines : [],

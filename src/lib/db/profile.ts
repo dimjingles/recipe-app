@@ -3,6 +3,11 @@ import { Database, Profile, RecipeSortPreference, RecipeSortDirection, SkillProf
 import { normalizeSkillProfile } from '@/lib/skills'
 import { normalizeUsername, validateUsername } from '@/lib/username'
 
+function profileGoals(profile: Profile | null): string[] {
+  if (!profile) return []
+  return profile.primary_goals?.length ? profile.primary_goals : profile.primary_goal ? [profile.primary_goal] : []
+}
+
 export async function getProfile(): Promise<Profile | null> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -39,8 +44,9 @@ export function buildPrefLines(profile: Profile | null): string[] {
   if (profile.allergies?.length && !profile.allergies.includes('none')) {
     lines.push(`Allergies / avoid: ${profile.allergies.join(', ')}`)
   }
-  if (profile.primary_goal) {
-    lines.push(`Cooking goal: ${profile.primary_goal.replace('_', ' ')}`)
+  const goals = profileGoals(profile)
+  if (goals.length) {
+    lines.push(`Cooking goals: ${goals.map(goal => goal.replace('_', ' ')).join(', ')}`)
   }
   if (profile.skill_level) {
     lines.push(`Skill level: ${profile.skill_level.replace('_', ' ')}`)
@@ -58,6 +64,7 @@ export async function completeOnboarding(answers: {
   household_size?: string
   cook_frequency?: string
   referral_source?: string
+  primary_goals?: string[]
   primary_goal?: string
   diet?: string
   allergies?: string[]
@@ -75,7 +82,8 @@ export async function completeOnboarding(answers: {
     household_size: answers.household_size ?? null,
     cook_frequency: answers.cook_frequency ?? null,
     referral_source: answers.referral_source ?? null,
-    primary_goal: answers.primary_goal ?? null,
+    primary_goal: answers.primary_goals?.[0] ?? answers.primary_goal ?? null,
+    primary_goals: answers.primary_goals ?? (answers.primary_goal ? [answers.primary_goal] : []),
     diet: answers.diet ?? null,
     allergies: answers.allergies ?? [],
     favorite_cuisines: answers.favorite_cuisines ?? [],

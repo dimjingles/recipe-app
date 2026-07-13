@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { validateUsername } from '@/lib/username'
+import { buildGoalCommitLabel, normalizePrimaryGoals, toggleGoalSelection } from '@/lib/onboarding/goals'
 import OnboardingShell from '@/components/onboarding/shell'
 import OptionCard from '@/components/onboarding/option-card'
 import OptionGrid from '@/components/onboarding/option-grid'
@@ -48,7 +49,7 @@ type Answers = {
   household_size: string
   cook_frequency: string
   referral_source: string
-  primary_goal: string
+  primary_goals: string[]
   diet: string
   allergies: string[]
   favorite_cuisines: string[]
@@ -61,13 +62,25 @@ const INITIAL_ANSWERS: Answers = {
   household_size: '',
   cook_frequency: '',
   referral_source: '',
-  primary_goal: '',
+  primary_goals: [],
   diet: '',
   allergies: [],
   favorite_cuisines: [],
   skill_level: '',
   meal_reminders: false,
   username: '',
+}
+
+type StoredAnswers = Partial<Answers> & { primary_goal?: unknown; primary_goals?: unknown }
+
+function normalizeStoredAnswers(value: StoredAnswers): Answers {
+  return {
+    ...INITIAL_ANSWERS,
+    ...value,
+    primary_goals: normalizePrimaryGoals(value.primary_goals ?? value.primary_goal),
+    allergies: Array.isArray(value.allergies) ? value.allergies : [],
+    favorite_cuisines: Array.isArray(value.favorite_cuisines) ? value.favorite_cuisines : [],
+  }
 }
 
 // ─── Option data ──────────────────────────────────────────────────────────────
@@ -173,14 +186,6 @@ const CONFETTI_PIECES = Array.from({ length: 36 }, (_, i) => ({
   size: `${8 + (i % 3) * 4}px`,
 }))
 
-const GOAL_LABELS: Record<string, string> = {
-  healthier: 'eating healthier',
-  save_time: 'saving time in the kitchen',
-  save_money: 'saving money on food',
-  learn: 'learning to cook',
-  reduce_waste: 'reducing food waste',
-}
-
 // ── Shared loading visual ─────────────────────────────────────────────────────
 
 function DarkLoadingScreen({ message }: { message: string }) {
@@ -240,18 +245,19 @@ export default function OnboardingWizard({ isAuthenticated }: { isAuthenticated:
   // ── Hydrate from localStorage on mount ──────────────────────────────────────
   useEffect(() => {
     const stored = loadFromStorage()
+    const storedAnswers = stored ? normalizeStoredAnswers(stored.answers as StoredAnswers) : null
 
     if (stored?.pendingSubmit && isAuthenticated) {
       // Returned from Google OAuth successfully → auto-flush answers to DB
-      setAnswers(stored.answers)
+      setAnswers(storedAnswers!)
       setStep(17)
     } else if (stored?.pendingSubmit) {
       // OAuth wasn't completed (user closed the Google popup / cancelled) → show account step
-      setAnswers(stored.answers)
+      setAnswers(storedAnswers!)
       setStep(16)
     } else if (stored !== null && stored !== undefined && stored.step >= 0 && stored.step <= 13) {
       // Mid-flow page refresh → restore progress
-      setAnswers(stored.answers)
+      setAnswers(storedAnswers!)
       setStep(stored.step)
     } else if (isAuthenticated) {
       // Already signed in, no saved progress → skip welcome screen
@@ -271,6 +277,13 @@ export default function OnboardingWizard({ isAuthenticated }: { isAuthenticated:
 
   const set = <K extends keyof Answers>(key: K, value: Answers[K]) =>
     setAnswers(prev => ({ ...prev, [key]: value }))
+
+  const toggleGoal = (value: string) => {
+    setAnswers(prev => ({
+      ...prev,
+      primary_goals: toggleGoalSelection(prev.primary_goals, value),
+    }))
+  }
 
   const toggleArray = (key: 'allergies' | 'favorite_cuisines', value: string) => {
     setAnswers(prev => {
@@ -295,7 +308,7 @@ export default function OnboardingWizard({ isAuthenticated }: { isAuthenticated:
       case 1: return !!answers.cook_frequency
       case 2: return !!answers.referral_source
       case 3: return true   // value-prop graph
-      case 4: return !!answers.primary_goal
+      case 4: return answers.primary_goals.length > 0
       case 5: return !!answers.diet
       case 6: return true   // allergies optional
       case 7: return answers.favorite_cuisines.length > 0
@@ -440,7 +453,7 @@ export default function OnboardingWizard({ isAuthenticated }: { isAuthenticated:
     const radius = 44
     const circumference = 2 * Math.PI * radius
     const dashOffset = circumference * (1 - holdProgress / 100)
-    const goalLabel = GOAL_LABELS[answers.primary_goal] || 'reaching your cooking goals'
+    const goalLabel = buildGoalCommitLabel(answers.primary_goals)
 
     return (
       <div className={cn(
@@ -639,7 +652,7 @@ export default function OnboardingWizard({ isAuthenticated }: { isAuthenticated:
 
   // ─── Shell-wrapped steps (0–13) ─────────────────────────────────────────────
   const showBack = step > 0
-  const stepContent = renderStepContent(step, answers, set, toggleArray, goNext, handleNotificationRequest)
+  const stepContent = renderStepContent(step, answers, set, toggleGoal, toggleArray, goNext, handleNotificationRequest)
 
   return (
     <OnboardingShell
@@ -661,6 +674,7 @@ function renderStepContent(
   step: number,
   answers: Answers,
   set: <K extends keyof Answers>(key: K, value: Answers[K]) => void,
+  toggleGoal: (value: string) => void,
   toggleArray: (key: 'allergies' | 'favorite_cuisines', value: string) => void,
   goNext: () => void,
   handleNotificationRequest: () => void,
@@ -803,10 +817,10 @@ function renderStepContent(
       return (
         <div>
           <h1 className="text-3xl font-bold text-gray-900 leading-tight mb-2">
-            What&apos;s your goal?
+            What are your goals?
           </h1>
           <p className="text-gray-400 text-sm mb-8">
-            This helps us generate a plan for your recipe ideas.
+            Pick as many as apply. This helps us generate a plan for your recipe ideas.
           </p>
           <div className="flex flex-col gap-3">
             {GOAL_OPTIONS.map(o => (
@@ -815,8 +829,8 @@ function renderStepContent(
                 icon={o.icon}
                 label={o.label}
                 description={o.description}
-                selected={answers.primary_goal === o.value}
-                onClick={() => set('primary_goal', o.value)}
+                selected={answers.primary_goals.includes(o.value)}
+                onClick={() => toggleGoal(o.value)}
               />
             ))}
           </div>

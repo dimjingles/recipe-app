@@ -35,8 +35,13 @@ export async function POST(request: NextRequest) {
     if (profile?.allergies?.length && !profile.allergies.includes('none')) {
       prefLines.push(`Allergies / avoid: ${profile.allergies.join(', ')}`)
     }
-    if (profile?.primary_goal) {
-      prefLines.push(`Cooking goal: ${profile.primary_goal.replace('_', ' ')}`)
+    const goals = profile?.primary_goals?.length
+      ? profile.primary_goals
+      : profile?.primary_goal
+        ? [profile.primary_goal]
+        : []
+    if (goals.length) {
+      prefLines.push(`Cooking goals: ${goals.map(goal => goal.replace('_', ' ')).join(', ')}`)
     }
     if (profile?.skill_level) {
       prefLines.push(`Skill level: ${profile.skill_level.replace('_', ' ')}`)
