@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useCacheInvalidation } from '@/lib/queries/hooks'
 import { Loader2, AlertTriangle, ArrowLeftRight, Minus, Plus, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -39,6 +40,7 @@ interface AdaptRecipeDialogProps {
 
 export default function AdaptRecipeDialog({ recipeId, currentServings, onClose }: AdaptRecipeDialogProps) {
   const router = useRouter()
+  const invalidate = useCacheInvalidation()
   const [mode, setMode] = useState<Mode>('menu')
   const [targetServings, setTargetServings] = useState(Math.max(1, currentServings))
   const [pantryText, setPantryText] = useState('')
@@ -101,6 +103,7 @@ export default function AdaptRecipeDialog({ recipeId, currentServings, onClose }
       const data = await res.json()
       if (!res.ok || data.error) throw new Error(data.error || 'Failed to save')
       toast.success('Variant saved! 🎉')
+      invalidate.recipesChanged()
       onClose()
       router.push(`/recipes/${data.id}`)
       router.refresh()

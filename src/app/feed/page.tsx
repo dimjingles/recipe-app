@@ -1,12 +1,7 @@
-import { redirect } from 'next/navigation'
-import { getUser } from '@/lib/supabase/server'
-import { getFeed } from '@/lib/db/activity'
-import FeedList from './feed-list'
+import FeedClient from './feed-client'
 
-export default async function FeedPage() {
-  const user = await getUser()
-  if (!user) redirect('/login')
-
-  const feed = await getFeed()
-  return <FeedList initialItems={feed.items} initialCursor={feed.nextCursor} />
+// Zero-await static shell: data comes from the client query cache, so
+// client-side navigation here needs no server round-trip.
+export default function FeedPage() {
+  return <FeedClient />
 }

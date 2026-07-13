@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { validateUsername } from '@/lib/username'
+import { clearPersistedCache } from '@/components/query-provider'
 import OnboardingShell from '@/components/onboarding/shell'
 import OptionCard from '@/components/onboarding/option-card'
 import OptionGrid from '@/components/onboarding/option-grid'
@@ -392,6 +393,9 @@ export default function OnboardingWizard({ isAuthenticated }: { isAuthenticated:
           throw new Error(body.error || `Request failed (${res.status})`)
         }
         clearStorage()
+        // Drop the persisted query cache: a stale `me` (onboarding_completed:
+        // false) would bounce the user straight back here from the home page.
+        clearPersistedCache()
         // Rare: the handle got claimed between selection and save — let them re-pick.
         window.location.href = body.username_taken ? '/profile' : '/'
       })

@@ -15,6 +15,7 @@ import { RecipeCard } from '@/components/recipe-card'
 import { AddRecipeSheet } from '@/components/add-recipe-sheet'
 import { EmptyState, RecipeBookIllustration } from '@/components/ui/empty-state'
 import { Shimmer } from '@/components/ui/shimmer'
+import { useCacheInvalidation } from '@/lib/queries/hooks'
 
 const RECIPE_TYPES = [
   { value: 'breakfast', label: 'Breakfast' },
@@ -112,6 +113,7 @@ export default function RecipeLibrary({
   initialSortDirection?: RecipeSortDirection
 }) {
   const router = useRouter()
+  const invalidate = useCacheInvalidation()
   const [search, setSearch] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
   const [scope, setScope] = useState<'all' | 'personal' | 'household'>('all')
@@ -225,6 +227,7 @@ export default function RecipeLibrary({
       if (saved.error) throw new Error(saved.error)
 
       toast.success(`${result.name} added to your library!`)
+      invalidate.recipesChanged()
       router.push(`/recipes/${saved.id}`)
     } catch (e: any) {
       toast.error(e.message || 'Could not add recipe')
@@ -247,6 +250,7 @@ export default function RecipeLibrary({
         body: JSON.stringify({ recipe_sort_preference: nextSort, recipe_sort_direction: nextDirection }),
       })
       if (!res.ok) throw new Error('Could not save sort preference')
+      invalidate.meChanged()
     } catch {
       if (saveSortSeq.current === requestSeq) {
         toast.error('Could not save sort preference')
@@ -284,6 +288,7 @@ export default function RecipeLibrary({
         cookbook_recipes: newCookbookRecipes.map(id => ({ recipe_id: id })),
       }
       toast.success(`"${newCookbookName.trim()}" created!`)
+      invalidate.cookbooksChanged()
       setCookbooks(prev => [...prev, newCookbook])
       setSelectedCookbook(data.id)
       closeCreateCookbook()

@@ -5,6 +5,7 @@ import BottomNav from '@/components/bottom-nav'
 import { Toaster } from '@/components/ui/sonner'
 import ServiceWorkerRegister from '@/components/service-worker-register'
 import { PageTransition } from '@/components/page-transition'
+import { QueryProvider } from '@/components/query-provider'
 
 const geist = Geist({ subsets: ['latin'], variable: '--font-sans' })
 
@@ -39,10 +40,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
       </head>
       <body className="min-h-screen antialiased">
-        <main className="min-h-screen pb-28 md:pb-8 md:pl-24">
-          <PageTransition>{children}</PageTransition>
-        </main>
-        <BottomNav />
+        <QueryProvider>
+          <main className="min-h-screen pb-28 md:pb-8 md:pl-24">
+            <PageTransition>{children}</PageTransition>
+          </main>
+          <BottomNav />
+        </QueryProvider>
         <Toaster position="top-center" richColors />
         <ServiceWorkerRegister />
       </body>

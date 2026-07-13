@@ -9,6 +9,7 @@ import { BottomSheet } from '@/components/ui/bottom-sheet'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { CookbookWithCount, RecipeWithIngredients } from '@/types/database'
+import { useCacheInvalidation } from '@/lib/queries/hooks'
 
 interface CookbooksViewProps {
   initialCookbooks: CookbookWithCount[]
@@ -17,6 +18,7 @@ interface CookbooksViewProps {
 
 export default function CookbooksView({ initialCookbooks, initialRecipes }: CookbooksViewProps) {
   const router = useRouter()
+  const invalidate = useCacheInvalidation()
   const [cookbooks, setCookbooks] = useState(initialCookbooks)
 
   // Create sheet
@@ -48,6 +50,7 @@ export default function CookbooksView({ initialCookbooks, initialRecipes }: Cook
       const data = await res.json()
       if (data.error) throw new Error(data.error)
       toast.success(`"${newName.trim()}" created!`)
+      invalidate.cookbooksChanged()
       setCookbooks(prev => [...prev, { ...data, cookbook_recipes: selectedRecipes.map(id => ({ recipe_id: id })) }])
       setShowCreate(false)
       setNewName('')
@@ -77,6 +80,7 @@ export default function CookbooksView({ initialCookbooks, initialRecipes }: Cook
       const data = await res.json()
       if (data.error) throw new Error(data.error)
       setCookbooks(prev => prev.map(c => c.id === id ? { ...c, name: renameValue.trim() } : c))
+      invalidate.cookbooksChanged()
       toast.success('Renamed!')
     } catch (e: any) {
       toast.error(e.message || 'Could not rename')
@@ -93,6 +97,7 @@ export default function CookbooksView({ initialCookbooks, initialRecipes }: Cook
       if (data.error) throw new Error(data.error)
       setCookbooks(prev => prev.filter(c => c.id !== id))
       setDeletingId(null)
+      invalidate.cookbooksChanged()
       toast.success('Cookbook deleted')
     } catch (e: any) {
       toast.error(e.message || 'Could not delete')

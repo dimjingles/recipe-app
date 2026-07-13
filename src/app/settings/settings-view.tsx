@@ -9,9 +9,11 @@ import {
   User,
   Users,
 } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
 import { cn } from '@/lib/utils'
 import type { ChefPreferences } from '@/lib/cook/chef-preferences'
 import ChefPreferencesCard from './chef-preferences-card'
+import { clearPersistedCache } from '@/components/query-provider'
 
 const LINKS = [
   { href: '/profile', label: 'Edit profile', description: 'Name, username & photo', icon: User },
@@ -28,6 +30,7 @@ export default function SettingsView({
   version: string
   chef: ChefPreferences
 }) {
+  const queryClient = useQueryClient()
   return (
     <div className="mx-auto max-w-lg px-5 pt-8 pb-24">
       <div className="mb-8 flex items-center gap-3">
@@ -70,8 +73,9 @@ export default function SettingsView({
       {/* Cook with AI */}
       <ChefPreferencesCard initial={chef} />
 
-      {/* Sign out */}
-      <form action="/auth/signout" method="POST">
+      {/* Sign out — drop the persisted query cache so no user data survives
+          on a shared device; the form then posts and redirects as before. */}
+      <form action="/auth/signout" method="POST" onSubmit={() => clearPersistedCache(queryClient)}>
         <button
           type="submit"
           className="flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-card py-3.5 text-sm font-semibold text-muted-foreground transition-colors hover:text-destructive"

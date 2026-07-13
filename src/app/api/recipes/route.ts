@@ -3,6 +3,18 @@ import { createClient, getUser } from '@/lib/supabase/server'
 import { classifyTechniques, getTechniqueKeys } from '@/lib/ai/classify-techniques'
 import { structureInstructions } from '@/lib/ai/structure-instructions'
 import { emitActivity } from '@/lib/db/activity'
+import { getRecipes } from '@/lib/db/recipes'
+
+// The user's recipe library (own + household), same shape the pages render.
+export async function GET() {
+  try {
+    const user = await getUser()
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json(await getRecipes())
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message || 'Failed to fetch recipes' }, { status: 500 })
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {

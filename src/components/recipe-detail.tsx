@@ -16,6 +16,7 @@ import ChefAiChat from '@/components/chef-ai-chat'
 import InstructionSteps from '@/components/instruction-steps'
 import { isRecipeTechnique, resolveTechniqueState } from '@/lib/skills'
 import { getCuisineEmoji } from '@/lib/cuisine-emoji'
+import { useCacheInvalidation } from '@/lib/queries/hooks'
 import { bucketScore, formatScore, FEEDBACK_OPTIONS, FEEDBACK_ADJECTIVE, type Feedback } from '@/lib/scoring'
 
 const CATEGORY_EMOJI: Record<string, string> = {
@@ -497,6 +498,13 @@ export default function RecipeDetail({
   score: number | null
 }) {
   const router = useRouter()
+  const invalidate = useCacheInvalidation()
+  // Converted pages (home/recipes/planner/cookbooks) render from the client
+  // query cache, so a refresh of this server-rendered page alone isn't enough.
+  const refreshEverywhere = () => {
+    invalidate.recipesChanged()
+    router.refresh()
+  }
   const [showCook, setShowCook] = useState(false)
   const [showRerankFeedback, setShowRerankFeedback] = useState(false)
   const [showRank, setShowRank] = useState(false)
@@ -546,7 +554,7 @@ export default function RecipeDetail({
       if (!res.ok) throw new Error((await res.json()).error || 'Failed')
       setOwnerScope(next ? 'household' : 'user')
       toast.success(next ? 'Shared with your household' : 'Now personal again')
-      router.refresh()
+      refreshEverywhere()
     } catch (e: any) {
       toast.error(e.message || 'Could not update sharing')
     } finally {
@@ -573,7 +581,7 @@ export default function RecipeDetail({
     setCookedCount(c => c + 1)
     setCurrentFeedback(feedback)
     if (triggerRanking) setShowRank(true)
-    else router.refresh()
+    else refreshEverywhere()
   }
 
   const handleUpdateLogDate = async (logId: string, dateValue: string) => {
@@ -593,7 +601,7 @@ export default function RecipeDetail({
       if (!res.ok) throw new Error('Failed')
     } catch {
       toast.error('Could not update date')
-      router.refresh()
+      refreshEverywhere()
     }
   }
 
@@ -605,7 +613,7 @@ export default function RecipeDetail({
       if (!res.ok) throw new Error('Failed')
     } catch {
       toast.error('Could not delete log entry')
-      router.refresh()
+      refreshEverywhere()
     }
   }
 
@@ -637,7 +645,7 @@ export default function RecipeDetail({
         ? `Ranked among your ${FEEDBACK_ADJECTIVE[currentFeedback]} recipes 🏆`
         : 'Ranked! 🏆'
     )
-    router.refresh()
+    refreshEverywhere()
   }
 
   const emoji = getCuisineEmoji(recipe.cuisine)
@@ -1080,7 +1088,7 @@ export default function RecipeDetail({
           onClose={() => setShowCookbook(false)}
           onSaved={(newIds) => {
             setCookbookIds(newIds)
-            router.refresh()
+            refreshEverywhere()
           }}
           onCookbookCreated={(cb) => setCookbooks(prev => [...prev, cb])}
         />
