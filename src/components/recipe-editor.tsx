@@ -483,12 +483,6 @@ export default function RecipeEditor({ initialValues, showLookup, autoLookup }: 
       <div>
         <div className="flex items-center justify-between mb-2">
           <Label className="text-gray-700 font-medium">Ingredients</Label>
-          <button
-            onClick={addIngredient}
-            className="text-sm text-orange-500 font-medium flex items-center gap-1"
-          >
-            <Plus className="w-3.5 h-3.5" /> Add
-          </button>
         </div>
         <div className="space-y-2">
           {ingredients.map((ing, i) => (
@@ -526,16 +520,26 @@ export default function RecipeEditor({ initialValues, showLookup, autoLookup }: 
               </button>
             </div>
           ))}
-          {ingredients.length === 0 && (
-            <div className="text-center py-4 bg-gray-50 rounded-xl border border-dashed border-gray-200">
-              <p className="text-sm text-gray-400">
-                {showLookup
-                  ? 'No ingredients yet. Tap Fill or Add manually.'
-                  : 'No ingredients found. Add them manually.'}
-              </p>
-            </div>
-          )}
         </div>
+
+        {ingredients.length === 0 ? (
+          <button
+            type="button"
+            onClick={addIngredient}
+            className="w-full text-center py-5 bg-gray-50 rounded-xl border border-dashed border-gray-200 text-sm text-gray-400 hover:border-orange-300 hover:text-orange-500 transition-colors"
+          >
+            <Plus className="w-4 h-4 inline mr-1 -mt-0.5" />
+            Add the first ingredient{showLookup ? ' — or tap Fill' : ''}
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={addIngredient}
+            className="mt-2 text-sm text-orange-500 font-medium flex items-center gap-1 hover:text-orange-600"
+          >
+            <Plus className="w-3.5 h-3.5" /> Add ingredient
+          </button>
+        )}
       </div>
 
       {/* Instructions — step-based editor. Instruction generation is handled by
