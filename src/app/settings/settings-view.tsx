@@ -7,7 +7,6 @@ import {
   LogOut,
   Trophy,
   User,
-  Users,
 } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { cn } from '@/lib/utils'
@@ -17,7 +16,6 @@ import { clearPersistedCache } from '@/components/query-provider'
 
 const LINKS = [
   { href: '/profile', label: 'Edit profile', description: 'Name, username & photo', icon: User },
-  { href: '/profile', label: 'Household', description: 'Share recipes & plans', icon: Users },
   { href: '/skills', label: 'Skills', description: 'Techniques & badges', icon: Trophy },
 ]
 
