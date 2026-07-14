@@ -7,10 +7,9 @@ import type { Feed } from '@/lib/db/activity'
 import type { DayCuisinePattern } from '@/lib/db/planner'
 import { getWeekStart } from '@/lib/week'
 
-/** GET /api/me — the signed-in user's own profile and household membership. */
+/** GET /api/me — the signed-in user's own profile. */
 export interface Me {
   profile: Profile | null
-  household_id: string | null
   email: string | null
 }
 
@@ -117,7 +116,7 @@ export function useCacheInvalidation() {
         void queryClient.invalidateQueries({ queryKey: queryKeys.cookbooks })
         void queryClient.invalidateQueries({ queryKey: queryKeys.recipes })
       },
-      /** Own profile / household membership changed. */
+      /** Own profile changed. */
       meChanged: () => {
         void queryClient.invalidateQueries({ queryKey: queryKeys.me })
       },

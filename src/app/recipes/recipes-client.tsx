@@ -15,7 +15,6 @@ export default function RecipesClient() {
     <RecipeLibrary
       initialRecipes={recipes.data}
       initialCookbooks={cookbooks.data}
-      hasHousehold={!!me.data.household_id}
       initialSortPreference={me.data.profile?.recipe_sort_preference ?? 'ranking'}
       initialSortDirection={me.data.profile?.recipe_sort_direction ?? 'default'}
     />

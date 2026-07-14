@@ -18,6 +18,11 @@ export default function NewRecipePage({
     description: params.description,
     cookTime: params.cook_time_minutes,
   }
+  // "Write from scratch" is a blank manual form — no AI Fill. The AI-fill flow
+  // is now its own "Generate with AI" option in the Add-a-recipe sheet. The
+  // lookup button is only offered when the page is pre-populated with a name
+  // (e.g. arriving from a recommendation), where auto-completing makes sense.
+  const showLookup = !!params.name
   const autoLookup = !!params.name && !params.description
 
   return (
@@ -28,7 +33,7 @@ export default function NewRecipePage({
         </Link>
         <h1 className="text-xl font-bold text-gray-900">New Recipe</h1>
       </div>
-      <RecipeEditor initialValues={initialValues} showLookup autoLookup={autoLookup} />
+      <RecipeEditor initialValues={initialValues} showLookup={showLookup} autoLookup={autoLookup} />
     </div>
   )
 }

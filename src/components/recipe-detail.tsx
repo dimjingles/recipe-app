@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Clock, Users, Edit, ChefHat, Trophy, X, BookOpen, Plus, Home, Play, Sparkles, GitBranch, Maximize2, Images, Check, Share2 } from 'lucide-react'
+import { ArrowLeft, Clock, Users, Edit, ChefHat, Trophy, X, BookOpen, Plus, Minus, Play, Sparkles, GitBranch, Maximize2, Images, Check, Share2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { BottomSheet } from '@/components/ui/bottom-sheet'
 import { Input } from '@/components/ui/input'
@@ -18,6 +18,7 @@ import { isRecipeTechnique, resolveTechniqueState } from '@/lib/skills'
 import { getCuisineEmoji } from '@/lib/cuisine-emoji'
 import { useCacheInvalidation } from '@/lib/queries/hooks'
 import { formatScore, FEEDBACK_ADJECTIVE, type Feedback } from '@/lib/scoring'
+import { scaleQuantity } from '@/lib/servings'
 import { FeedbackButtons, ComparisonDialog, RankFeedbackDialog } from '@/components/ranking-flow'
 
 const CATEGORY_EMOJI: Record<string, string> = {
@@ -259,6 +260,52 @@ function CookbookDialog({
   )
 }
 
+// ─── Servings Control ─────────────────────────────────────────────────────────
+
+/** Compact stepper that rescales the displayed ingredient amounts. Purely a view
+ *  adjustment — it never writes to the stored recipe. */
+function ServingsControl({
+  servings,
+  base,
+  onChange,
+}: {
+  servings: number
+  base: number
+  onChange: (n: number) => void
+}) {
+  return (
+    <div className="flex items-center gap-2 shrink-0">
+      {servings !== base && (
+        <button
+          onClick={() => onChange(base)}
+          className="text-xs font-medium text-brand hover:underline"
+        >
+          Reset
+        </button>
+      )}
+      <div className="flex items-center gap-0.5 rounded-full border border-border bg-card p-1 shadow-sm">
+        <button
+          onClick={() => onChange(Math.max(1, servings - 1))}
+          aria-label="Fewer servings"
+          className="flex h-7 w-7 items-center justify-center rounded-full text-foreground hover:bg-muted active:scale-95 transition-all"
+        >
+          <Minus className="h-3.5 w-3.5" />
+        </button>
+        <span className="flex min-w-[52px] items-center justify-center gap-1 px-1 text-sm font-semibold tabular-nums text-foreground">
+          <Users className="h-3.5 w-3.5 text-muted-foreground" /> {servings}
+        </span>
+        <button
+          onClick={() => onChange(Math.min(100, servings + 1))}
+          aria-label="More servings"
+          className="flex h-7 w-7 items-center justify-center rounded-full text-foreground hover:bg-muted active:scale-95 transition-all"
+        >
+          <Plus className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 /** A sibling recipe adapted from this one (or the original this was adapted from). */
@@ -274,8 +321,6 @@ export default function RecipeDetail({
   initialCookbooks,
   skillProfile,
   techniques,
-  isOwner = true,
-  hasHousehold = false,
   readOnly = false,
   variants = [],
   score,
@@ -284,8 +329,6 @@ export default function RecipeDetail({
   initialCookbooks: Cookbook[]
   skillProfile?: SkillProfile | null
   techniques?: Technique[]
-  isOwner?: boolean
-  hasHousehold?: boolean
   readOnly?: boolean
   variants?: RecipeVariantLink[]
   score: number | null
@@ -306,14 +349,20 @@ export default function RecipeDetail({
   const [showAdapt, setShowAdapt] = useState(false)
   const [chefInitialPrompt, setChefInitialPrompt] = useState<string | undefined>(undefined)
   const [cookedCount, setCookedCount] = useState(recipe.cooked_count)
+  // Live servings adjuster — rescales displayed ingredient amounts only.
+  const baseServings = recipe.servings || 4
+  const [servings, setServings] = useState(baseServings)
+  const scaleFactor = servings / baseServings
   const [currentRank, setCurrentRank] = useState<number | null>(recipe.rank)
   const [currentFeedback, setCurrentFeedback] = useState<Feedback | null>(recipe.feedback)
-  const [ownerScope, setOwnerScope] = useState<string>((recipe as { owner_scope?: string }).owner_scope ?? 'user')
-  const [sharing, setSharing] = useState(false)
   // ── Display (hero) image + gallery — shared state so a gallery photo can
   //    be promoted to the hero shown at the top of the page. ──────────────
-  const [heroUrl, setHeroUrl] = useState<string | null>(recipe.image_url)
+  // The explicitly-chosen display image (persisted as recipe.image_url).
+  const [displayUrl, setDisplayUrl] = useState<string | null>(recipe.image_url)
   const [galleryImages, setGalleryImages] = useState<string[]>(recipe.gallery_images ?? [])
+  // Hero shown at the top of the page: the chosen display image, or — when none
+  // is set — automatically the first gallery photo.
+  const heroUrl = displayUrl ?? galleryImages[0] ?? null
   const [heroMenu, setHeroMenu] = useState(false) // action sheet when the hero is tapped
   const [heroLightbox, setHeroLightbox] = useState(false) // full-screen shaded view
   const [showChooser, setShowChooser] = useState(false) // "choose a different display image"
@@ -350,8 +399,8 @@ export default function RecipeDetail({
   }
 
   const setAsDisplay = async (url: string) => {
-    const prev = heroUrl
-    setHeroUrl(url) // optimistic
+    const prev = displayUrl
+    setDisplayUrl(url) // optimistic
     try {
       const res = await fetch(`/api/recipes/${recipe.id}`, {
         method: 'PUT',
@@ -361,28 +410,8 @@ export default function RecipeDetail({
       if (!res.ok) throw new Error((await res.json()).error || 'Failed')
       toast.success('Display image updated')
     } catch (e: any) {
-      setHeroUrl(prev) // revert
+      setDisplayUrl(prev) // revert
       toast.error(e.message || 'Could not update display image')
-    }
-  }
-
-  const toggleHouseholdShare = async () => {
-    const next = ownerScope !== 'household'
-    setSharing(true)
-    try {
-      const res = await fetch(`/api/recipes/${recipe.id}/share`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ shared: next }),
-      })
-      if (!res.ok) throw new Error((await res.json()).error || 'Failed')
-      setOwnerScope(next ? 'household' : 'user')
-      toast.success(next ? 'Shared with your household' : 'Now personal again')
-      refreshEverywhere()
-    } catch (e: any) {
-      toast.error(e.message || 'Could not update sharing')
-    } finally {
-      setSharing(false)
     }
   }
 
@@ -524,11 +553,6 @@ export default function RecipeDetail({
                 <Clock className="w-3.5 h-3.5" /> {recipe.cook_time_minutes} min
               </span>
             )}
-            {recipe.servings && (
-              <span className="flex items-center gap-1 text-white/90 text-sm">
-                <Users className="w-3.5 h-3.5" /> {recipe.servings} servings
-              </span>
-            )}
             {cookedCount > 0 && (
               <span className="flex items-center gap-1 text-white/90 text-sm">
                 <ChefHat className="w-3.5 h-3.5" /> Cooked {cookedCount}×
@@ -577,11 +601,6 @@ export default function RecipeDetail({
             {recipe.cook_time_minutes && (
               <span className="flex items-center gap-1 text-muted-foreground text-sm">
                 <Clock className="w-3.5 h-3.5" /> {recipe.cook_time_minutes} min
-              </span>
-            )}
-            {recipe.servings && (
-              <span className="flex items-center gap-1 text-muted-foreground text-sm">
-                <Users className="w-3.5 h-3.5" /> {recipe.servings} servings
               </span>
             )}
             {cookedCount > 0 && (
@@ -658,38 +677,18 @@ export default function RecipeDetail({
           >
             <BookOpen className="w-4 h-4" />
           </Button>
-          {isOwner && (
-            <Button
-              onClick={handleShare}
-              disabled={creatingShareLink}
-              className="bg-card text-muted-foreground border border-border hover:border-brand hover:text-brand font-semibold h-12 rounded-2xl shadow-md px-4 active:scale-[0.98] transition-all"
-              title="Share a public link to this recipe"
-            >
-              <Share2 className="w-4 h-4" />
-            </Button>
-          )}
+          {/* Owner-only: this whole action row is already gated on !readOnly,
+              which equals ownership now that household editing is gone. */}
+          <Button
+            onClick={handleShare}
+            disabled={creatingShareLink}
+            className="bg-card text-muted-foreground border border-border hover:border-brand hover:text-brand font-semibold h-12 rounded-2xl shadow-md px-4 active:scale-[0.98] transition-all"
+            title="Share a public link to this recipe"
+          >
+            <Share2 className="w-4 h-4" />
+          </Button>
         </div>
         )}
-
-        {/* Household sharing */}
-        {isOwner && hasHousehold ? (
-          <button
-            onClick={toggleHouseholdShare}
-            disabled={sharing}
-            className={`mb-6 flex w-full items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-sm font-semibold transition-all active:scale-[0.98] disabled:opacity-60 ${
-              ownerScope === 'household'
-                ? 'border-sage/30 bg-sage-subtle text-sage'
-                : 'border-border bg-card text-muted-foreground hover:border-brand hover:text-brand'
-            }`}
-          >
-            <Home className="h-4 w-4" />
-            {ownerScope === 'household' ? 'Shared with household · tap to make personal' : 'Share with household'}
-          </button>
-        ) : ownerScope === 'household' ? (
-          <div className="mb-6 flex w-full items-center justify-center gap-2 rounded-2xl border border-sage/30 bg-sage-subtle px-4 py-3 text-sm font-semibold text-sage">
-            <Home className="h-4 w-4" /> Shared with household
-          </div>
-        ) : null}
 
         {/* Adapt recipe — AI variant generator */}
         {!readOnly && (
@@ -734,7 +733,15 @@ export default function RecipeDetail({
         {/* Ingredients — sage accent */}
         {grouped.length > 0 && (
           <div className="mb-6">
-            <h2 className="font-heading font-bold text-foreground text-lg mb-3">Ingredients</h2>
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <h2 className="font-heading font-bold text-foreground text-lg">Ingredients</h2>
+              <ServingsControl servings={servings} base={baseServings} onChange={setServings} />
+            </div>
+            {servings !== baseServings && (
+              <p className="text-xs text-muted-foreground mb-3">
+                Amounts scaled for {servings} servings (recipe makes {baseServings}).
+              </p>
+            )}
             <div className="space-y-3">
               {grouped.map(({ category, items }) => (
                 <div key={category} className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
@@ -750,7 +757,7 @@ export default function RecipeDetail({
                         <span className="text-foreground text-sm">{ing.name}</span>
                         {(ing.quantity || ing.unit) && (
                           <span className="text-muted-foreground text-sm font-medium">
-                            {ing.quantity} {ing.unit}
+                            {scaleQuantity(ing.quantity, scaleFactor)} {ing.unit}
                           </span>
                         )}
                       </li>

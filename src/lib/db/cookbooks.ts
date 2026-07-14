@@ -2,28 +2,16 @@ import { createClient, getUser } from '@/lib/supabase/server'
 import { Cookbook, CookbookWithCount, CookbookWithRecipes } from '@/types/database'
 import { emitActivity } from '@/lib/db/activity'
 
-/** The current user's household id, if any (used to scope shared cookbooks). */
-async function currentHouseholdId(supabase: Awaited<ReturnType<typeof createClient>>, userId: string): Promise<string | null> {
-  const { data } = await supabase
-    .from('household_members')
-    .select('household_id')
-    .eq('user_id', userId)
-    .maybeSingle()
-  return data?.household_id ?? null
-}
-
 export async function getCookbooks(): Promise<CookbookWithCount[]> {
   const supabase = await createClient()
   const user = await getUser()
   if (!user) return []
 
-  const householdId = await currentHouseholdId(supabase, user.id)
-  let query = supabase.from('cookbooks').select('*, cookbook_recipes(recipe_id)')
-  query = householdId
-    ? query.or(`user_id.eq.${user.id},and(owner_scope.eq.household,household_id.eq.${householdId})`)
-    : query.eq('user_id', user.id)
-
-  const { data, error } = await query.order('created_at', { ascending: true })
+  const { data, error } = await supabase
+    .from('cookbooks')
+    .select('*, cookbook_recipes(recipe_id)')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: true })
   if (error) { console.error(error); return [] }
   return data as CookbookWithCount[]
 }
@@ -33,13 +21,12 @@ export async function getCookbook(id: string): Promise<CookbookWithRecipes | nul
   const user = await getUser()
   if (!user) return null
 
-  const householdId = await currentHouseholdId(supabase, user.id)
-  let query = supabase.from('cookbooks').select('*, cookbook_recipes(recipe:recipes(*))').eq('id', id)
-  query = householdId
-    ? query.or(`user_id.eq.${user.id},and(owner_scope.eq.household,household_id.eq.${householdId})`)
-    : query.eq('user_id', user.id)
-
-  const { data, error } = await query.single()
+  const { data, error } = await supabase
+    .from('cookbooks')
+    .select('*, cookbook_recipes(recipe:recipes(*))')
+    .eq('id', id)
+    .eq('user_id', user.id)
+    .single()
   if (error) { console.error(error); return null }
   return data as CookbookWithRecipes
 }

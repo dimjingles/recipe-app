@@ -13,13 +13,16 @@ import {
   MessageCircle,
   PenLine,
   Send,
+  Sparkles,
 } from 'lucide-react'
+import { toast } from 'sonner'
 import { BottomSheet } from '@/components/ui/bottom-sheet'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { useCacheInvalidation } from '@/lib/queries/hooks'
 
 type Platform = 'youtube' | 'tiktok' | 'instagram'
-type View = 'options' | 'platforms' | Platform
+type View = 'options' | 'platforms' | 'ai' | Platform
 
 const PLATFORMS: Array<{ key: Platform; label: string; appUrl: string; shareVerb: string }> = [
   { key: 'youtube', label: 'YouTube', appUrl: 'https://www.youtube.com', shareVerb: 'Share' },
@@ -83,9 +86,12 @@ interface AddRecipeSheetProps {
 
 export function AddRecipeSheet({ open, onClose }: AddRecipeSheetProps) {
   const router = useRouter()
+  const invalidate = useCacheInvalidation()
   const [view, setView] = useState<View>('options')
   const [link, setLink] = useState('')
   const [navigating, setNavigating] = useState(false)
+  const [aiName, setAiName] = useState('')
+  const [generating, setGenerating] = useState(false)
 
   const close = () => {
     onClose()
@@ -93,12 +99,60 @@ export function AddRecipeSheet({ open, onClose }: AddRecipeSheetProps) {
     setView('options')
     setLink('')
     setNavigating(false)
+    setAiName('')
+    setGenerating(false)
   }
 
   const go = (href: string) => {
     setNavigating(true)
     router.push(href)
     close()
+  }
+
+  // Generate a full recipe from just a name: ask the AI for the recipe,
+  // save it, and drop the user on the finished recipe page.
+  const generateWithAi = async () => {
+    const name = aiName.trim()
+    if (!name || generating) return
+    setGenerating(true)
+    try {
+      const lookupRes = await fetch('/api/recipes/lookup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      })
+      const details = await lookupRes.json()
+      if (details.error) throw new Error(details.error)
+
+      const saveRes = await fetch('/api/recipes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          description: details.description || undefined,
+          cuisine: details.cuisine || undefined,
+          recipe_type: details.recipe_type || undefined,
+          cook_time_minutes: details.cook_time_minutes || undefined,
+          servings: details.servings || 4,
+          instructions: details.instructions || undefined,
+          difficulty: details.difficulty || undefined,
+          ingredients: details.ingredients || [],
+          tags: [],
+        }),
+      })
+      const saved = await saveRes.json()
+      if (saved.error) throw new Error(saved.error)
+
+      invalidate.recipesChanged()
+      // Keep the loading overlay up and navigate — do NOT close the sheet here.
+      // Closing would reveal the recipe library underneath for a beat before the
+      // new recipe page mounts. Navigating unmounts this whole page instead, so
+      // the spinner stays on screen right up until the recipe view takes over.
+      router.push(`/recipes/${saved.id}`)
+    } catch (e: unknown) {
+      toast.error((e as Error).message || 'Could not generate recipe. Try again.')
+      setGenerating(false)
+    }
   }
 
   const header = (title: string, back?: () => void) => (
@@ -123,6 +177,23 @@ export function AddRecipeSheet({ open, onClose }: AddRecipeSheetProps) {
         {view === 'options' && (
           <>
             {header('Add a recipe')}
+
+            <button
+              onClick={() => setView('ai')}
+              className="mb-3 flex w-full items-center gap-4 rounded-2xl border border-brand/40 bg-brand-subtle p-4 text-left shadow-card transition-all hover:border-brand active:scale-[0.98]"
+            >
+              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-brand text-brand-foreground">
+                <Sparkles className="h-5 w-5" />
+              </span>
+              <span>
+                <span className="block font-heading text-base font-bold text-foreground">
+                  Generate with AI
+                </span>
+                <span className="block text-sm text-muted-foreground">
+                  Enter a dish name — we&apos;ll write the whole recipe
+                </span>
+              </span>
+            </button>
 
             <button
               onClick={() => setView('platforms')}
@@ -184,6 +255,53 @@ export function AddRecipeSheet({ open, onClose }: AddRecipeSheetProps) {
                 )
               })}
             </div>
+          </>
+        )}
+
+        {/* ── View: generate with AI ── */}
+        {view === 'ai' && (
+          <>
+            {header('Generate with AI', generating ? undefined : () => setView('options'))}
+
+            {generating ? (
+              <div className="flex flex-col items-center gap-4 py-10 text-center">
+                <span className="grid h-14 w-14 place-items-center rounded-full bg-brand-subtle text-brand">
+                  <Loader2 className="h-7 w-7 animate-spin" />
+                </span>
+                <div>
+                  <p className="font-heading text-base font-bold text-foreground">
+                    Cooking up your recipe…
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Writing ingredients and steps for “{aiName.trim()}”.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <>
+                <p className="mb-4 text-sm text-muted-foreground">
+                  Just tell us what you want to make. We&apos;ll generate the ingredients,
+                  steps, and details, then take you straight to the recipe.
+                </p>
+                <div className="mb-3 flex gap-2">
+                  <Input
+                    value={aiName}
+                    onChange={e => setAiName(e.target.value)}
+                    placeholder="e.g. Spaghetti Carbonara"
+                    className="flex-1"
+                    autoFocus
+                    onKeyDown={e => { if (e.key === 'Enter') generateWithAi() }}
+                  />
+                  <Button
+                    onClick={generateWithAi}
+                    disabled={!aiName.trim()}
+                    className="shrink-0 bg-brand text-brand-foreground hover:bg-brand/90"
+                  >
+                    <Sparkles className="h-4 w-4 mr-1" /> Generate
+                  </Button>
+                </div>
+              </>
+            )}
           </>
         )}
 

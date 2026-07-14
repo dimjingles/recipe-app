@@ -19,6 +19,23 @@
   to   { opacity: 1; }
 }
 
+/* Cooking loader — a bobbing pot over a pulsing burner, with rising steam. */
+@keyframes pot-bob {
+  0%, 100% { transform: translateY(0) rotate(-2deg); }
+  50%      { transform: translateY(-10%) rotate(2deg); }
+}
+
+@keyframes burner-pulse {
+  0%, 100% { opacity: 0.45; transform: translateX(-50%) scale(0.9); }
+  50%      { opacity: 0.85; transform: translateX(-50%) scale(1.1); }
+}
+
+@keyframes steam-rise {
+  0%   { opacity: 0; transform: translateY(30%) scaleY(0.5); }
+  25%  { opacity: 0.7; }
+  100% { opacity: 0; transform: translateY(-120%) scaleY(1.4); }
+}
+
 /* ─── Tailwind v4 token → CSS-var bridges ───────────────────────────────── */
 
 @theme inline {
@@ -101,6 +118,10 @@
   /* Custom animations */
   --animate-shimmer:    shimmer 1.5s linear infinite;
   --animate-fade-in-up: fade-in-up 0.3s ease-out both;
+  /* Cooking loader */
+  --animate-pot-bob:      pot-bob 1.6s ease-in-out infinite;
+  --animate-burner-pulse: burner-pulse 1.6s ease-in-out infinite;
+  --animate-steam:        steam-rise 2s ease-in-out infinite;
   /* Page-transition fade: kept subtle and fast — pages now render instantly
      from the client cache, and a long fade reads as loading time. */
   --animate-fade-in:    fade-in 0.1s ease-out both;

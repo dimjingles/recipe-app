@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, PenLine, Trash2, X, Home, Users, Lock } from 'lucide-react'
+import { ArrowLeft, PenLine, Trash2, X, Users, Lock } from 'lucide-react'
 import { toast } from 'sonner'
 import { Input } from '@/components/ui/input'
 import { RecipeCard } from '@/components/recipe-card'
@@ -12,12 +12,11 @@ import { CookbookWithRecipes, Recipe } from '@/types/database'
 interface CookbookDetailViewProps {
   cookbook: CookbookWithRecipes
   canManage?: boolean
-  hasHousehold?: boolean
   /** Per-tier 0–10 scores for the user's ranked recipes, keyed by recipe id. */
   scores: Record<string, number>
 }
 
-export default function CookbookDetailView({ cookbook, canManage = true, hasHousehold = false, scores }: CookbookDetailViewProps) {
+export default function CookbookDetailView({ cookbook, canManage = true, scores }: CookbookDetailViewProps) {
   const router = useRouter()
   const [name, setName] = useState(cookbook.name)
   const [recipes, setRecipes] = useState<Recipe[]>(
@@ -28,8 +27,6 @@ export default function CookbookDetailView({ cookbook, canManage = true, hasHous
   const [saving, setSaving] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [removingId, setRemovingId] = useState<string | null>(null)
-  const [ownerScope, setOwnerScope] = useState<string>((cookbook as { owner_scope?: string }).owner_scope ?? 'user')
-  const [sharing, setSharing] = useState(false)
   const [visibility, setVisibility] = useState<string>((cookbook as { visibility?: string }).visibility ?? 'friends')
   const [savingVisibility, setSavingVisibility] = useState(false)
 
@@ -50,26 +47,6 @@ export default function CookbookDetailView({ cookbook, canManage = true, hasHous
       toast.error(e.message || 'Could not update visibility')
     } finally {
       setSavingVisibility(false)
-    }
-  }
-
-  const toggleHouseholdShare = async () => {
-    const next = ownerScope !== 'household'
-    setSharing(true)
-    try {
-      const res = await fetch(`/api/cookbooks/${cookbook.id}/share`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ shared: next }),
-      })
-      if (!res.ok) throw new Error((await res.json()).error || 'Failed')
-      setOwnerScope(next ? 'household' : 'user')
-      toast.success(next ? 'Shared with your household' : 'Now personal again')
-      router.refresh()
-    } catch (e: any) {
-      toast.error(e.message || 'Could not update sharing')
-    } finally {
-      setSharing(false)
     }
   }
 
@@ -195,26 +172,6 @@ export default function CookbookDetailView({ cookbook, canManage = true, hasHous
           {visibility === 'friends' ? 'Visible to friends · tap to make private' : 'Private · tap to share with friends'}
         </button>
       )}
-
-      {/* Household sharing */}
-      {canManage && hasHousehold ? (
-        <button
-          onClick={toggleHouseholdShare}
-          disabled={sharing}
-          className={`mb-4 flex w-full items-center justify-center gap-2 rounded-2xl border px-4 py-2.5 text-sm font-semibold transition-all active:scale-[0.98] disabled:opacity-60 ${
-            ownerScope === 'household'
-              ? 'border-sage/30 bg-sage-subtle text-sage'
-              : 'border-border bg-card text-muted-foreground hover:border-brand hover:text-brand'
-          }`}
-        >
-          <Home className="h-4 w-4" />
-          {ownerScope === 'household' ? 'Shared with household · tap to make personal' : 'Share with household'}
-        </button>
-      ) : ownerScope === 'household' ? (
-        <div className="mb-4 flex w-full items-center justify-center gap-2 rounded-2xl border border-sage/30 bg-sage-subtle px-4 py-2.5 text-sm font-semibold text-sage">
-          <Home className="h-4 w-4" /> Shared with household
-        </div>
-      ) : null}
 
       {/* Delete confirm */}
       {showDeleteConfirm && (

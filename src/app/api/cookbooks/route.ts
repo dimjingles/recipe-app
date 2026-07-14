@@ -8,7 +8,6 @@ export async function GET() {
     const user = await getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    // getCookbooks includes household-shared cookbooks, matching the pages.
     return NextResponse.json(await getCookbooks())
   } catch (error: any) {
     return NextResponse.json({ error: error.message || 'Failed to fetch cookbooks' }, { status: 500 })
