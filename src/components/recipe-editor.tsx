@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
 import CuisineCombobox from '@/components/cuisine-combobox'
+import { CookingLoader } from '@/components/cooking-loader'
 import InstructionsEditor from '@/components/instructions-editor'
 import { textToSteps, stepsToText, splitSourceNote } from '@/lib/instructions'
 import type { ExtractedRecipe } from '@/types/database'
@@ -89,6 +90,9 @@ export default function RecipeEditor({ initialValues, showLookup, autoLookup }: 
   const [imageUrl] = useState(initialValues?.image_url ?? '')
   const [galleryImages] = useState<string[]>(initialValues?.gallery_images ?? [])
   const [lookupLoading, setLookupLoading] = useState(false)
+  // True only while the on-mount auto-lookup runs, so we can show a full-panel
+  // cooking animation instead of an empty form for AI-generated new recipes.
+  const [autoFilling, setAutoFilling] = useState(!!(autoLookup && showLookup && initialValues?.name))
   const [saving, setSaving] = useState(false)
   const [looked, setLooked] = useState(false)
 
@@ -104,7 +108,7 @@ export default function RecipeEditor({ initialValues, showLookup, autoLookup }: 
   // Auto-trigger AI lookup when the editor is pre-populated with a name
   useEffect(() => {
     if (autoLookup && showLookup && initialValues?.name) {
-      handleLookup(initialValues.name)
+      handleLookup(initialValues.name).finally(() => setAutoFilling(false))
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -268,6 +272,20 @@ export default function RecipeEditor({ initialValues, showLookup, autoLookup }: 
     } finally {
       setSaving(false)
     }
+  }
+
+  // Full-panel cooking animation while AI builds a brand-new recipe from a name.
+  if (autoFilling) {
+    return (
+      <div className="py-20">
+        <CookingLoader size="lg" />
+        {initialValues?.name && (
+          <p className="mt-2 text-center text-sm text-muted-foreground">
+            Cooking up <span className="font-medium text-foreground">{initialValues.name}</span>…
+          </p>
+        )}
+      </div>
+    )
   }
 
   return (

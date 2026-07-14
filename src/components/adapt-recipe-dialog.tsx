@@ -4,11 +4,20 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useCacheInvalidation } from '@/lib/queries/hooks'
 import { Loader2, AlertTriangle, ArrowLeftRight, Minus, Plus, Sparkles } from 'lucide-react'
+import { CookingLoader } from '@/components/cooking-loader'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { BottomSheet } from '@/components/ui/bottom-sheet'
 import { toast } from 'sonner'
 import type { AdaptationType, AdaptedRecipeDraft } from '@/types/database'
+
+const ADAPTING_MESSAGES = [
+  'Rewriting the ingredients…',
+  'Swapping in substitutes…',
+  'Rebalancing the steps…',
+  'Adjusting the seasoning…',
+  'Plating your new recipe…',
+]
 
 const CATEGORY_EMOJI: Record<string, string> = {
   produce: '🥦', dairy: '🧀', meat: '🥩', seafood: '🐟',
@@ -218,10 +227,8 @@ export default function AdaptRecipeDialog({ recipeId, currentServings, onClose }
   if (generating) {
     return (
       <BottomSheet open onClose={onClose} zIndex="elevated">
-        <div className="px-6 pb-12 pt-4 text-center">
-          <Loader2 className="w-8 h-8 animate-spin text-brand mx-auto mb-4" />
-          <p className="text-foreground font-medium">Adapting your recipe…</p>
-          <p className="text-sm text-muted-foreground mt-1">Claude is rewriting ingredients and steps.</p>
+        <div className="px-6 pb-12 pt-6 text-center">
+          <CookingLoader size="md" messages={ADAPTING_MESSAGES} />
         </div>
       </BottomSheet>
     )

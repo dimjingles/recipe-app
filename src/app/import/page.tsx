@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import RecipeEditor from '@/components/recipe-editor'
+import { CookingLoader } from '@/components/cooking-loader'
 import type { RecipeEditorValues } from '@/components/recipe-editor'
 import type { ExtractedRecipe } from '@/types/database'
 
@@ -224,13 +225,15 @@ export default function ImportPage({
           </div>
 
           {importState === 'loading' && (
-            <div className="flex items-center justify-center gap-2 py-6 text-gray-500">
-              <Loader2 className="w-5 h-5 animate-spin text-brand" />
-              <span className="text-sm">
-                {isVideoUrl(url)
-                  ? 'Reading the video’s description and captions…'
-                  : 'Fetching and extracting recipe…'}
-              </span>
+            <div className="py-10">
+              <CookingLoader
+                size="md"
+                label={
+                  isVideoUrl(url)
+                    ? 'Reading the video’s description and captions…'
+                    : 'Fetching and extracting recipe…'
+                }
+              />
             </div>
           )}
 
