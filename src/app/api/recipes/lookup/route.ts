@@ -1,6 +1,50 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { anthropic, HAIKU } from '@/lib/anthropic'
 
+// Structured-output schema. Constraining the model to this schema guarantees the
+// response is valid, parseable JSON — Haiku occasionally emitted malformed JSON
+// (e.g. an unquoted value) when we free-formed it and asked for JSON in the prompt,
+// which threw on JSON.parse and 500'd the whole request.
+const CATEGORIES = ['produce', 'dairy', 'meat', 'seafood', 'pantry', 'spices', 'bakery', 'frozen', 'other']
+
+const RECIPE_SCHEMA = {
+  type: 'object',
+  properties: {
+    ingredients: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          name: { type: 'string' },
+          quantity: { type: 'string' },
+          unit: { type: 'string' },
+          category: { type: 'string', enum: CATEGORIES },
+        },
+        required: ['name', 'quantity', 'unit', 'category'],
+        additionalProperties: false,
+      },
+    },
+    cuisine: { type: 'string' },
+    recipe_type: { type: 'string', enum: ['appetizer', 'main', 'dessert', 'drink'] },
+    cook_time_minutes: { type: 'integer' },
+    servings: { type: 'integer' },
+    description: { type: 'string' },
+    instructions: { type: 'string' },
+    difficulty: { type: 'integer', enum: [1, 2, 3] },
+  },
+  required: [
+    'ingredients',
+    'cuisine',
+    'recipe_type',
+    'cook_time_minutes',
+    'servings',
+    'description',
+    'instructions',
+    'difficulty',
+  ],
+  additionalProperties: false,
+} as const
+
 export async function POST(request: NextRequest) {
   try {
     const { name } = await request.json()
@@ -10,34 +54,19 @@ export async function POST(request: NextRequest) {
 
     const message = await anthropic.messages.create({
       model: HAIKU,
-      max_tokens: 2048,
+      max_tokens: 4096,
+      output_config: { format: { type: 'json_schema', schema: RECIPE_SCHEMA } },
       messages: [
         {
           role: 'user',
-          content: `You are a culinary expert. Return the most common home-cook version of "${name}" as JSON.
+          content: `You are a culinary expert. Return the most common home-cook version of "${name}".
 
-Return ONLY valid JSON with this exact structure (no markdown, no explanation):
-{
-  "ingredients": [
-    { "name": "ingredient name", "quantity": "amount", "unit": "unit of measure", "category": "produce|dairy|meat|seafood|pantry|spices|bakery|frozen|other" }
-  ],
-  "cuisine": "cuisine type",
-  "recipe_type": "appetizer|main|dessert|drink",
-  "cook_time_minutes": 30,
-  "servings": 4,
-  "description": "1-2 sentence description of the dish",
-  "instructions": "Step-by-step cooking instructions as a single string. Number each step (1., 2., etc.). Be specific about temperatures, timings, and techniques. Keep steps clear and actionable.",
-  "difficulty": 1
-}
+Use realistic quantities for a home meal. Write clear, actionable step-by-step instructions as a single string, numbering each step (1., 2., etc.) and being specific about temperatures, timings, and techniques.
 
-Use realistic quantities for a home meal. Category must be one of: produce, dairy, meat, seafood, pantry, spices, bakery, frozen, other. recipe_type must be one of: appetizer, main, dessert, drink.
-
-Difficulty rating:
-- 1 = Easy - simple techniques, few steps, beginner-friendly
-- 2 = Medium - requires some skill, multiple components, moderate timing
-- 3 = Hard - advanced techniques, precise timing, complex preparations
-
-Base the difficulty on the complexity of the instructions you write.`,
+Difficulty rating, based on the complexity of the instructions you write:
+- 1 = Easy — simple techniques, few steps, beginner-friendly
+- 2 = Medium — requires some skill, multiple components, moderate timing
+- 3 = Hard — advanced techniques, precise timing, complex preparations`,
         },
       ],
     })
@@ -47,12 +76,8 @@ Base the difficulty on the complexity of the instructions you write.`,
       return NextResponse.json({ error: 'Unexpected response' }, { status: 500 })
     }
 
-    const jsonMatch = content.text.match(/\{[\s\S]*\}/)
-    if (!jsonMatch) {
-      return NextResponse.json({ error: 'Could not parse recipe data' }, { status: 500 })
-    }
-
-    const recipeData = JSON.parse(jsonMatch[0])
+    // With structured outputs the text is guaranteed to be schema-valid JSON.
+    const recipeData = JSON.parse(content.text)
     return NextResponse.json(recipeData)
   } catch (error: any) {
     console.error('Recipe lookup error:', error)
