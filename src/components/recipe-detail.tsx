@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Clock, Users, Edit, ChefHat, Trophy, X, BookOpen, Plus, Minus, Play, Sparkles, GitBranch, Maximize2, Images, Check } from 'lucide-react'
+import { ArrowLeft, Clock, Users, Edit, ChefHat, Trophy, X, BookOpen, Plus, Minus, Play, Sparkles, GitBranch, Maximize2, Images, Check, Share2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { BottomSheet } from '@/components/ui/bottom-sheet'
 import { Input } from '@/components/ui/input'
@@ -367,6 +367,37 @@ export default function RecipeDetail({
   const [heroLightbox, setHeroLightbox] = useState(false) // full-screen shaded view
   const [showChooser, setShowChooser] = useState(false) // "choose a different display image"
 
+  const [creatingShareLink, setCreatingShareLink] = useState(false)
+  const handleShare = async () => {
+    if (creatingShareLink) return
+    setCreatingShareLink(true)
+    try {
+      // Mint (or reuse) a public share token, then hand out /share/<token> — a
+      // read-only page anyone can open without a Preptable account.
+      const res = await fetch(`/api/recipes/${recipe.id}/share-link`, { method: 'POST' })
+      if (!res.ok) throw new Error('Failed to create share link')
+      const { token } = await res.json()
+      const url = `${window.location.origin}/share/${token}`
+
+      if (navigator.share) {
+        try {
+          await navigator.share({ title: recipe.name, url })
+        } catch (e: any) {
+          if (e?.name === 'AbortError') return // user dismissed the share sheet
+          await navigator.clipboard.writeText(url)
+          toast.success('Public link copied')
+        }
+      } else {
+        await navigator.clipboard.writeText(url)
+        toast.success('Public link copied')
+      }
+    } catch {
+      toast.error('Could not create share link')
+    } finally {
+      setCreatingShareLink(false)
+    }
+  }
+
   const setAsDisplay = async (url: string) => {
     const prev = displayUrl
     setDisplayUrl(url) // optimistic
@@ -645,6 +676,16 @@ export default function RecipeDetail({
             title={cookbookIds.length > 0 ? `In ${cookbookIds.length} cookbook${cookbookIds.length > 1 ? 's' : ''}` : 'Add to cookbook'}
           >
             <BookOpen className="w-4 h-4" />
+          </Button>
+          {/* Owner-only: this whole action row is already gated on !readOnly,
+              which equals ownership now that household editing is gone. */}
+          <Button
+            onClick={handleShare}
+            disabled={creatingShareLink}
+            className="bg-card text-muted-foreground border border-border hover:border-brand hover:text-brand font-semibold h-12 rounded-2xl shadow-md px-4 active:scale-[0.98] transition-all"
+            title="Share a public link to this recipe"
+          >
+            <Share2 className="w-4 h-4" />
           </Button>
         </div>
         )}

@@ -447,3 +447,10 @@ drop policy if exists "Insert own activity" on activity;
 create policy "Insert own activity"
   on activity for insert
   with check (actor_id = auth.uid());
+
+-- ── Public share links ──────────────────────────────────────
+-- A recipe with a non-null share_token is publicly viewable (read-only) at
+-- /share/<token> without an account. Reads are served via the service-role
+-- client scoped to the token (see src/lib/supabase/admin.ts), so no anon RLS
+-- policy is granted — the anon role still cannot read recipes directly.
+alter table recipes add column if not exists share_token uuid unique;
