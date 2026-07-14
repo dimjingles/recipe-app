@@ -688,12 +688,12 @@ export default function RecipeLibrary({
       ) : (
         <div className="pb-24 space-y-6">
           {sortedRecipes.length > 0 && (
-            <div className="grid gap-3 md:grid-cols-2">
+            <div className="grid grid-cols-2 gap-3">
               {sortedRecipes.map((recipe, i) => (
                 <RecipeCard
                   key={recipe.id}
                   recipe={recipe}
-                  variant="list"
+                  variant="grid"
                   score={scores[recipe.id] ?? null}
                   onClick={() => router.push(`/recipes/${recipe.id}`)}
                   showCookTime={false}

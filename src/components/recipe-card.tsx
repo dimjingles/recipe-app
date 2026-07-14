@@ -76,14 +76,32 @@ export function RecipeCard({
   return (
     <div
       className={cn(
-        'group cursor-pointer overflow-hidden rounded-2xl border border-border bg-card shadow-card',
+        'group flex cursor-pointer flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-card',
         'transition-all hover:-translate-y-0.5 hover:shadow-card-hover active:scale-[0.97]',
         className,
       )}
       onClick={onClick}
       style={style}
     >
-      <div className="space-y-2 p-4">
+      <div className="relative aspect-[4/3] w-full shrink-0 overflow-hidden bg-muted">
+        {recipe.image_url ? (
+          <img
+            src={recipe.image_url}
+            alt=""
+            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+            loading="lazy"
+          />
+        ) : (
+          <div className="grid h-full w-full place-items-center text-3xl">🍽️</div>
+        )}
+        {score != null && (
+          <span className="absolute right-2 top-2 grid h-7 min-w-7 place-items-center rounded-lg bg-card/90 px-1.5 text-xs font-bold tabular-nums text-brand shadow-sm ring-1 ring-brand/15 backdrop-blur">
+            {formatScore(score)}
+          </span>
+        )}
+      </div>
+
+      <div className="flex-1 space-y-2 p-3">
         <p className="line-clamp-2 text-sm font-bold leading-snug text-foreground">
           {recipe.name}
         </p>
@@ -109,7 +127,7 @@ export function RecipeCard({
         )}
       </div>
 
-      {action && <div className="px-4 pb-4 -mt-1">{action}</div>}
+      {action && <div className="px-3 pb-3 -mt-1">{action}</div>}
     </div>
   )
 }
