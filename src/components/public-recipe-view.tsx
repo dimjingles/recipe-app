@@ -32,7 +32,7 @@ export default function PublicRecipeView({ recipe }: { recipe: Recipe & { ingred
     <div className="max-w-lg mx-auto pb-10">
       {/* ── Hero image ─────────────────────────────────────────────── */}
       {recipe.image_url && (
-        <img src={recipe.image_url} alt={recipe.name} className="w-full h-auto" />
+        <img src={recipe.image_url} alt={recipe.name} className="w-full h-[45vh] object-cover" />
       )}
 
       {/* ── Header band ────────────────────────────────────────────── */}
