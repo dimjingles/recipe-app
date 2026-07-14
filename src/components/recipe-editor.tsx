@@ -86,7 +86,7 @@ export default function RecipeEditor({ initialValues, showLookup, autoLookup }: 
   )
   const [customTagInput, setCustomTagInput] = useState('')
   const [ingredients, setIngredients] = useState<IngredientRow[]>(initialValues?.ingredients ?? [])
-  const [imageUrl] = useState(initialValues?.image_url ?? '')
+  const [imageUrl, setImageUrl] = useState(initialValues?.image_url ?? '')
   const [galleryImages] = useState<string[]>(initialValues?.gallery_images ?? [])
   const [lookupLoading, setLookupLoading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -173,6 +173,20 @@ export default function RecipeEditor({ initialValues, showLookup, autoLookup }: 
     }
   }
 
+  // Auto-pick a photo for the recipe using the existing image search, taking
+  // the first result for the dish name. Best-effort: never blocks or fails the
+  // AI fill, and won't clobber an image the user already has.
+  const fetchRecipeImage = async (recipeName: string) => {
+    try {
+      const res = await fetch(`/api/images/search?q=${encodeURIComponent(recipeName)}&page=1`)
+      const data = await res.json()
+      const first = data.results?.[0]?.fullUrl
+      if (first) setImageUrl(prev => prev || first)
+    } catch {
+      // Ignore — the recipe is still filled without an image.
+    }
+  }
+
   const handleLookup = async (recipeName?: string) => {
     const n = (recipeName || name).trim()
     if (!n) return
@@ -199,6 +213,8 @@ export default function RecipeEditor({ initialValues, showLookup, autoLookup }: 
       if (data.difficulty && !difficulty) setDifficulty(data.difficulty)
       setLooked(true)
       toast.success('Recipe filled!')
+      // Fire-and-forget: add a photo without holding up the fill.
+      fetchRecipeImage(n)
     } catch (e: unknown) {
       toast.error((e as Error).message || 'Could not fill recipe. Try again.')
     } finally {
@@ -272,7 +288,7 @@ export default function RecipeEditor({ initialValues, showLookup, autoLookup }: 
 
   return (
     <div className="space-y-5">
-      {/* Imported image preview */}
+      {/* Image preview (imported or auto-picked by AI Fill) */}
       {imageUrl && (
         <div className="rounded-xl overflow-hidden aspect-video bg-gray-100">
           <img src={imageUrl} alt={name} className="w-full h-full object-cover" />
