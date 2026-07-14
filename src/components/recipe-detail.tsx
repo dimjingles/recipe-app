@@ -520,7 +520,7 @@ export default function RecipeDetail({
             <img
               src={heroUrl}
               alt={recipe.name}
-              className="w-full h-auto"
+              className="w-full h-[45vh] object-cover"
             />
           </button>
           <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-4 pt-5">
