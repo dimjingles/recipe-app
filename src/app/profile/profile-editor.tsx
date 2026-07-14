@@ -10,7 +10,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { UserAvatar } from '@/components/user-avatar'
 import { validateUsername } from '@/lib/username'
-import HouseholdCard, { HouseholdData } from './household-card'
 
 interface Identity {
   username: string
@@ -21,11 +20,9 @@ interface Identity {
 export default function ProfileEditor({
   initial,
   email,
-  household,
 }: {
   initial: Identity
   email: string
-  household: HouseholdData | null
 }) {
   const router = useRouter()
   const invalidate = useCacheInvalidation()
@@ -184,9 +181,7 @@ export default function ProfileEditor({
         {saving ? 'Saving…' : 'Save profile'}
       </Button>
 
-      <HouseholdCard initialHousehold={household} />
-
-      <form action="/auth/signout" method="POST" className="mt-6">
+      <form action="/auth/signout" method="POST" className="mt-8">
         <button
           type="submit"
           className="flex w-full items-center justify-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-destructive"

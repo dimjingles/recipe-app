@@ -8,25 +8,18 @@ export async function getRecipes() {
   const user = await getUser()
   if (!user) return []
 
-  // Library = the user's own recipes + any household-shared recipes. We filter
-  // explicitly (not just via RLS) so friend-visible recipes never leak in here.
-  // The household lookup and the rankings query are independent, so run them
-  // together — only the recipes query depends on householdId.
-  const [{ data: membership }, { data: rankRows }] = await Promise.all([
-    supabase.from('household_members').select('household_id').eq('user_id', user.id).maybeSingle(),
-    supabase.from('recipe_rankings').select('recipe_id, rank').eq('user_id', user.id),
-  ])
-  const householdId = membership?.household_id ?? null
+  // Library = the user's own recipes. We filter explicitly (not just via RLS)
+  // so friend-visible recipes never leak in here.
+  const { data: rankRows } = await supabase
+    .from('recipe_rankings').select('recipe_id, rank').eq('user_id', user.id)
 
   // List views only render name/cuisine/image/time — never ingredients — so we
   // skip the ingredients(*) join here (~80ms/query). The detail page (getRecipe)
   // still fetches them.
-  let query = supabase.from('recipes').select('*, cookbook_recipes(cookbook_id)')
-  query = householdId
-    ? query.or(`user_id.eq.${user.id},and(owner_scope.eq.household,household_id.eq.${householdId})`)
-    : query.eq('user_id', user.id)
-
-  const { data, error } = await query
+  const { data, error } = await supabase
+    .from('recipes')
+    .select('*, cookbook_recipes(cookbook_id)')
+    .eq('user_id', user.id)
   if (error) { console.error(error); return [] }
 
   // Order by the CURRENT user's personal ranking, then newest-first.
@@ -42,9 +35,8 @@ export async function getRecipes() {
 }
 
 /** Map of recipe id → 0.0–10.0 score for the current user's ranked recipes,
- *  grouped and spread within each feedback tier. Rank is per-user (recipe_rankings)
- *  so household members score the same shared recipe independently; the tier
- *  (feedback) is a property of the recipe. */
+ *  grouped and spread within each feedback tier. Rank is per-user (recipe_rankings);
+ *  the tier (feedback) is a property of the recipe. */
 export async function getRankedScores(): Promise<Record<string, number>> {
   const supabase = await createClient()
   const user = await getUser()

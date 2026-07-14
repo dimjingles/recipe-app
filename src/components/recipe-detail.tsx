@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Clock, Users, Edit, ChefHat, Trophy, X, BookOpen, Plus, Minus, Home, Play, Sparkles, GitBranch, Maximize2, Images, Check } from 'lucide-react'
+import { ArrowLeft, Clock, Users, Edit, ChefHat, Trophy, X, BookOpen, Plus, Minus, Play, Sparkles, GitBranch, Maximize2, Images, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { BottomSheet } from '@/components/ui/bottom-sheet'
 import { Input } from '@/components/ui/input'
@@ -321,8 +321,6 @@ export default function RecipeDetail({
   initialCookbooks,
   skillProfile,
   techniques,
-  isOwner = true,
-  hasHousehold = false,
   readOnly = false,
   variants = [],
   score,
@@ -331,8 +329,6 @@ export default function RecipeDetail({
   initialCookbooks: Cookbook[]
   skillProfile?: SkillProfile | null
   techniques?: Technique[]
-  isOwner?: boolean
-  hasHousehold?: boolean
   readOnly?: boolean
   variants?: RecipeVariantLink[]
   score: number | null
@@ -359,19 +355,21 @@ export default function RecipeDetail({
   const scaleFactor = servings / baseServings
   const [currentRank, setCurrentRank] = useState<number | null>(recipe.rank)
   const [currentFeedback, setCurrentFeedback] = useState<Feedback | null>(recipe.feedback)
-  const [ownerScope, setOwnerScope] = useState<string>((recipe as { owner_scope?: string }).owner_scope ?? 'user')
-  const [sharing, setSharing] = useState(false)
   // ── Display (hero) image + gallery — shared state so a gallery photo can
   //    be promoted to the hero shown at the top of the page. ──────────────
-  const [heroUrl, setHeroUrl] = useState<string | null>(recipe.image_url)
+  // The explicitly-chosen display image (persisted as recipe.image_url).
+  const [displayUrl, setDisplayUrl] = useState<string | null>(recipe.image_url)
   const [galleryImages, setGalleryImages] = useState<string[]>(recipe.gallery_images ?? [])
+  // Hero shown at the top of the page: the chosen display image, or — when none
+  // is set — automatically the first gallery photo.
+  const heroUrl = displayUrl ?? galleryImages[0] ?? null
   const [heroMenu, setHeroMenu] = useState(false) // action sheet when the hero is tapped
   const [heroLightbox, setHeroLightbox] = useState(false) // full-screen shaded view
   const [showChooser, setShowChooser] = useState(false) // "choose a different display image"
 
   const setAsDisplay = async (url: string) => {
-    const prev = heroUrl
-    setHeroUrl(url) // optimistic
+    const prev = displayUrl
+    setDisplayUrl(url) // optimistic
     try {
       const res = await fetch(`/api/recipes/${recipe.id}`, {
         method: 'PUT',
@@ -381,28 +379,8 @@ export default function RecipeDetail({
       if (!res.ok) throw new Error((await res.json()).error || 'Failed')
       toast.success('Display image updated')
     } catch (e: any) {
-      setHeroUrl(prev) // revert
+      setDisplayUrl(prev) // revert
       toast.error(e.message || 'Could not update display image')
-    }
-  }
-
-  const toggleHouseholdShare = async () => {
-    const next = ownerScope !== 'household'
-    setSharing(true)
-    try {
-      const res = await fetch(`/api/recipes/${recipe.id}/share`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ shared: next }),
-      })
-      if (!res.ok) throw new Error((await res.json()).error || 'Failed')
-      setOwnerScope(next ? 'household' : 'user')
-      toast.success(next ? 'Shared with your household' : 'Now personal again')
-      refreshEverywhere()
-    } catch (e: any) {
-      toast.error(e.message || 'Could not update sharing')
-    } finally {
-      setSharing(false)
     }
   }
 
@@ -670,26 +648,6 @@ export default function RecipeDetail({
           </Button>
         </div>
         )}
-
-        {/* Household sharing */}
-        {isOwner && hasHousehold ? (
-          <button
-            onClick={toggleHouseholdShare}
-            disabled={sharing}
-            className={`mb-6 flex w-full items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-sm font-semibold transition-all active:scale-[0.98] disabled:opacity-60 ${
-              ownerScope === 'household'
-                ? 'border-sage/30 bg-sage-subtle text-sage'
-                : 'border-border bg-card text-muted-foreground hover:border-brand hover:text-brand'
-            }`}
-          >
-            <Home className="h-4 w-4" />
-            {ownerScope === 'household' ? 'Shared with household · tap to make personal' : 'Share with household'}
-          </button>
-        ) : ownerScope === 'household' ? (
-          <div className="mb-6 flex w-full items-center justify-center gap-2 rounded-2xl border border-sage/30 bg-sage-subtle px-4 py-3 text-sm font-semibold text-sage">
-            <Home className="h-4 w-4" /> Shared with household
-          </div>
-        ) : null}
 
         {/* Adapt recipe — AI variant generator */}
         {!readOnly && (
