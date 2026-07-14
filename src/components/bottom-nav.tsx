@@ -19,7 +19,7 @@ const RIGHT_NAV = [
 export default function BottomNav() {
   const pathname = usePathname()
 
-  if (pathname === '/login' || pathname.startsWith('/onboarding') || pathname.endsWith('/cook')) return null
+  if (pathname === '/login' || pathname.startsWith('/onboarding') || pathname.startsWith('/share/') || pathname.endsWith('/cook')) return null
 
   const navLink = ({ href, label, icon: Icon }: { href: string; label: string; icon: typeof Home }) => {
     const active =

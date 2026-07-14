@@ -25,7 +25,8 @@ interface Props {
   steps: InstructionStep[] | null | undefined
   rawInstructions: string | null | undefined
   ingredients?: Ingredient[]
-  onAskChef: (step: InstructionStep) => void
+  // Omitted on read-only surfaces (e.g. public share pages) to hide the button.
+  onAskChef?: (step: InstructionStep) => void
 }
 
 export default function InstructionSteps({ steps, rawInstructions, ingredients = [], onAskChef }: Props) {
@@ -63,15 +64,17 @@ export default function InstructionSteps({ steps, rawInstructions, ingredients =
               {renderStepTokens(overlayIngredients(step.tokens, ingredientNames))}
             </p>
 
-            {/* Per-step Ask Chef AI button */}
-            <button
-              onClick={() => onAskChef(step)}
-              className="mt-2 inline-flex items-center gap-1.5 text-xs text-cooking hover:text-cooking/80 font-medium transition-colors"
-              title="Ask Chef AI about this step"
-            >
-              <ChefHat className="w-3.5 h-3.5" />
-              Ask Chef AI
-            </button>
+            {/* Per-step Ask Chef AI button — hidden when no handler (read-only) */}
+            {onAskChef && (
+              <button
+                onClick={() => onAskChef(step)}
+                className="mt-2 inline-flex items-center gap-1.5 text-xs text-cooking hover:text-cooking/80 font-medium transition-colors"
+                title="Ask Chef AI about this step"
+              >
+                <ChefHat className="w-3.5 h-3.5" />
+                Ask Chef AI
+              </button>
+            )}
           </div>
         </li>
       ))}

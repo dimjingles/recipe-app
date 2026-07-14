@@ -151,9 +151,10 @@ export interface Database {
           visibility: string
           original_recipe_id: string | null
           adaptation_metadata: AdaptationMetadata | null
+          share_token: string | null
           created_at: string
         }
-        Insert: Omit<Database['public']['Tables']['recipes']['Row'], 'id' | 'created_at' | 'cooked_count' | 'last_cooked_at' | 'rank' | 'feedback' | 'recipe_type' | 'gallery_images' | 'techniques' | 'instruction_steps' | 'owner_scope' | 'household_id' | 'visibility' | 'original_recipe_id' | 'adaptation_metadata'> & {
+        Insert: Omit<Database['public']['Tables']['recipes']['Row'], 'id' | 'created_at' | 'cooked_count' | 'last_cooked_at' | 'rank' | 'feedback' | 'recipe_type' | 'gallery_images' | 'techniques' | 'instruction_steps' | 'owner_scope' | 'household_id' | 'visibility' | 'original_recipe_id' | 'adaptation_metadata' | 'share_token'> & {
           id?: string
           created_at?: string
           cooked_count?: number
@@ -170,6 +171,7 @@ export interface Database {
           instruction_steps?: InstructionStep[] | null
           original_recipe_id?: string | null
           adaptation_metadata?: AdaptationMetadata | null
+          share_token?: string | null
         }
         Update: Partial<Database['public']['Tables']['recipes']['Insert']>
         Relationships: []
