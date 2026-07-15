@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Plus, X, Link2, Upload, Loader2, Search, Star } from 'lucide-react'
 import { toast } from 'sonner'
 import { BottomSheet } from '@/components/ui/bottom-sheet'
@@ -97,6 +97,23 @@ export default function RecipeGallery({
       setIsSearching(false)
     }
   }
+
+  // When the AI-generation flow lands here with `?addPhoto=search`, open the
+  // photo picker on the Search tab and kick off a search (seeded from the
+  // recipe name) so the new recipe can grab a hero image right away. Strip the
+  // param afterwards so a refresh or back-navigation doesn't re-trigger it.
+  useEffect(() => {
+    if (readOnly) return
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('addPhoto') !== 'search') return
+    setShowSheet(true)
+    setTab('search')
+    handleSearch()
+    params.delete('addPhoto')
+    const qs = params.toString()
+    window.history.replaceState(null, '', window.location.pathname + (qs ? `?${qs}` : ''))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const handleViewMore = async () => {
     if (isLoadingMore) return
