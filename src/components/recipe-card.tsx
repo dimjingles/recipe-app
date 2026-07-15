@@ -1,8 +1,9 @@
 'use client'
 
-import { ReactNode, CSSProperties } from 'react'
+import { ReactNode, CSSProperties, useState } from 'react'
 import { Clock } from 'lucide-react'
 import { formatScore } from '@/lib/scoring'
+import { getCuisineEmoji } from '@/lib/cuisine-emoji'
 import { cn } from '@/lib/utils'
 
 export interface RecipeCardRecipe {
@@ -11,6 +12,7 @@ export interface RecipeCardRecipe {
   cuisine?: string | null
   tags?: string[] | null
   image_url?: string | null
+  gallery_images?: string[] | null
   cook_time_minutes?: number | null
 }
 
@@ -37,6 +39,13 @@ export function RecipeCard({
   className,
   showCookTime = true,
 }: RecipeCardProps) {
+  // Match the detail page: use the explicitly-chosen display image, falling
+  // back to the first gallery photo when none is set. (recipe-detail.tsx)
+  const heroUrl = recipe.image_url ?? recipe.gallery_images?.[0] ?? null
+  // Scraped OG/JSON-LD image URLs often 404 or hotlink-block; fall back to the
+  // placeholder instead of a broken-image icon when the load fails.
+  const [imageBroken, setImageBroken] = useState(false)
+
   if (variant === 'list') {
     return (
       <div
@@ -84,15 +93,20 @@ export function RecipeCard({
       style={style}
     >
       <div className="relative aspect-[4/3] w-full shrink-0 overflow-hidden bg-muted">
-        {recipe.image_url ? (
+        {heroUrl && !imageBroken ? (
           <img
-            src={recipe.image_url}
+            src={heroUrl}
             alt=""
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
             loading="lazy"
+            onError={() => setImageBroken(true)}
           />
         ) : (
-          <div className="grid h-full w-full place-items-center text-3xl">🍽️</div>
+          <div className="food-placeholder grid h-full w-full place-items-center">
+            <span className="grid h-14 w-14 place-items-center rounded-full bg-card/80 text-2xl shadow-sm">
+              {getCuisineEmoji(recipe.cuisine)}
+            </span>
+          </div>
         )}
         {score != null && (
           <span className="absolute right-2 top-2 grid h-7 min-w-7 place-items-center rounded-lg bg-card/90 px-1.5 text-xs font-bold tabular-nums text-brand shadow-sm ring-1 ring-brand/15 backdrop-blur">

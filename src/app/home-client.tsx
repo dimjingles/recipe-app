@@ -3,7 +3,7 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ChefHat, CalendarDays, Clock, Plus, ShoppingCart, Sparkles, Users } from 'lucide-react'
+import { ChefHat, CalendarDays, Plus, ShoppingCart, Sparkles, Users } from 'lucide-react'
 import { format, addDays } from 'date-fns'
 import { useFeed, useMe, usePlan, useRecipes } from '@/lib/queries/hooks'
 import { PageSkeleton, useAuthRedirect } from '@/components/cached-page'
@@ -12,6 +12,7 @@ import { getCuisineEmoji } from '@/lib/cuisine-emoji'
 import { AddRecipeLauncher } from '@/components/add-recipe-sheet'
 import { EmptyState, RecipeBookIllustration } from '@/components/ui/empty-state'
 import { FeedItemRow } from '@/components/feed-item'
+import { RecipeCard } from '@/components/recipe-card'
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
@@ -186,39 +187,13 @@ export default function HomeClient() {
         ) : (
           <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
             {recentRecipes.map((recipe, i) => (
-              <Link
+              <RecipeCard
                 key={recipe.id}
-                href={`/recipes/${recipe.id}`}
-                className="group overflow-hidden rounded-2xl border border-border bg-card shadow-card transition-all hover:-translate-y-0.5 hover:shadow-card-hover active:scale-[0.97]"
+                recipe={recipe}
+                variant="grid"
+                onClick={() => router.push(`/recipes/${recipe.id}`)}
                 style={{ animationDelay: `${i * 40}ms` }}
-              >
-                {recipe.image_url ? (
-                  <div className="aspect-[4/3] overflow-hidden bg-muted">
-                    <img
-                      src={recipe.image_url}
-                      alt={recipe.name}
-                      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                    />
-                  </div>
-                ) : (
-                  <div className="food-placeholder grid aspect-[4/3] place-items-center">
-                    <span className="grid h-14 w-14 place-items-center rounded-full bg-card/80 text-2xl shadow-sm">
-                      {getCuisineEmoji(recipe.cuisine)}
-                    </span>
-                  </div>
-                )}
-                <div className="p-4">
-                  <p className="line-clamp-2 text-sm font-bold leading-snug text-foreground">{recipe.name}</p>
-                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-medium text-muted-foreground">
-                    {recipe.cuisine && <span className="capitalize">{recipe.cuisine}</span>}
-                    {recipe.cook_time_minutes && (
-                      <span className="flex items-center gap-0.5">
-                        <Clock className="h-3 w-3" /> {recipe.cook_time_minutes}m
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </Link>
+              />
             ))}
           </div>
         )}
