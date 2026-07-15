@@ -148,7 +148,10 @@ export function AddRecipeSheet({ open, onClose }: AddRecipeSheetProps) {
       // Closing would reveal the recipe library underneath for a beat before the
       // new recipe page mounts. Navigating unmounts this whole page instead, so
       // the spinner stays on screen right up until the recipe view takes over.
-      router.push(`/recipes/${saved.id}`)
+      // `addPhoto=search` tells the recipe page to open the photo picker on the
+      // Search tab and auto-run a search, so the fresh recipe can pick a hero
+      // image straight away.
+      router.push(`/recipes/${saved.id}?addPhoto=search`)
     } catch (e: unknown) {
       toast.error((e as Error).message || 'Could not generate recipe. Try again.')
       setGenerating(false)
