@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, getUser } from '@/lib/supabase/server'
+import { rehostImage } from '@/lib/images/rehost'
 
 // POST body: { url: string } — append to gallery_images
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -19,10 +20,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     .single()
   if (!recipe) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-  const current: string[] = recipe.gallery_images ?? []
-  if (current.includes(url)) return NextResponse.json({ gallery_images: current })
+  // Third-party image URLs (search picks, pasted links) are hotlinks that often
+  // 403 or expire, leaving a broken hero/gallery photo. Re-host them once into
+  // our own storage; fall back to the original URL if the download fails.
+  const stored = (await rehostImage(supabase, user.id, url.trim())) ?? url.trim()
 
-  const updated = [...current, url]
+  const current: string[] = recipe.gallery_images ?? []
+  if (current.includes(stored)) return NextResponse.json({ gallery_images: current })
+
+  const updated = [...current, stored]
   const { error } = await supabase
     .from('recipes')
     .update({ gallery_images: updated })
