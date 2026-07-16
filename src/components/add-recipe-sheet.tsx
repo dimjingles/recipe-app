@@ -197,10 +197,10 @@ export function AddRecipeSheet({ open, onClose }: AddRecipeSheetProps) {
   }
 
   // Generate the full recipe from the name + chosen photo, save it, attach the
-  // image as the hero, and drop the user on the finished recipe page. Passing
-  // `imageUrl` lets the generator look at the exact version the user picked;
-  // `null` (skip) falls back to name-only generation.
-  const generateWithAi = async (imageUrl: string | null) => {
+  // image as the hero, and drop the user on the finished recipe page. Passing an
+  // `image` lets the generator look at the exact version the user picked so the
+  // ingredients and steps match it; `null` (skip) generates name-only.
+  const generateWithAi = async (image: ImageResult | null) => {
     const name = aiName.trim()
     if (!name || generating) return
     setGenerating(true)
@@ -208,7 +208,13 @@ export function AddRecipeSheet({ open, onClose }: AddRecipeSheetProps) {
       const lookupRes = await fetch('/api/recipes/lookup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, imageUrl: imageUrl || undefined }),
+        // Send both URLs — the route inlines the photo for the model, and the
+        // full image can 403 where the search thumbnail won't.
+        body: JSON.stringify({
+          name,
+          imageUrl: image?.fullUrl,
+          thumbnailUrl: image?.thumbnailUrl,
+        }),
       })
       const details = await lookupRes.json()
       if (details.error) throw new Error(details.error)
@@ -235,12 +241,12 @@ export function AddRecipeSheet({ open, onClose }: AddRecipeSheetProps) {
       // Attach the picked photo as the recipe's hero. The images route re-hosts
       // the third-party URL into our storage so the hero doesn't break later.
       // Best-effort: a failed attach still lands the user on their recipe.
-      if (imageUrl) {
+      if (image) {
         try {
           await fetch(`/api/recipes/${saved.id}/images`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url: imageUrl }),
+            body: JSON.stringify({ url: image.fullUrl }),
           })
         } catch {}
       }
@@ -252,7 +258,7 @@ export function AddRecipeSheet({ open, onClose }: AddRecipeSheetProps) {
       // the spinner stays on screen right up until the recipe view takes over.
       // If the user skipped the photo step, `addPhoto=search` tells the recipe
       // page to open the picker so they can still add a hero image.
-      router.push(`/recipes/${saved.id}${imageUrl ? '' : '?addPhoto=search'}`)
+      router.push(`/recipes/${saved.id}${image ? '' : '?addPhoto=search'}`)
     } catch (e: unknown) {
       toast.error((e as Error).message || 'Could not generate recipe. Try again.')
       setGenerating(false)
@@ -454,7 +460,7 @@ export function AddRecipeSheet({ open, onClose }: AddRecipeSheetProps) {
                       {searchResults.map(result => (
                         <button
                           key={result.fullUrl}
-                          onClick={() => generateWithAi(result.fullUrl)}
+                          onClick={() => generateWithAi(result)}
                           className="relative aspect-square overflow-hidden rounded-xl border border-border transition-all active:scale-[0.97]"
                         >
                           <img

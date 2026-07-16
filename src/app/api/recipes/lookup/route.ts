@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { anthropic, HAIKU } from '@/lib/anthropic'
+import { fetchFirstImageAsBase64, type FetchedImage } from '@/lib/images/fetch-base64'
 
 // Structured-output schema. Constraining the model to this schema guarantees the
 // response is valid, parseable JSON — Haiku occasionally emitted malformed JSON
@@ -62,13 +63,17 @@ Difficulty rating, based on the complexity of the instructions you write:
 - 3 = Hard — advanced techniques, precise timing, complex preparations`
 }
 
-// Ask the model for a recipe, optionally letting it "see" the hero image the
-// user picked so the recipe is written to match that specific version.
-function generateRecipe(name: string, imageUrl?: string) {
-  const prompt = buildPrompt(name, !!imageUrl)
-  const content = imageUrl
+// Ask the model for a recipe, optionally letting it "see" the photo the user
+// picked (inlined as base64) so the recipe is written to match that specific
+// version — the ingredients and steps reflect what's actually in the image.
+function generateRecipe(name: string, image?: FetchedImage) {
+  const prompt = buildPrompt(name, !!image)
+  const content = image
     ? [
-        { type: 'image' as const, source: { type: 'url' as const, url: imageUrl } },
+        {
+          type: 'image' as const,
+          source: { type: 'base64' as const, media_type: image.mediaType, data: image.base64 },
+        },
         { type: 'text' as const, text: prompt },
       ]
     : prompt
@@ -82,19 +87,27 @@ function generateRecipe(name: string, imageUrl?: string) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { name, imageUrl } = await request.json()
+    const { name, imageUrl, thumbnailUrl } = await request.json()
     if (!name) {
       return NextResponse.json({ error: 'Recipe name is required' }, { status: 400 })
     }
 
+    // Download the picked photo ourselves and inline it — Anthropic often can't
+    // fetch the raw hotlink. Try the full image first, then the (reliably
+    // hostable) search thumbnail. A null result means we generate name-only.
+    const image =
+      imageUrl || thumbnailUrl
+        ? await fetchFirstImageAsBase64(imageUrl, thumbnailUrl)
+        : null
+
     let message
     try {
-      message = await generateRecipe(name, imageUrl || undefined)
+      message = await generateRecipe(name, image ?? undefined)
     } catch (err) {
-      // Picked images are usually third-party hotlinks that can 403 or time out
-      // when the model tries to fetch them. Don't fail the whole generation over
-      // a bad image — retry name-only so the user still gets their recipe.
-      if (imageUrl) {
+      // The image is already downloaded and validated, so this is unlikely — but
+      // if the model still rejects it (e.g. odd dimensions), don't fail the whole
+      // request: retry name-only so the user still gets a recipe.
+      if (image) {
         message = await generateRecipe(name)
       } else {
         throw err
