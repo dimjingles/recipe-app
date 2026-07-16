@@ -26,6 +26,9 @@ interface Props {
   heroUrl: string | null
   /** Promote a gallery photo to the display / hero image. */
   onSetHero: (url: string) => void
+  /** Bumping this counter opens the Add Photo sheet on the Search tab (used by
+   *  the hero placeholder so an image-less recipe can grab a photo). */
+  openRequest?: number
   readOnly?: boolean
 }
 
@@ -36,6 +39,7 @@ export default function RecipeGallery({
   onImagesChange,
   heroUrl,
   onSetHero,
+  openRequest,
   readOnly = false,
 }: Props) {
   const [showSheet, setShowSheet] = useState(false)
@@ -114,6 +118,16 @@ export default function RecipeGallery({
     window.history.replaceState(null, '', window.location.pathname + (qs ? `?${qs}` : ''))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // The hero placeholder (shown when a recipe has no display image) opens this
+  // sheet on the Search tab so the user can find a photo without scrolling down.
+  useEffect(() => {
+    if (readOnly || !openRequest) return
+    setShowSheet(true)
+    setTab('search')
+    handleSearch()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openRequest])
 
   const handleViewMore = async () => {
     if (isLoadingMore) return
