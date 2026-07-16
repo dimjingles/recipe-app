@@ -27,11 +27,21 @@ const RECIPE_TYPES = [
   { value: 'drink', label: 'Drink' },
 ]
 
-const SORT_OPTIONS = [
+// Sort options for the "Cooked" tab — driven by cooking history, so persisted
+// server-side via the user's profile preference.
+const COOKED_SORT_OPTIONS = [
   { value: 'ranking', label: 'Ranking' },
   { value: 'recently_cooked', label: 'Most recently cooked' },
   { value: 'most_cooked', label: 'Most cooked' },
   { value: 'cook_time', label: 'Quickest to cook' },
+] as const
+
+// The "Want to try" tab holds recipes that have never been cooked, so the
+// history-based sorts above don't apply. It gets its own lightweight options.
+type WantToTrySortPreference = 'alphabetical' | 'recently_added'
+const WANT_TO_TRY_SORT_OPTIONS = [
+  { value: 'alphabetical', label: 'Alphabetical' },
+  { value: 'recently_added', label: 'Recently added' },
 ] as const
 
 function compareDateDesc(a: string | null, b: string | null) {
@@ -84,6 +94,16 @@ function compareRecipes(a: RecipeWithIngredients, b: RecipeWithIngredients, sort
     || a.name.localeCompare(b.name)
 }
 
+function compareWantToTry(a: RecipeWithIngredients, b: RecipeWithIngredients, sort: WantToTrySortPreference) {
+  if (sort === 'recently_added') {
+    return compareDateDesc(a.created_at, b.created_at)
+      || a.name.localeCompare(b.name)
+  }
+
+  // 'alphabetical'
+  return a.name.localeCompare(b.name)
+}
+
 interface OnlineResult {
   name: string
   cuisine: string
@@ -121,6 +141,10 @@ export default function RecipeLibrary({
   const [selectedCategory, setSelectedCategory] = useState<'cooked' | 'bookmarked'>('cooked')
   const [sortPreference, setSortPreference] = useState<RecipeSortPreference>(initialSortPreference)
   const [sortDirection, setSortDirection] = useState<RecipeSortDirection>(initialSortDirection)
+  // The "Want to try" tab keeps its own sort, independent of the persisted
+  // Cooked-tab preference, so switching tabs doesn't clobber the other's choice.
+  const [wantToTrySort, setWantToTrySort] = useState<WantToTrySortPreference>('recently_added')
+  const [wantToTryDirection, setWantToTryDirection] = useState<RecipeSortDirection>('default')
   const [cookbooks, setCookbooks] = useState<CookbookWithCount[]>(initialCookbooks)
   const [onlineResults, setOnlineResults] = useState<OnlineResult[]>([])
   const [loadingOnline, setLoadingOnline] = useState(false)
@@ -255,6 +279,21 @@ export default function RecipeLibrary({
     }
   }
 
+  // Routes a dropdown selection to the right place: the Cooked tab persists its
+  // preference server-side, the Want to try tab keeps it in local state.
+  const handleSortSelection = (
+    value: RecipeSortPreference | WantToTrySortPreference,
+    nextDirection: RecipeSortDirection,
+  ) => {
+    if (isWantToTry) {
+      setWantToTrySort(value as WantToTrySortPreference)
+      setWantToTryDirection(nextDirection)
+      setOpenDropdown(null)
+      return
+    }
+    handleSortChange(value as RecipeSortPreference, nextDirection)
+  }
+
   const openCreateCookbook = () => {
     setOpenDropdown(null)
     setShowCreateCookbook(true)
@@ -328,13 +367,20 @@ export default function RecipeLibrary({
     return matchesCategory && matchesSearch && matchesCuisine && matchesType && matchesTag
   })
 
+  const isWantToTry = selectedCategory === 'bookmarked'
+  const activeSortOptions = isWantToTry ? WANT_TO_TRY_SORT_OPTIONS : COOKED_SORT_OPTIONS
+  const activeSortValue = isWantToTry ? wantToTrySort : sortPreference
+  const activeSortDirection = isWantToTry ? wantToTryDirection : sortDirection
+
   const sortedRecipes = useMemo(
     () => {
-      const ordered = [...filtered].sort((a, b) => compareRecipes(a, b, sortPreference))
+      const ordered = [...filtered].sort((a, b) =>
+        isWantToTry ? compareWantToTry(a, b, wantToTrySort) : compareRecipes(a, b, sortPreference)
+      )
       // 'reversed' flips the whole list bottom-to-top for the chosen sort option.
-      return sortDirection === 'reversed' ? ordered.reverse() : ordered
+      return activeSortDirection === 'reversed' ? ordered.reverse() : ordered
     },
-    [filtered, sortPreference, sortDirection]
+    [filtered, isWantToTry, sortPreference, sortDirection, wantToTrySort, wantToTryDirection, activeSortDirection]
   )
 
   /* ── Chip style helpers ─────────────────────────────────────────── */
@@ -571,20 +617,20 @@ export default function RecipeLibrary({
             title="Sort recipes"
           >
             <ArrowDownUp className="h-4 w-4" />
-            <span>{SORT_OPTIONS.find(o => o.value === sortPreference)?.label}</span>
+            <span>{activeSortOptions.find(o => o.value === activeSortValue)?.label}</span>
           </button>
           {openDropdown === 'sort' && (
             <>
               <div className="fixed inset-0 z-10" onClick={() => setOpenDropdown(null)} />
               <div className="absolute left-0 top-full z-20 mt-1.5 min-w-[248px] overflow-hidden rounded-xl border border-border bg-card shadow-lg">
-                {SORT_OPTIONS.map(option => {
-                  const active = sortPreference === option.value
-                  const reversed = active && sortDirection === 'reversed'
+                {activeSortOptions.map(option => {
+                  const active = activeSortValue === option.value
+                  const reversed = active && activeSortDirection === 'reversed'
                   const DirIcon = reversed ? ArrowUp : ArrowDown
                   const dirLabel = reversed ? 'Bottom to top' : 'Top to bottom'
                   // Single toggle: selecting an inactive option starts top-to-bottom;
                   // tapping the active option flips its direction.
-                  const nextDirection = active && sortDirection === 'default' ? 'reversed' : 'default'
+                  const nextDirection = active && activeSortDirection === 'default' ? 'reversed' : 'default'
                   return (
                     <div
                       key={option.value}
@@ -594,7 +640,7 @@ export default function RecipeLibrary({
                         {option.label}
                       </span>
                       <button
-                        onClick={() => handleSortChange(option.value, nextDirection)}
+                        onClick={() => handleSortSelection(option.value, nextDirection)}
                         className={`grid h-7 w-7 shrink-0 place-items-center rounded-lg border transition-colors active:scale-[0.95] ${
                           active
                             ? 'border-transparent bg-brand text-brand-foreground'
