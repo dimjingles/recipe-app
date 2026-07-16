@@ -1,13 +1,15 @@
 'use client'
 
-import { ReactNode, useState } from 'react'
+import { ReactNode, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   ArrowLeft,
   Bookmark,
+  Camera,
   ChevronRight,
   ExternalLink,
   Heart,
+  ImagePlus,
   Link2,
   Loader2,
   MessageCircle,
@@ -22,9 +24,10 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Shimmer } from '@/components/ui/shimmer'
 import { useCacheInvalidation } from '@/lib/queries/hooks'
+import { downscaleToDataUrl } from '@/lib/images/downscale'
 
 type Platform = 'youtube' | 'tiktok' | 'instagram'
-type View = 'options' | 'platforms' | 'ai' | Platform
+type View = 'options' | 'platforms' | 'ai' | 'photo' | Platform
 // The AI generator runs in two steps: name the dish, then pick the photo that
 // looks right. The recipe is generated last, from the name + chosen image.
 type AiStep = 'name' | 'image'
@@ -113,6 +116,9 @@ export function AddRecipeSheet({ open, onClose }: AddRecipeSheetProps) {
   const [searchPage, setSearchPage] = useState(1)
   const [hasMore, setHasMore] = useState(false)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
+  // "Add from photo" uses two file inputs: the camera (capture) and the library.
+  const cameraInputRef = useRef<HTMLInputElement>(null)
+  const libraryInputRef = useRef<HTMLInputElement>(null)
 
   const close = () => {
     onClose()
@@ -265,6 +271,77 @@ export function AddRecipeSheet({ open, onClose }: AddRecipeSheetProps) {
     }
   }
 
+  // "Add from photo": generate a whole recipe from a photo the user took or
+  // uploaded. The model identifies the dish and writes the recipe to match what
+  // it sees; the same photo is then stored as the recipe's hero image.
+  const generateFromPhoto = async (file: File) => {
+    if (generating) return
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please choose an image')
+      return
+    }
+    setGenerating(true)
+    try {
+      // Downscale in the browser so the base64 fits Anthropic's size limit.
+      const dataUrl = await downscaleToDataUrl(file)
+
+      const genRes = await fetch('/api/recipes/from-photo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: dataUrl }),
+      })
+      const details = await genRes.json()
+      if (details.error) throw new Error(details.error)
+      if (!details.name) throw new Error('Could not recognize a dish in that photo')
+
+      const saveRes = await fetch('/api/recipes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: details.name,
+          description: details.description || undefined,
+          cuisine: details.cuisine || undefined,
+          recipe_type: details.recipe_type || undefined,
+          cook_time_minutes: details.cook_time_minutes || undefined,
+          servings: details.servings || 4,
+          instructions: details.instructions || undefined,
+          difficulty: details.difficulty || undefined,
+          ingredients: details.ingredients || [],
+          tags: [],
+        }),
+      })
+      const saved = await saveRes.json()
+      if (saved.error) throw new Error(saved.error)
+
+      // Store the user's own photo as the recipe's hero. Upload the downscaled
+      // JPEG (already safely under the size limit) and attach it to the gallery,
+      // where the first photo becomes the hero automatically. Best-effort: a
+      // failed attach still lands the user on their finished recipe.
+      try {
+        const blob = await (await fetch(dataUrl)).blob()
+        const form = new FormData()
+        form.append('image', blob, 'photo.jpg')
+        const uploadRes = await fetch(`/api/recipes/${saved.id}/upload`, { method: 'POST', body: form })
+        const uploadData = await uploadRes.json()
+        if (uploadData.url) {
+          await fetch(`/api/recipes/${saved.id}/images`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: uploadData.url }),
+          })
+        }
+      } catch {}
+
+      invalidate.recipesChanged()
+      // Keep the loading overlay up and navigate (see generateWithAi for why we
+      // don't close the sheet here).
+      router.push(`/recipes/${saved.id}`)
+    } catch (e: unknown) {
+      toast.error((e as Error).message || 'Could not generate a recipe from that photo. Try again.')
+      setGenerating(false)
+    }
+  }
+
   const header = (title: string, back?: () => void) => (
     <div className="relative mb-5 flex h-9 items-center justify-center">
       <button
@@ -301,6 +378,23 @@ export function AddRecipeSheet({ open, onClose }: AddRecipeSheetProps) {
                 </span>
                 <span className="block text-sm text-muted-foreground">
                   Enter a dish name — we&apos;ll write the whole recipe
+                </span>
+              </span>
+            </button>
+
+            <button
+              onClick={() => setView('photo')}
+              className="mb-3 flex w-full items-center gap-4 rounded-2xl border border-brand/40 bg-brand-subtle p-4 text-left shadow-card transition-all hover:border-brand active:scale-[0.98]"
+            >
+              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-brand text-brand-foreground">
+                <Camera className="h-5 w-5" />
+              </span>
+              <span>
+                <span className="block font-heading text-base font-bold text-foreground">
+                  Add from photo
+                </span>
+                <span className="block text-sm text-muted-foreground">
+                  Snap or upload a dish — we&apos;ll write the recipe for it
                 </span>
               </span>
             </button>
@@ -497,6 +591,85 @@ export function AddRecipeSheet({ open, onClose }: AddRecipeSheetProps) {
                 >
                   Skip and generate without a photo
                 </button>
+              </>
+            )}
+          </>
+        )}
+
+        {/* ── View: add from photo ── */}
+        {view === 'photo' && (
+          <>
+            {header('Add from photo', generating ? undefined : () => setView('options'))}
+
+            {/* Hidden inputs: one opens the camera on mobile, one the library. */}
+            <input
+              ref={cameraInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={e => {
+                const f = e.target.files?.[0]
+                e.target.value = ''
+                if (f) generateFromPhoto(f)
+              }}
+            />
+            <input
+              ref={libraryInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={e => {
+                const f = e.target.files?.[0]
+                e.target.value = ''
+                if (f) generateFromPhoto(f)
+              }}
+            />
+
+            {generating ? (
+              <div className="flex flex-col items-center gap-4 py-10 text-center">
+                <span className="grid h-14 w-14 place-items-center rounded-full bg-brand-subtle text-brand">
+                  <Loader2 className="h-7 w-7 animate-spin" />
+                </span>
+                <div>
+                  <p className="font-heading text-base font-bold text-foreground">
+                    Cooking up your recipe…
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Looking at your photo to write the ingredients and steps.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <>
+                <p className="mb-4 text-sm text-muted-foreground">
+                  Take a photo of a dish or upload one from your library, and
+                  we&apos;ll create a recipe to match it.
+                </p>
+                <div className="space-y-3">
+                  <button
+                    onClick={() => cameraInputRef.current?.click()}
+                    className="flex w-full items-center gap-4 rounded-2xl border border-border bg-card p-4 text-left shadow-card transition-all hover:border-brand/40 active:scale-[0.98]"
+                  >
+                    <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-brand-subtle text-brand">
+                      <Camera className="h-5 w-5" />
+                    </span>
+                    <span className="font-heading text-base font-bold text-foreground">
+                      Take a photo
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => libraryInputRef.current?.click()}
+                    className="flex w-full items-center gap-4 rounded-2xl border border-border bg-card p-4 text-left shadow-card transition-all hover:border-brand/40 active:scale-[0.98]"
+                  >
+                    <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-brand-subtle text-brand">
+                      <ImagePlus className="h-5 w-5" />
+                    </span>
+                    <span className="font-heading text-base font-bold text-foreground">
+                      Upload a photo
+                    </span>
+                  </button>
+                </div>
               </>
             )}
           </>
