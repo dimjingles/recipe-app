@@ -361,8 +361,12 @@ export default function RecipeDetail({
   const [displayUrl, setDisplayUrl] = useState<string | null>(recipe.image_url)
   const [galleryImages, setGalleryImages] = useState<string[]>(recipe.gallery_images ?? [])
   // Hero shown at the top of the page: the chosen display image, or — when none
-  // is set — automatically the first gallery photo.
-  const heroUrl = displayUrl ?? galleryImages[0] ?? null
+  // is set — automatically the first gallery photo. A URL that fails to load
+  // (e.g. an old hotlink that now 403s) is dropped so the page falls back to the
+  // no-image layout instead of showing a broken-image icon.
+  const [brokenUrls, setBrokenUrls] = useState<Set<string>>(new Set())
+  const candidateHero = displayUrl ?? galleryImages[0] ?? null
+  const heroUrl = candidateHero && !brokenUrls.has(candidateHero) ? candidateHero : null
   const [heroMenu, setHeroMenu] = useState(false) // action sheet when the hero is tapped
   const [heroLightbox, setHeroLightbox] = useState(false) // full-screen shaded view
   const [addPhotoSignal, setAddPhotoSignal] = useState(0) // bump to open the gallery's Add Photo sheet
@@ -521,6 +525,7 @@ export default function RecipeDetail({
               src={heroUrl}
               alt={recipe.name}
               className="w-full h-[45vh] object-cover"
+              onError={() => setBrokenUrls(prev => new Set(prev).add(heroUrl))}
             />
           </button>
         ) : readOnly ? (
