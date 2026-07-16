@@ -12,6 +12,7 @@ import {
   Loader2,
   MessageCircle,
   PenLine,
+  Search,
   Send,
   Sparkles,
 } from 'lucide-react'
@@ -19,10 +20,21 @@ import { toast } from 'sonner'
 import { BottomSheet } from '@/components/ui/bottom-sheet'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { Shimmer } from '@/components/ui/shimmer'
 import { useCacheInvalidation } from '@/lib/queries/hooks'
 
 type Platform = 'youtube' | 'tiktok' | 'instagram'
 type View = 'options' | 'platforms' | 'ai' | Platform
+// The AI generator runs in two steps: name the dish, then pick the photo that
+// looks right. The recipe is generated last, from the name + chosen image.
+type AiStep = 'name' | 'image'
+
+interface ImageResult {
+  thumbnailUrl: string
+  fullUrl: string
+  sourceDomain: string
+  title: string
+}
 
 const PLATFORMS: Array<{ key: Platform; label: string; appUrl: string; shareVerb: string }> = [
   { key: 'youtube', label: 'YouTube', appUrl: 'https://www.youtube.com', shareVerb: 'Share' },
@@ -92,6 +104,15 @@ export function AddRecipeSheet({ open, onClose }: AddRecipeSheetProps) {
   const [navigating, setNavigating] = useState(false)
   const [aiName, setAiName] = useState('')
   const [generating, setGenerating] = useState(false)
+  const [aiStep, setAiStep] = useState<AiStep>('name')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<ImageResult[]>([])
+  const [isSearching, setIsSearching] = useState(false)
+  const [hasSearched, setHasSearched] = useState(false)
+  const [searchError, setSearchError] = useState('')
+  const [searchPage, setSearchPage] = useState(1)
+  const [hasMore, setHasMore] = useState(false)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
 
   const close = () => {
     onClose()
@@ -101,6 +122,15 @@ export function AddRecipeSheet({ open, onClose }: AddRecipeSheetProps) {
     setNavigating(false)
     setAiName('')
     setGenerating(false)
+    setAiStep('name')
+    setSearchQuery('')
+    setSearchResults([])
+    setIsSearching(false)
+    setHasSearched(false)
+    setSearchError('')
+    setSearchPage(1)
+    setHasMore(false)
+    setIsLoadingMore(false)
   }
 
   const go = (href: string) => {
@@ -109,9 +139,68 @@ export function AddRecipeSheet({ open, onClose }: AddRecipeSheetProps) {
     close()
   }
 
-  // Generate a full recipe from just a name: ask the AI for the recipe,
-  // save it, and drop the user on the finished recipe page.
-  const generateWithAi = async () => {
+  // Search real-world photos of the dish. The user picks the version they want
+  // before we generate, so the recipe can be written to match that image.
+  const runImageSearch = async (query: string) => {
+    const q = query.trim()
+    if (!q) return
+    setIsSearching(true)
+    setHasSearched(true)
+    setSearchError('')
+    setSearchPage(1)
+    setHasMore(false)
+    try {
+      const res = await fetch(`/api/images/search?q=${encodeURIComponent(q)}&page=1`)
+      const data = await res.json()
+      setSearchResults(data.results || [])
+      setHasMore(!!data.hasMore)
+      if (data.error) setSearchError(data.error)
+    } catch {
+      setSearchResults([])
+      setSearchError('Search unavailable')
+    } finally {
+      setIsSearching(false)
+    }
+  }
+
+  // Step 1 → 2: move from the name input to the photo picker, seeding the search
+  // with the dish name.
+  const goToImageStep = () => {
+    const name = aiName.trim()
+    if (!name) return
+    setSearchQuery(name)
+    setAiStep('image')
+    runImageSearch(name)
+  }
+
+  const viewMoreImages = async () => {
+    if (isLoadingMore) return
+    const nextPage = searchPage + 1
+    setIsLoadingMore(true)
+    try {
+      const res = await fetch(`/api/images/search?q=${encodeURIComponent(searchQuery)}&page=${nextPage}`)
+      const data = await res.json()
+      const more: ImageResult[] = data.results || []
+      if (more.length) {
+        setSearchResults(prev => {
+          const seen = new Set(prev.map(r => r.fullUrl))
+          return [...prev, ...more.filter(r => !seen.has(r.fullUrl))]
+        })
+        setSearchPage(nextPage)
+      }
+      setHasMore(!!data.hasMore)
+    } catch {
+      toast.error('Could not load more images')
+    } finally {
+      setIsLoadingMore(false)
+    }
+  }
+
+  // Generate the full recipe from the name + chosen photo, save it, attach the
+  // image as the hero, and drop the user on the finished recipe page. Passing
+  // `imageUrl` lets the generator look at the exact version the user picked;
+  // `null` (skip) falls back to name-only generation.
+  const generateWithAi = async (imageUrl: string | null) => {
     const name = aiName.trim()
     if (!name || generating) return
     setGenerating(true)
@@ -119,7 +208,7 @@ export function AddRecipeSheet({ open, onClose }: AddRecipeSheetProps) {
       const lookupRes = await fetch('/api/recipes/lookup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ name, imageUrl: imageUrl || undefined }),
       })
       const details = await lookupRes.json()
       if (details.error) throw new Error(details.error)
@@ -143,15 +232,27 @@ export function AddRecipeSheet({ open, onClose }: AddRecipeSheetProps) {
       const saved = await saveRes.json()
       if (saved.error) throw new Error(saved.error)
 
+      // Attach the picked photo as the recipe's hero. The images route re-hosts
+      // the third-party URL into our storage so the hero doesn't break later.
+      // Best-effort: a failed attach still lands the user on their recipe.
+      if (imageUrl) {
+        try {
+          await fetch(`/api/recipes/${saved.id}/images`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: imageUrl }),
+          })
+        } catch {}
+      }
+
       invalidate.recipesChanged()
       // Keep the loading overlay up and navigate — do NOT close the sheet here.
       // Closing would reveal the recipe library underneath for a beat before the
       // new recipe page mounts. Navigating unmounts this whole page instead, so
       // the spinner stays on screen right up until the recipe view takes over.
-      // `addPhoto=search` tells the recipe page to open the photo picker on the
-      // Search tab and auto-run a search, so the fresh recipe can pick a hero
-      // image straight away.
-      router.push(`/recipes/${saved.id}?addPhoto=search`)
+      // If the user skipped the photo step, `addPhoto=search` tells the recipe
+      // page to open the picker so they can still add a hero image.
+      router.push(`/recipes/${saved.id}${imageUrl ? '' : '?addPhoto=search'}`)
     } catch (e: unknown) {
       toast.error((e as Error).message || 'Could not generate recipe. Try again.')
       setGenerating(false)
@@ -264,7 +365,14 @@ export function AddRecipeSheet({ open, onClose }: AddRecipeSheetProps) {
         {/* ── View: generate with AI ── */}
         {view === 'ai' && (
           <>
-            {header('Generate with AI', generating ? undefined : () => setView('options'))}
+            {header(
+              'Generate with AI',
+              generating
+                ? undefined
+                : aiStep === 'image'
+                  ? () => setAiStep('name')
+                  : () => setView('options'),
+            )}
 
             {generating ? (
               <div className="flex flex-col items-center gap-4 py-10 text-center">
@@ -276,15 +384,15 @@ export function AddRecipeSheet({ open, onClose }: AddRecipeSheetProps) {
                     Cooking up your recipe…
                   </p>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Writing ingredients and steps for “{aiName.trim()}”.
+                    Writing ingredients and steps to match your “{aiName.trim()}”.
                   </p>
                 </div>
               </div>
-            ) : (
+            ) : aiStep === 'name' ? (
               <>
                 <p className="mb-4 text-sm text-muted-foreground">
-                  Just tell us what you want to make. We&apos;ll generate the ingredients,
-                  steps, and details, then take you straight to the recipe.
+                  Tell us what you want to make. Next you&apos;ll pick the photo that
+                  looks right, and we&apos;ll write a recipe to match it.
                 </p>
                 <div className="mb-3 flex gap-2">
                   <Input
@@ -293,16 +401,96 @@ export function AddRecipeSheet({ open, onClose }: AddRecipeSheetProps) {
                     placeholder="e.g. Spaghetti Carbonara"
                     className="flex-1"
                     autoFocus
-                    onKeyDown={e => { if (e.key === 'Enter') generateWithAi() }}
+                    onKeyDown={e => { if (e.key === 'Enter') goToImageStep() }}
                   />
                   <Button
-                    onClick={generateWithAi}
+                    onClick={goToImageStep}
                     disabled={!aiName.trim()}
                     className="shrink-0 bg-brand text-brand-foreground hover:bg-brand/90"
                   >
-                    <Sparkles className="h-4 w-4 mr-1" /> Generate
+                    Next
+                    <ChevronRight className="h-4 w-4 ml-1" />
                   </Button>
                 </div>
+              </>
+            ) : (
+              <>
+                <p className="mb-4 text-sm text-muted-foreground">
+                  Pick the photo that looks like the version you want — we&apos;ll build
+                  the recipe from it.
+                </p>
+                <div className="mb-4 flex gap-2">
+                  <Input
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') runImageSearch(searchQuery) }}
+                    placeholder="Search for images…"
+                    className="flex-1"
+                  />
+                  <Button
+                    onClick={() => runImageSearch(searchQuery)}
+                    disabled={isSearching || !searchQuery.trim()}
+                    className="shrink-0 bg-brand text-brand-foreground hover:bg-brand/90"
+                  >
+                    {isSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                  </Button>
+                </div>
+
+                {isSearching && (
+                  <div className="grid grid-cols-3 gap-2">
+                    {[1, 2, 3, 4, 5, 6].map(i => (
+                      <Shimmer key={i} className="aspect-square rounded-xl" />
+                    ))}
+                  </div>
+                )}
+
+                {searchError && (
+                  <p className="py-2 text-center text-sm text-muted-foreground">{searchError}</p>
+                )}
+
+                {searchResults.length > 0 && (
+                  <>
+                    <div className="grid grid-cols-3 gap-2">
+                      {searchResults.map(result => (
+                        <button
+                          key={result.fullUrl}
+                          onClick={() => generateWithAi(result.fullUrl)}
+                          className="relative aspect-square overflow-hidden rounded-xl border border-border transition-all active:scale-[0.97]"
+                        >
+                          <img
+                            src={result.thumbnailUrl}
+                            alt={result.title}
+                            className="h-full w-full object-cover"
+                            loading="lazy"
+                          />
+                        </button>
+                      ))}
+                    </div>
+                    {hasMore && (
+                      <Button
+                        variant="outline"
+                        onClick={viewMoreImages}
+                        disabled={isLoadingMore}
+                        className="mt-3 w-full"
+                      >
+                        {isLoadingMore ? <Loader2 className="h-4 w-4 animate-spin" /> : 'View more'}
+                      </Button>
+                    )}
+                  </>
+                )}
+
+                {searchResults.length === 0 && !isSearching && hasSearched && !searchError && (
+                  <p className="py-6 text-center text-sm text-muted-foreground">
+                    No results. Try a different search.
+                  </p>
+                )}
+
+                <button
+                  onClick={() => generateWithAi(null)}
+                  className="mt-5 w-full text-center text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  Skip and generate without a photo
+                </button>
               </>
             )}
           </>
