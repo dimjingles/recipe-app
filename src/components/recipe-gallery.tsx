@@ -307,9 +307,6 @@ export default function RecipeGallery({
                     {searchResults.map(result => (
                       <button key={result.fullUrl} onClick={() => handlePickImage(result)} className="relative aspect-square rounded-xl overflow-hidden border border-border active:scale-[0.97] transition-all">
                         <img src={result.thumbnailUrl} alt={result.title} className="w-full h-full object-cover" loading="lazy" />
-                        <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-1 py-0.5">
-                          <span className="text-white text-[9px] truncate block">{result.sourceDomain}</span>
-                        </div>
                       </button>
                     ))}
                   </div>
