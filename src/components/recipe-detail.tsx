@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Clock, Users, Edit, ChefHat, Trophy, X, BookOpen, Plus, Minus, Play, Sparkles, GitBranch, Maximize2, Images, Check, Share2 } from 'lucide-react'
+import { ArrowLeft, Clock, Users, Edit, ChefHat, Trophy, X, BookOpen, Plus, Minus, Play, Sparkles, GitBranch, Maximize2, Images, Check, Share2, ImagePlus, ImageOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { BottomSheet } from '@/components/ui/bottom-sheet'
 import { Input } from '@/components/ui/input'
@@ -365,6 +365,7 @@ export default function RecipeDetail({
   const heroUrl = displayUrl ?? galleryImages[0] ?? null
   const [heroMenu, setHeroMenu] = useState(false) // action sheet when the hero is tapped
   const [heroLightbox, setHeroLightbox] = useState(false) // full-screen shaded view
+  const [addPhotoSignal, setAddPhotoSignal] = useState(0) // bump to open the gallery's Add Photo sheet
   const [showChooser, setShowChooser] = useState(false) // "choose a different display image"
 
   const [creatingShareLink, setCreatingShareLink] = useState(false)
@@ -502,15 +503,14 @@ export default function RecipeDetail({
     refreshEverywhere()
   }
 
-  const emoji = getCuisineEmoji(recipe.cuisine)
   const adaptedFrom = recipe.adaptation_metadata
 
   return (
     <div className="max-w-lg mx-auto pb-8">
 
-      {/* ── Hero: the selected display image ─────────────────────────── */}
-      {heroUrl && (
-        <div className="relative">
+      {/* ── Hero: the selected display image, or a placeholder prompting one ── */}
+      <div className="relative">
+        {heroUrl ? (
           <button
             type="button"
             onClick={() => (readOnly ? setHeroLightbox(true) : setHeroMenu(true))}
@@ -523,107 +523,76 @@ export default function RecipeDetail({
               className="w-full h-[45vh] object-cover"
             />
           </button>
-          <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-4 pt-5">
-            <Link href="/recipes" className="text-white/90 hover:text-white bg-black/20 rounded-full p-1.5">
-              <ArrowLeft className="w-5 h-5" />
-            </Link>
-            {!readOnly && (
-              <Link href={`/recipes/${recipe.id}/edit`} className="text-white/90 hover:text-white bg-black/20 rounded-full p-1.5">
-                <Edit className="w-4 h-4" />
-              </Link>
-            )}
+        ) : readOnly ? (
+          /* No image, read-only (shared link): a soft placeholder, no prompt */
+          <div className="w-full h-[45vh] bg-gradient-to-br from-brand-subtle via-cooking-subtle to-sage-subtle flex flex-col items-center justify-center gap-3">
+            <span className="flex items-center justify-center w-16 h-16 rounded-2xl bg-card/70 shadow-sm text-muted-foreground/70">
+              <ImageOff className="w-7 h-7" />
+            </span>
+            <span className="text-sm font-medium text-muted-foreground">No photo yet</span>
           </div>
-        </div>
-      )}
-
-      {/* ── Header band (with image = gradient; without = warm-white) ── */}
-      {heroUrl ? (
-        /* Gradient header — only shown when there IS a hero image */
-        <div className="bg-gradient-to-br from-brand to-cooking/80 px-4 pt-3 pb-8">
-          <h1 className="font-heading text-2xl font-bold text-white leading-tight">{recipe.name}</h1>
-          {recipe.description && (
-            <p className="text-white/80 text-sm mt-2 leading-relaxed">{recipe.description}</p>
+        ) : (
+          /* No image, owner: a tappable placeholder that opens the photo picker */
+          <button
+            type="button"
+            onClick={() => setAddPhotoSignal(n => n + 1)}
+            className="group w-full h-[45vh] bg-gradient-to-br from-brand-subtle via-cooking-subtle to-sage-subtle flex flex-col items-center justify-center gap-3 active:opacity-95 transition-opacity"
+            aria-label="Add a display image"
+          >
+            <span className="flex items-center justify-center w-16 h-16 rounded-2xl bg-card/80 shadow-sm text-brand transition-all group-hover:bg-card group-hover:scale-105 group-hover:shadow-md">
+              <ImagePlus className="w-7 h-7" />
+            </span>
+            <span className="text-base font-semibold text-foreground">Add a photo</span>
+            <span className="text-xs text-muted-foreground">Give this recipe a hero image</span>
+          </button>
+        )}
+        <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-4 pt-5">
+          <Link href="/recipes" className="text-white/90 hover:text-white bg-black/20 rounded-full p-1.5">
+            <ArrowLeft className="w-5 h-5" />
+          </Link>
+          {!readOnly && (
+            <Link href={`/recipes/${recipe.id}/edit`} className="text-white/90 hover:text-white bg-black/20 rounded-full p-1.5">
+              <Edit className="w-4 h-4" />
+            </Link>
           )}
-          <div className="flex items-center gap-4 mt-4 flex-wrap">
-            {recipe.cuisine && (
-              <span className="bg-white/20 text-white rounded-full px-3 py-1 text-xs font-medium capitalize">{recipe.cuisine}</span>
-            )}
-            {recipe.cook_time_minutes && (
-              <span className="flex items-center gap-1 text-white/90 text-sm">
-                <Clock className="w-3.5 h-3.5" /> {recipe.cook_time_minutes} min
-              </span>
-            )}
-            {cookedCount > 0 && (
-              <span className="flex items-center gap-1 text-white/90 text-sm">
-                <ChefHat className="w-3.5 h-3.5" /> Cooked {cookedCount}×
-              </span>
-            )}
-            {score !== null && (
-              <span className="flex items-center gap-1 text-white font-semibold text-sm">
-                <Trophy className="w-3.5 h-3.5" /> {formatScore(score)}
-              </span>
-            )}
-            {recipe.difficulty && (
-              <span className="flex items-center gap-0.5 text-white/90 text-sm" title={['Easy', 'Medium', 'Hard'][recipe.difficulty - 1]}>
-                {Array.from({ length: recipe.difficulty }, (_, i) => <span key={i}>🔪</span>)}
-              </span>
-            )}
-          </div>
         </div>
-      ) : (
-        /* Warm-white header — shown when there is NO hero image */
-        <div className="bg-card border-b border-border px-4 pt-5 pb-6">
-          <div className="flex items-center justify-between mb-4">
-            <Link href="/recipes" className="text-muted-foreground hover:text-foreground p-1 -ml-1 active:scale-[0.95] transition-all">
-              <ArrowLeft className="w-5 h-5" />
-            </Link>
-            {!readOnly && (
-              <Link href={`/recipes/${recipe.id}/edit`} className="text-muted-foreground hover:text-foreground p-2 active:scale-[0.95] transition-all">
-                <Edit className="w-4 h-4" />
-              </Link>
-            )}
-          </div>
-          {/* Large emoji + title */}
-          <div className="flex items-start gap-4">
-            <span className="text-5xl">{emoji}</span>
-            <div className="flex-1 min-w-0">
-              <h1 className="font-heading text-2xl font-bold text-foreground leading-tight">{recipe.name}</h1>
-              {recipe.description && (
-                <p className="text-muted-foreground text-sm mt-2 leading-relaxed">{recipe.description}</p>
-              )}
-            </div>
-          </div>
-          {/* Meta pills */}
-          <div className="flex items-center gap-3 mt-4 flex-wrap">
-            {recipe.cuisine && (
-              <span className="bg-brand-subtle text-brand rounded-full px-3 py-1 text-xs font-medium capitalize">{recipe.cuisine}</span>
-            )}
-            {recipe.cook_time_minutes && (
-              <span className="flex items-center gap-1 text-muted-foreground text-sm">
-                <Clock className="w-3.5 h-3.5" /> {recipe.cook_time_minutes} min
-              </span>
-            )}
-            {cookedCount > 0 && (
-              <span className="flex items-center gap-1 text-muted-foreground text-sm">
-                <ChefHat className="w-3.5 h-3.5" /> Cooked {cookedCount}×
-              </span>
-            )}
-            {score !== null && (
-              <span className="flex items-center gap-1 text-brand font-semibold text-sm">
-                <Trophy className="w-3.5 h-3.5" /> {formatScore(score)}
-              </span>
-            )}
-            {recipe.difficulty && (
-              <span className="flex items-center gap-0.5 text-muted-foreground text-sm" title={['Easy', 'Medium', 'Hard'][recipe.difficulty - 1]}>
-                {Array.from({ length: recipe.difficulty }, (_, i) => <span key={i}>🔪</span>)}
-              </span>
-            )}
-          </div>
-        </div>
-      )}
+      </div>
 
-      {/* ── Content (pulled up over gradient, or flush after warm header) ── */}
-      <div className={`px-4 ${heroUrl ? '-mt-4' : 'mt-4'}`}>
+      {/* ── Header band — always the gradient, whether or not there's an image ── */}
+      <div className="bg-gradient-to-br from-brand to-cooking/80 px-4 pt-3 pb-8">
+        <h1 className="font-heading text-2xl font-bold text-white leading-tight">{recipe.name}</h1>
+        {recipe.description && (
+          <p className="text-white/80 text-sm mt-2 leading-relaxed">{recipe.description}</p>
+        )}
+        <div className="flex items-center gap-4 mt-4 flex-wrap">
+          {recipe.cuisine && (
+            <span className="bg-white/20 text-white rounded-full px-3 py-1 text-xs font-medium capitalize">{recipe.cuisine}</span>
+          )}
+          {recipe.cook_time_minutes && (
+            <span className="flex items-center gap-1 text-white/90 text-sm">
+              <Clock className="w-3.5 h-3.5" /> {recipe.cook_time_minutes} min
+            </span>
+          )}
+          {cookedCount > 0 && (
+            <span className="flex items-center gap-1 text-white/90 text-sm">
+              <ChefHat className="w-3.5 h-3.5" /> Cooked {cookedCount}×
+            </span>
+          )}
+          {score !== null && (
+            <span className="flex items-center gap-1 text-white font-semibold text-sm">
+              <Trophy className="w-3.5 h-3.5" /> {formatScore(score)}
+            </span>
+          )}
+          {recipe.difficulty && (
+            <span className="flex items-center gap-0.5 text-white/90 text-sm" title={['Easy', 'Medium', 'Hard'][recipe.difficulty - 1]}>
+              {Array.from({ length: recipe.difficulty }, (_, i) => <span key={i}>🔪</span>)}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* ── Content (pulled up over the gradient header) ── */}
+      <div className="px-4 -mt-4">
         {/* Adapted-from banner (shown on variants) */}
         {adaptedFrom && (
           <Link
@@ -835,6 +804,7 @@ export default function RecipeDetail({
           onImagesChange={setGalleryImages}
           heroUrl={heroUrl}
           onSetHero={setAsDisplay}
+          openRequest={addPhotoSignal}
           readOnly={readOnly}
         />
 
