@@ -43,7 +43,7 @@ export default function RecipeGallery({
   readOnly = false,
 }: Props) {
   const [showSheet, setShowSheet] = useState(false)
-  const [tab, setTab] = useState<'url' | 'upload' | 'search'>('url')
+  const [tab, setTab] = useState<'url' | 'upload' | 'search'>('search')
   const [urlInput, setUrlInput] = useState('')
   const [adding, setAdding] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -262,14 +262,14 @@ export default function RecipeGallery({
           </div>
 
           <div className="flex gap-1 bg-muted rounded-xl p-1 mb-5">
-            <button onClick={() => setTab('url')} className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-medium transition-colors ${tab === 'url' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground'}`}>
-              <Link2 className="w-3.5 h-3.5" /> URL
+            <button onClick={() => setTab('search')} className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-medium transition-colors ${tab === 'search' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground'}`}>
+              <Search className="w-3.5 h-3.5" /> Search
             </button>
             <button onClick={() => setTab('upload')} className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-medium transition-colors ${tab === 'upload' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground'}`}>
               <Upload className="w-3.5 h-3.5" /> Upload
             </button>
-            <button onClick={() => setTab('search')} className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-medium transition-colors ${tab === 'search' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground'}`}>
-              <Search className="w-3.5 h-3.5" /> Search
+            <button onClick={() => setTab('url')} className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-medium transition-colors ${tab === 'url' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground'}`}>
+              <Link2 className="w-3.5 h-3.5" /> Import
             </button>
           </div>
 
