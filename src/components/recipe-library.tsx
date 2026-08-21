@@ -134,7 +134,7 @@ export default function RecipeLibrary({
   const invalidate = useCacheInvalidation()
   const [search, setSearch] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
-  const [selectedCuisine, setSelectedCuisine] = useState<string | null>(null)
+  const [selectedCuisines, setSelectedCuisines] = useState<string[]>([])
   const [selectedType, setSelectedType] = useState<string | null>(null)
   const [selectedTag, setSelectedTag] = useState<string | null>(null)
   const [selectedCookbook, setSelectedCookbook] = useState<string | null>(null)
@@ -308,6 +308,11 @@ export default function RecipeLibrary({
   const toggleNewCookbookRecipe = (id: string) =>
     setNewCookbookRecipes(prev => prev.includes(id) ? prev.filter(r => r !== id) : [...prev, id])
 
+  const toggleCuisine = (cuisine: string) =>
+    setSelectedCuisines(prev =>
+      prev.includes(cuisine) ? prev.filter(c => c !== cuisine) : [...prev, cuisine]
+    )
+
   const createCookbook = async () => {
     if (!newCookbookName.trim()) return
     setCreatingCookbook(true)
@@ -336,11 +341,6 @@ export default function RecipeLibrary({
     }
   }
 
-  // Unique cuisines from the user's own recipes
-  const cuisines = Array.from(
-    new Set(initialRecipes.map(r => r.cuisine?.toLowerCase()).filter(Boolean) as string[])
-  )
-
   const uniqueTags = Array.from(
     new Set(initialRecipes.flatMap(r => r.tags || []))
   ).sort()
@@ -355,16 +355,32 @@ export default function RecipeLibrary({
   const cookedCount = scopedRecipes.filter(r => r.cooked_count > 0).length
   const bookmarkedCount = scopedRecipes.filter(r => r.cooked_count === 0).length
 
-  const filtered = scopedRecipes.filter(r => {
-    const matchesCategory = selectedCategory === 'cooked' ? r.cooked_count > 0 : r.cooked_count === 0
+  // Recipes in the current cookbook + tab — the scope both the cuisine options and the
+  // filtered list are drawn from.
+  const categoryRecipes = scopedRecipes.filter(r =>
+    selectedCategory === 'cooked' ? r.cooked_count > 0 : r.cooked_count === 0
+  )
+
+  // Cuisine options only offer what actually exists in the current view.
+  const cuisines = Array.from(
+    new Set(categoryRecipes.map(r => r.cuisine?.toLowerCase()).filter(Boolean) as string[])
+  ).sort()
+
+  // A selection can fall out of scope when the cookbook or tab changes; ignore those
+  // rather than clearing state, so the selection returns when the user switches back.
+  const activeCuisines = selectedCuisines.filter(c => cuisines.includes(c))
+
+  const filtered = categoryRecipes.filter(r => {
     const matchesSearch =
       r.name.toLowerCase().includes(search.toLowerCase()) ||
       r.cuisine?.toLowerCase().includes(search.toLowerCase()) ||
       r.tags?.some(t => t.toLowerCase().includes(search.toLowerCase()))
-    const matchesCuisine = !selectedCuisine || r.cuisine?.toLowerCase() === selectedCuisine
+    const matchesCuisine =
+      activeCuisines.length === 0 ||
+      (!!r.cuisine && activeCuisines.includes(r.cuisine.toLowerCase()))
     const matchesType = !selectedType || r.recipe_type?.toLowerCase() === selectedType
     const matchesTag = !selectedTag || (r.tags || []).includes(selectedTag)
-    return matchesCategory && matchesSearch && matchesCuisine && matchesType && matchesTag
+    return matchesSearch && matchesCuisine && matchesType && matchesTag
   })
 
   const isWantToTry = selectedCategory === 'bookmarked'
@@ -569,35 +585,50 @@ export default function RecipeLibrary({
               <button
                 onClick={() => setOpenDropdown(openDropdown === 'cuisine' ? null : 'cuisine')}
                 className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium border transition-colors active:scale-[0.95] ${
-                  selectedCuisine
+                  activeCuisines.length > 0
                     ? 'bg-brand text-brand-foreground border-transparent'
                     : 'bg-card border-border text-foreground hover:border-brand'
                 }`}
               >
-                {selectedCuisine
-                  ? <span className="capitalize">{selectedCuisine}</span>
-                  : 'Cuisine'}
+                {activeCuisines.length === 0
+                  ? 'Cuisine'
+                  : activeCuisines.length === 1
+                    ? <span className="capitalize">{activeCuisines[0]}</span>
+                    : `Cuisine (${activeCuisines.length})`}
                 <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-150 ${openDropdown === 'cuisine' ? 'rotate-180' : ''}`} />
               </button>
               {openDropdown === 'cuisine' && (
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => setOpenDropdown(null)} />
-                  <div className="absolute left-0 top-full mt-1.5 z-20 min-w-[160px] overflow-hidden rounded-xl border border-border bg-card shadow-lg">
+                  {/* Stays open while cuisines are checked on and off; the backdrop dismisses it. */}
+                  <div className="absolute left-0 top-full mt-1.5 z-20 max-h-72 min-w-[180px] overflow-y-auto rounded-xl border border-border bg-card shadow-lg">
                     <button
-                      onClick={() => { setSelectedCuisine(null); setOpenDropdown(null) }}
-                      className={`w-full text-left px-4 py-2.5 text-sm font-medium transition-colors ${!selectedCuisine ? 'text-brand bg-brand-subtle' : 'text-foreground hover:bg-muted'}`}
+                      onClick={() => setSelectedCuisines([])}
+                      className={`w-full text-left px-4 py-2.5 text-sm font-medium transition-colors ${activeCuisines.length === 0 ? 'text-brand bg-brand-subtle' : 'text-foreground hover:bg-muted'}`}
                     >
                       All cuisines
                     </button>
-                    {cuisines.map(cuisine => (
-                      <button
-                        key={cuisine}
-                        onClick={() => { setSelectedCuisine(cuisine); setOpenDropdown(null) }}
-                        className={`w-full text-left px-4 py-2.5 text-sm capitalize transition-colors ${selectedCuisine === cuisine ? 'text-brand bg-brand-subtle font-medium' : 'text-foreground hover:bg-muted'}`}
-                      >
-                        {cuisine}
-                      </button>
-                    ))}
+                    {cuisines.map(cuisine => {
+                      const checked = activeCuisines.includes(cuisine)
+                      return (
+                        <button
+                          key={cuisine}
+                          onClick={() => toggleCuisine(cuisine)}
+                          role="checkbox"
+                          aria-checked={checked}
+                          className={`flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm capitalize transition-colors ${
+                            checked ? 'bg-brand-subtle font-medium text-brand' : 'text-foreground hover:bg-muted'
+                          }`}
+                        >
+                          <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors ${
+                            checked ? 'bg-brand border-brand' : 'border-border'
+                          }`}>
+                            {checked && <span className="text-brand-foreground text-[10px] font-bold">✓</span>}
+                          </span>
+                          <span className="flex-1">{cuisine}</span>
+                        </button>
+                      )
+                    })}
                   </div>
                 </>
               )}
