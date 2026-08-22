@@ -1,7 +1,7 @@
 'use client'
 
 import { ReactNode, CSSProperties, useState } from 'react'
-import { Clock } from 'lucide-react'
+import { Clock, Flame } from 'lucide-react'
 import { formatScore } from '@/lib/scoring'
 import { getCuisineEmoji } from '@/lib/cuisine-emoji'
 import { cn } from '@/lib/utils'
@@ -14,6 +14,8 @@ export interface RecipeCardRecipe {
   image_url?: string | null
   gallery_images?: string[] | null
   cook_time_minutes?: number | null
+  /** Per-serving calories. Omitted/null hides the badge. */
+  calories?: number | null
 }
 
 interface RecipeCardProps {
@@ -74,6 +76,11 @@ export function RecipeCard({
                 <Clock className="h-3 w-3" /> {recipe.cook_time_minutes}m
               </span>
             ) : null}
+            {recipe.calories ? (
+              <span className="flex items-center gap-0.5">
+                <Flame className="h-3 w-3" /> {recipe.calories} cal
+              </span>
+            ) : null}
           </div>
         </div>
 
@@ -124,6 +131,11 @@ export function RecipeCard({
           {showCookTime && recipe.cook_time_minutes ? (
             <span className="flex items-center gap-0.5">
               <Clock className="h-3 w-3" /> {recipe.cook_time_minutes}m
+            </span>
+          ) : null}
+          {recipe.calories ? (
+            <span className="flex items-center gap-0.5">
+              <Flame className="h-3 w-3" /> {recipe.calories} cal
             </span>
           ) : null}
         </div>

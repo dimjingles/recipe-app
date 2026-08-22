@@ -1,4 +1,4 @@
-import { Clock, Users } from 'lucide-react'
+import { Clock, Users, Flame } from 'lucide-react'
 import InstructionSteps from '@/components/instruction-steps'
 import { getCuisineEmoji } from '@/lib/cuisine-emoji'
 import type { Recipe, Ingredient, InstructionStep } from '@/types/database'
@@ -56,6 +56,11 @@ export default function PublicRecipeView({ recipe }: { recipe: Recipe & { ingred
                 <Users className="w-3.5 h-3.5" /> {recipe.servings} servings
               </span>
             )}
+            {recipe.calories && (
+              <span className="flex items-center gap-1 text-white/90 text-sm">
+                <Flame className="w-3.5 h-3.5" /> {recipe.calories} cal/serving
+              </span>
+            )}
             {recipe.difficulty && (
               <span className="flex items-center gap-0.5 text-white/90 text-sm" title={['Easy', 'Medium', 'Hard'][recipe.difficulty - 1]}>
                 {Array.from({ length: recipe.difficulty }, (_, i) => <span key={i}>🔪</span>)}
@@ -86,6 +91,11 @@ export default function PublicRecipeView({ recipe }: { recipe: Recipe & { ingred
             {recipe.servings && (
               <span className="flex items-center gap-1 text-muted-foreground text-sm">
                 <Users className="w-3.5 h-3.5" /> {recipe.servings} servings
+              </span>
+            )}
+            {recipe.calories && (
+              <span className="flex items-center gap-1 text-muted-foreground text-sm">
+                <Flame className="w-3.5 h-3.5" /> {recipe.calories} cal/serving
               </span>
             )}
             {recipe.difficulty && (
