@@ -140,6 +140,8 @@ export interface Database {
           cuisine: string | null
           cook_time_minutes: number | null
           servings: number
+          /** Estimated calories per serving. Null when unknown. */
+          calories: number | null
           instructions: string | null
           instruction_steps: InstructionStep[] | null
           difficulty: number | null
@@ -158,7 +160,7 @@ export interface Database {
           share_token: string | null
           created_at: string
         }
-        Insert: Omit<Database['public']['Tables']['recipes']['Row'], 'id' | 'created_at' | 'cooked_count' | 'last_cooked_at' | 'rank' | 'feedback' | 'recipe_type' | 'gallery_images' | 'techniques' | 'instruction_steps' | 'visibility' | 'original_recipe_id' | 'adaptation_metadata' | 'share_token'> & {
+        Insert: Omit<Database['public']['Tables']['recipes']['Row'], 'id' | 'created_at' | 'cooked_count' | 'last_cooked_at' | 'rank' | 'feedback' | 'recipe_type' | 'gallery_images' | 'techniques' | 'instruction_steps' | 'visibility' | 'original_recipe_id' | 'adaptation_metadata' | 'share_token' | 'calories'> & {
           id?: string
           created_at?: string
           cooked_count?: number
@@ -169,6 +171,7 @@ export interface Database {
           visibility?: string
           gallery_images?: string[]
           difficulty?: number | null
+          calories?: number | null
           techniques?: string[]
           instruction_steps?: InstructionStep[] | null
           original_recipe_id?: string | null
@@ -504,6 +507,8 @@ export interface ExtractedRecipe {
   cuisine?: string
   cook_time_minutes?: number
   servings?: number
+  /** Per-serving calories, from the page's nutrition data or estimated by the AI */
+  calories?: number
   instructions?: string
   difficulty?: number
   ingredients: ExtractedIngredient[]

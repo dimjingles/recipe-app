@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Clock, Users, Edit, ChefHat, Trophy, X, BookOpen, Plus, Minus, Play, Sparkles, GitBranch, Maximize2, Images, Check, Share2, ImagePlus, ImageOff } from 'lucide-react'
+import { ArrowLeft, Clock, Users, Edit, ChefHat, Trophy, X, BookOpen, Plus, Minus, Play, Sparkles, GitBranch, Maximize2, Images, Check, Share2, ImagePlus, ImageOff, Flame } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { BottomSheet } from '@/components/ui/bottom-sheet'
 import { Input } from '@/components/ui/input'
@@ -576,6 +576,13 @@ export default function RecipeDetail({
           {recipe.cook_time_minutes && (
             <span className="flex items-center gap-1 text-white/90 text-sm">
               <Clock className="w-3.5 h-3.5" /> {recipe.cook_time_minutes} min
+            </span>
+          )}
+          {/* Stored per serving, so it is intentionally not scaled by the
+              servings adjuster below. */}
+          {recipe.calories && (
+            <span className="flex items-center gap-1 text-white/90 text-sm">
+              <Flame className="w-3.5 h-3.5" /> {recipe.calories} cal/serving
             </span>
           )}
           {cookedCount > 0 && (

@@ -467,112 +467,324 @@ export default function RecipeLibrary({
   const selectedCookbookName = cookbooks.find(c => c.id === selectedCookbook)?.name
 
   return (
-    <div className="mx-auto max-w-6xl px-5 pt-4 md:px-8 md:pt-6">
-      {/* Cookbook selector */}
-      <div className="relative mb-4 flex items-center justify-between gap-3">
-        <div className="min-w-0">
-        {cookbooks.length === 0 ? (
-          <>
-            <button
-              onClick={() => setOpenDropdown(openDropdown === 'cookbook' ? null : 'cookbook')}
-              className="group flex items-center gap-2 text-left text-2xl font-extrabold tracking-tight text-foreground transition-colors hover:text-brand active:scale-[0.99]"
-            >
-              Cookbooks
-              <ChevronDown className={`h-6 w-6 shrink-0 text-muted-foreground transition-all duration-150 group-hover:text-brand ${openDropdown === 'cookbook' ? 'rotate-180' : ''}`} />
-            </button>
-            {openDropdown === 'cookbook' && (
-              <>
-                <div className="fixed inset-0 z-10" onClick={() => setOpenDropdown(null)} />
-                <div className="absolute left-0 top-full z-20 mt-2 min-w-[220px] overflow-hidden rounded-xl border border-border bg-card shadow-lg">
-                  <button
-                    onClick={openCreateCookbook}
-                    className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-medium text-brand transition-colors hover:bg-brand-subtle"
-                  >
-                    <Plus className="h-3.5 w-3.5 shrink-0" /> Add Cookbooks
-                  </button>
-                </div>
-              </>
-            )}
-          </>
-        ) : (
-          <>
-            <button
-              onClick={() => setOpenDropdown(openDropdown === 'cookbook' ? null : 'cookbook')}
-              className="group flex max-w-full items-center gap-2 text-left text-2xl font-extrabold tracking-tight text-foreground transition-colors hover:text-brand active:scale-[0.99]"
-            >
-              <span className="truncate">{selectedCookbook ? selectedCookbookName : 'Cookbooks'}</span>
-              <ChevronDown className={`h-6 w-6 shrink-0 text-muted-foreground transition-all duration-150 group-hover:text-brand ${openDropdown === 'cookbook' ? 'rotate-180' : ''}`} />
-            </button>
-            {openDropdown === 'cookbook' && (
-              <>
-                <div className="fixed inset-0 z-10" onClick={() => setOpenDropdown(null)} />
-                <div className="absolute left-0 top-full z-20 mt-2 min-w-[220px] overflow-hidden rounded-xl border border-border bg-card shadow-lg">
-                  <button
-                    onClick={() => { setSelectedCookbook(null); setOpenDropdown(null) }}
-                    className={`w-full px-4 py-3 text-left text-sm font-medium transition-colors ${!selectedCookbook ? 'bg-brand-subtle text-brand' : 'text-foreground hover:bg-muted'}`}
-                  >
-                    All cookbooks
-                  </button>
-                  {cookbooks.map(cb => (
+    <div className="mx-auto max-w-6xl px-5 md:px-8">
+      {/* Sticky header: cookbook, tabs, filters, sort + search, tags */}
+      <div className="sticky top-0 z-30 -mx-5 mb-4 border-b border-border/70 px-5 pt-[max(1rem,env(safe-area-inset-top))] header-surface md:-mx-8 md:px-8 md:pt-6">
+        {/* Cookbook selector */}
+        <div className="relative mb-4 flex items-center justify-between gap-3">
+          <div className="min-w-0">
+          {cookbooks.length === 0 ? (
+            <>
+              <button
+                onClick={() => setOpenDropdown(openDropdown === 'cookbook' ? null : 'cookbook')}
+                className="group flex items-center gap-2 text-left text-2xl font-extrabold tracking-tight text-foreground transition-colors hover:text-brand active:scale-[0.99]"
+              >
+                Cookbooks
+                <ChevronDown className={`h-6 w-6 shrink-0 text-muted-foreground transition-all duration-150 group-hover:text-brand ${openDropdown === 'cookbook' ? 'rotate-180' : ''}`} />
+              </button>
+              {openDropdown === 'cookbook' && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setOpenDropdown(null)} />
+                  <div className="absolute left-0 top-full z-20 mt-2 min-w-[220px] overflow-hidden rounded-xl border border-border bg-card shadow-lg">
                     <button
-                      key={cb.id}
-                      onClick={() => { setSelectedCookbook(cb.id); setOpenDropdown(null) }}
-                      className={`flex w-full items-center gap-2 px-4 py-3 text-left text-sm transition-colors ${selectedCookbook === cb.id ? 'bg-brand-subtle font-medium text-brand' : 'text-foreground hover:bg-muted'}`}
+                      onClick={openCreateCookbook}
+                      className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-medium text-brand transition-colors hover:bg-brand-subtle"
                     >
-                      <span className="flex-1 truncate">{cb.name}</span>
-                      <span className="text-xs text-muted-foreground">({cb.cookbook_recipes.length})</span>
+                      <Plus className="h-3.5 w-3.5 shrink-0" /> Add Cookbooks
                     </button>
-                  ))}
-                  <div className="h-px bg-border" />
-                  <button
-                    onClick={openCreateCookbook}
-                    className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm text-brand transition-colors hover:bg-brand-subtle"
-                  >
-                    <Plus className="h-3.5 w-3.5 shrink-0" /> Add Cookbook
-                  </button>
-                  <button
-                    onClick={() => { setOpenDropdown(null); router.push('/cookbooks') }}
-                    className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm text-muted-foreground transition-colors hover:bg-muted"
-                  >
-                    <BookOpen className="h-3.5 w-3.5 shrink-0" /> View cookbooks
-                  </button>
+                  </div>
+                </>
+              )}
+            </>
+          ) : (
+            <>
+              <button
+                onClick={() => setOpenDropdown(openDropdown === 'cookbook' ? null : 'cookbook')}
+                className="group flex max-w-full items-center gap-2 text-left text-2xl font-extrabold tracking-tight text-foreground transition-colors hover:text-brand active:scale-[0.99]"
+              >
+                <span className="truncate">{selectedCookbook ? selectedCookbookName : 'Cookbooks'}</span>
+                <ChevronDown className={`h-6 w-6 shrink-0 text-muted-foreground transition-all duration-150 group-hover:text-brand ${openDropdown === 'cookbook' ? 'rotate-180' : ''}`} />
+              </button>
+              {openDropdown === 'cookbook' && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setOpenDropdown(null)} />
+                  <div className="absolute left-0 top-full z-20 mt-2 min-w-[220px] overflow-hidden rounded-xl border border-border bg-card shadow-lg">
+                    <button
+                      onClick={() => { setSelectedCookbook(null); setOpenDropdown(null) }}
+                      className={`w-full px-4 py-3 text-left text-sm font-medium transition-colors ${!selectedCookbook ? 'bg-brand-subtle text-brand' : 'text-foreground hover:bg-muted'}`}
+                    >
+                      All cookbooks
+                    </button>
+                    {cookbooks.map(cb => (
+                      <button
+                        key={cb.id}
+                        onClick={() => { setSelectedCookbook(cb.id); setOpenDropdown(null) }}
+                        className={`flex w-full items-center gap-2 px-4 py-3 text-left text-sm transition-colors ${selectedCookbook === cb.id ? 'bg-brand-subtle font-medium text-brand' : 'text-foreground hover:bg-muted'}`}
+                      >
+                        <span className="flex-1 truncate">{cb.name}</span>
+                        <span className="text-xs text-muted-foreground">({cb.cookbook_recipes.length})</span>
+                      </button>
+                    ))}
+                    <div className="h-px bg-border" />
+                    <button
+                      onClick={openCreateCookbook}
+                      className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm text-brand transition-colors hover:bg-brand-subtle"
+                    >
+                      <Plus className="h-3.5 w-3.5 shrink-0" /> Add Cookbook
+                    </button>
+                    <button
+                      onClick={() => { setOpenDropdown(null); router.push('/cookbooks') }}
+                      className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm text-muted-foreground transition-colors hover:bg-muted"
+                    >
+                      <BookOpen className="h-3.5 w-3.5 shrink-0" /> View cookbooks
+                    </button>
+                  </div>
+                </>
+              )}
+            </>
+          )}
+          </div>
+          <Button onClick={fetchRecommendations} variant="outline" className="h-8 shrink-0 rounded-full border-brand/30 px-3 text-xs text-brand hover:bg-brand-subtle">
+            <Sparkles className="mr-1 h-3.5 w-3.5" /> Suggest
+          </Button>
+        </div>
+
+        {/* Category tabs */}
+        <div className="mb-5 flex gap-8 border-b border-border/70">
+          {([
+            { key: 'cooked', label: 'Cooked', count: cookedCount },
+            { key: 'bookmarked', label: 'Want to try', count: bookmarkedCount },
+          ] as const).map(category => {
+            const active = selectedCategory === category.key
+            return (
+              <button
+                key={category.key}
+                onClick={() => setSelectedCategory(category.key)}
+                className={`relative -mb-px pb-3 text-lg font-bold transition-colors ${active ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+              >
+                {category.label}
+                <span className="ml-1.5 text-sm font-semibold text-muted-foreground">{category.count}</span>
+                {active && <span className="absolute inset-x-0 bottom-0 h-1 rounded-full bg-brand" />}
+              </button>
+            )
+          })}
+          <Link
+            href="/skills"
+            className="relative -mb-px ml-auto flex items-center gap-1.5 pb-3 text-lg font-bold text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <Trophy className="h-4 w-4" />
+            Skills
+          </Link>
+        </div>
+
+        {/* Filter dropdowns */}
+        <div className="mb-4 flex items-start gap-2">
+          <div className="flex flex-wrap gap-2">
+            {/* Type dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setOpenDropdown(openDropdown === 'type' ? null : 'type')}
+                className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium border transition-colors active:scale-[0.95] ${
+                  selectedType
+                    ? 'bg-brand text-brand-foreground border-transparent'
+                    : 'bg-card border-border text-foreground hover:border-brand'
+                }`}
+              >
+                {selectedType
+                  ? RECIPE_TYPES.find(t => t.value === selectedType)?.label
+                  : 'Type'}
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-150 ${openDropdown === 'type' ? 'rotate-180' : ''}`} />
+              </button>
+              {openDropdown === 'type' && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setOpenDropdown(null)} />
+                  <div className="absolute left-0 top-full mt-1.5 z-20 min-w-[152px] overflow-hidden rounded-xl border border-border bg-card shadow-lg">
+                    <button
+                      onClick={() => handleTypeFilterChange(null)}
+                      className={`w-full text-left px-4 py-2.5 text-sm font-medium transition-colors ${!selectedType ? 'text-brand bg-brand-subtle' : 'text-foreground hover:bg-muted'}`}
+                    >
+                      All types
+                    </button>
+                    {RECIPE_TYPES.map(t => (
+                      <button
+                        key={t.value}
+                        onClick={() => handleTypeFilterChange(t.value)}
+                        className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${selectedType === t.value ? 'text-brand bg-brand-subtle font-medium' : 'text-foreground hover:bg-muted'}`}
+                      >
+                        {t.label}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Cuisine dropdown */}
+            {cuisines.length > 0 && (
+              <div className="relative">
+                <button
+                  onClick={() => setOpenDropdown(openDropdown === 'cuisine' ? null : 'cuisine')}
+                  className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium border transition-colors active:scale-[0.95] ${
+                    activeCuisines.length > 0
+                      ? 'bg-brand text-brand-foreground border-transparent'
+                      : 'bg-card border-border text-foreground hover:border-brand'
+                  }`}
+                >
+                  {activeCuisines.length === 0
+                    ? 'Cuisine'
+                    : activeCuisines.length === 1
+                      ? <span className="capitalize">{activeCuisines[0]}</span>
+                      : `Cuisine (${activeCuisines.length})`}
+                  <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-150 ${openDropdown === 'cuisine' ? 'rotate-180' : ''}`} />
+                </button>
+                {openDropdown === 'cuisine' && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setOpenDropdown(null)} />
+                    {/* Stays open while cuisines are checked on and off; the backdrop dismisses it. */}
+                    <div className="absolute left-0 top-full mt-1.5 z-20 max-h-72 min-w-[180px] overflow-y-auto rounded-xl border border-border bg-card shadow-lg">
+                      <button
+                        onClick={() => setSelectedCuisines([])}
+                        className={`w-full text-left px-4 py-2.5 text-sm font-medium transition-colors ${activeCuisines.length === 0 ? 'text-brand bg-brand-subtle' : 'text-foreground hover:bg-muted'}`}
+                      >
+                        All cuisines
+                      </button>
+                      {cuisines.map(cuisine => {
+                        const checked = activeCuisines.includes(cuisine)
+                        return (
+                          <button
+                            key={cuisine}
+                            onClick={() => toggleCuisine(cuisine)}
+                            role="checkbox"
+                            aria-checked={checked}
+                            className={`flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm capitalize transition-colors ${
+                              checked ? 'bg-brand-subtle font-medium text-brand' : 'text-foreground hover:bg-muted'
+                            }`}
+                          >
+                            <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors ${
+                              checked ? 'bg-brand border-brand' : 'border-border'
+                            }`}>
+                              {checked && <span className="text-brand-foreground text-[10px] font-bold">✓</span>}
+                            </span>
+                            <span className="flex-1">{cuisine}</span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+
+        </div>
+
+        {/* Sort + search row */}
+        <div className="mb-4 flex items-center justify-between gap-2">
+          <div className="relative">
+            <button
+              onClick={() => setOpenDropdown(openDropdown === 'sort' ? null : 'sort')}
+              className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand transition-opacity active:opacity-70"
+              aria-label="Sort recipes"
+              title="Sort recipes"
+            >
+              <ArrowDownUp className="h-4 w-4" />
+              <span>{activeSortOptions.find(o => o.value === activeSortValue)?.label}</span>
+            </button>
+            {openDropdown === 'sort' && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setOpenDropdown(null)} />
+                <div className="absolute left-0 top-full z-20 mt-1.5 min-w-[248px] overflow-hidden rounded-xl border border-border bg-card shadow-lg">
+                  {activeSortOptions.map(option => {
+                    const active = activeSortValue === option.value
+                    const reversed = active && activeSortDirection === 'reversed'
+                    const DirIcon = reversed ? ArrowUp : ArrowDown
+                    const dirLabel = reversed ? 'Bottom to top' : 'Top to bottom'
+                    // Single toggle: selecting an inactive option starts top-to-bottom;
+                    // tapping the active option flips its direction.
+                    const nextDirection = active && activeSortDirection === 'default' ? 'reversed' : 'default'
+                    return (
+                      <div
+                        key={option.value}
+                        className={`flex items-center gap-2 px-4 py-2.5 text-sm ${active ? 'bg-brand-subtle' : ''}`}
+                      >
+                        <span className={`flex-1 ${active ? 'font-medium text-brand' : 'text-foreground'}`}>
+                          {option.label}
+                        </span>
+                        <button
+                          onClick={() => handleSortSelection(option.value, nextDirection)}
+                          className={`grid h-7 w-7 shrink-0 place-items-center rounded-lg border transition-colors active:scale-[0.95] ${
+                            active
+                              ? 'border-transparent bg-brand text-brand-foreground'
+                              : 'border-border bg-card text-muted-foreground hover:border-brand hover:text-foreground'
+                          }`}
+                          aria-label={active ? `Sorted by ${option.label}, ${dirLabel.toLowerCase()} — tap to reverse` : `Sort by ${option.label}`}
+                          aria-pressed={reversed}
+                          title={active ? `${dirLabel} — tap to reverse` : `Sort by ${option.label}`}
+                        >
+                          <DirIcon className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    )
+                  })}
                 </div>
               </>
             )}
-          </>
-        )}
+          </div>
+          <button
+            onClick={() => setSearchOpen(open => !open)}
+            className={`grid h-8 w-8 shrink-0 place-items-center rounded-full transition-colors active:scale-[0.95] ${
+              searchOpen || search ? 'text-brand' : 'text-foreground hover:text-brand'
+            }`}
+            aria-label="Search recipes"
+            aria-pressed={searchOpen || !!search}
+            title="Search recipes"
+          >
+            <Search className="h-5 w-5" />
+          </button>
         </div>
-        <Button onClick={fetchRecommendations} variant="outline" className="h-8 shrink-0 rounded-full border-brand/30 px-3 text-xs text-brand hover:bg-brand-subtle">
-          <Sparkles className="mr-1 h-3.5 w-3.5" /> Suggest
-        </Button>
-      </div>
 
-      {/* Category tabs */}
-      <div className="mb-5 flex gap-8 border-b border-border/70">
-        {([
-          { key: 'cooked', label: 'Cooked', count: cookedCount },
-          { key: 'bookmarked', label: 'Want to try', count: bookmarkedCount },
-        ] as const).map(category => {
-          const active = selectedCategory === category.key
-          return (
-            <button
-              key={category.key}
-              onClick={() => setSelectedCategory(category.key)}
-              className={`relative -mb-px pb-3 text-lg font-bold transition-colors ${active ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-            >
-              {category.label}
-              <span className="ml-1.5 text-sm font-semibold text-muted-foreground">{category.count}</span>
-              {active && <span className="absolute inset-x-0 bottom-0 h-1 rounded-full bg-brand" />}
-            </button>
-          )
-        })}
-        <Link
-          href="/skills"
-          className="relative -mb-px ml-auto flex items-center gap-1.5 pb-3 text-lg font-bold text-muted-foreground transition-colors hover:text-foreground"
-        >
-          <Trophy className="h-4 w-4" />
-          Skills
-        </Link>
+        {/* Search input, revealed by the search icon */}
+        {(searchOpen || search) && (
+          <div className="relative mb-4">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search recipes..."
+              autoFocus
+              className="bg-card pl-9 pr-9"
+            />
+            {search && (
+              <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2">
+                <X className="h-4 w-4 text-muted-foreground" />
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Tag filter chips */}
+        {uniqueTags.length > 0 && (
+          <div className="mb-4">
+            <p className="text-xs text-muted-foreground font-medium mb-1.5 uppercase tracking-wide">Tags</p>
+            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide -mx-4 px-4">
+              <button
+                onClick={() => setSelectedTag(null)}
+                className={allChipClass(selectedTag === null)}
+              >
+                All
+              </button>
+              {uniqueTags.map(tag => (
+                <button
+                  key={tag}
+                  onClick={() => setSelectedTag(selectedTag === tag ? null : tag)}
+                  className={`${filterChipClass(selectedTag === tag)} whitespace-nowrap`}
+                >
+                  {tag}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <button
@@ -586,216 +798,6 @@ export default function RecipeLibrary({
       </button>
 
       <AddRecipeSheet open={showAddRecipe} onClose={() => setShowAddRecipe(false)} />
-
-      {/* Filter dropdowns */}
-      <div className="mb-4 flex items-start gap-2">
-        <div className="flex flex-wrap gap-2">
-          {/* Type dropdown */}
-          <div className="relative">
-            <button
-              onClick={() => setOpenDropdown(openDropdown === 'type' ? null : 'type')}
-              className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium border transition-colors active:scale-[0.95] ${
-                selectedType
-                  ? 'bg-brand text-brand-foreground border-transparent'
-                  : 'bg-card border-border text-foreground hover:border-brand'
-              }`}
-            >
-              {selectedType
-                ? RECIPE_TYPES.find(t => t.value === selectedType)?.label
-                : 'Type'}
-              <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-150 ${openDropdown === 'type' ? 'rotate-180' : ''}`} />
-            </button>
-            {openDropdown === 'type' && (
-              <>
-                <div className="fixed inset-0 z-10" onClick={() => setOpenDropdown(null)} />
-                <div className="absolute left-0 top-full mt-1.5 z-20 min-w-[152px] overflow-hidden rounded-xl border border-border bg-card shadow-lg">
-                  <button
-                    onClick={() => handleTypeFilterChange(null)}
-                    className={`w-full text-left px-4 py-2.5 text-sm font-medium transition-colors ${!selectedType ? 'text-brand bg-brand-subtle' : 'text-foreground hover:bg-muted'}`}
-                  >
-                    All types
-                  </button>
-                  {RECIPE_TYPES.map(t => (
-                    <button
-                      key={t.value}
-                      onClick={() => handleTypeFilterChange(t.value)}
-                      className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${selectedType === t.value ? 'text-brand bg-brand-subtle font-medium' : 'text-foreground hover:bg-muted'}`}
-                    >
-                      {t.label}
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* Cuisine dropdown */}
-          {cuisines.length > 0 && (
-            <div className="relative">
-              <button
-                onClick={() => setOpenDropdown(openDropdown === 'cuisine' ? null : 'cuisine')}
-                className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium border transition-colors active:scale-[0.95] ${
-                  activeCuisines.length > 0
-                    ? 'bg-brand text-brand-foreground border-transparent'
-                    : 'bg-card border-border text-foreground hover:border-brand'
-                }`}
-              >
-                {activeCuisines.length === 0
-                  ? 'Cuisine'
-                  : activeCuisines.length === 1
-                    ? <span className="capitalize">{activeCuisines[0]}</span>
-                    : `Cuisine (${activeCuisines.length})`}
-                <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-150 ${openDropdown === 'cuisine' ? 'rotate-180' : ''}`} />
-              </button>
-              {openDropdown === 'cuisine' && (
-                <>
-                  <div className="fixed inset-0 z-10" onClick={() => setOpenDropdown(null)} />
-                  {/* Stays open while cuisines are checked on and off; the backdrop dismisses it. */}
-                  <div className="absolute left-0 top-full mt-1.5 z-20 max-h-72 min-w-[180px] overflow-y-auto rounded-xl border border-border bg-card shadow-lg">
-                    <button
-                      onClick={() => setSelectedCuisines([])}
-                      className={`w-full text-left px-4 py-2.5 text-sm font-medium transition-colors ${activeCuisines.length === 0 ? 'text-brand bg-brand-subtle' : 'text-foreground hover:bg-muted'}`}
-                    >
-                      All cuisines
-                    </button>
-                    {cuisines.map(cuisine => {
-                      const checked = activeCuisines.includes(cuisine)
-                      return (
-                        <button
-                          key={cuisine}
-                          onClick={() => toggleCuisine(cuisine)}
-                          role="checkbox"
-                          aria-checked={checked}
-                          className={`flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm capitalize transition-colors ${
-                            checked ? 'bg-brand-subtle font-medium text-brand' : 'text-foreground hover:bg-muted'
-                          }`}
-                        >
-                          <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors ${
-                            checked ? 'bg-brand border-brand' : 'border-border'
-                          }`}>
-                            {checked && <span className="text-brand-foreground text-[10px] font-bold">✓</span>}
-                          </span>
-                          <span className="flex-1">{cuisine}</span>
-                        </button>
-                      )
-                    })}
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-        </div>
-
-      </div>
-
-      {/* Sort + search row */}
-      <div className="mb-4 flex items-center justify-between gap-2">
-        <div className="relative">
-          <button
-            onClick={() => setOpenDropdown(openDropdown === 'sort' ? null : 'sort')}
-            className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand transition-opacity active:opacity-70"
-            aria-label="Sort recipes"
-            title="Sort recipes"
-          >
-            <ArrowDownUp className="h-4 w-4" />
-            <span>{activeSortOptions.find(o => o.value === activeSortValue)?.label}</span>
-          </button>
-          {openDropdown === 'sort' && (
-            <>
-              <div className="fixed inset-0 z-10" onClick={() => setOpenDropdown(null)} />
-              <div className="absolute left-0 top-full z-20 mt-1.5 min-w-[248px] overflow-hidden rounded-xl border border-border bg-card shadow-lg">
-                {activeSortOptions.map(option => {
-                  const active = activeSortValue === option.value
-                  const reversed = active && activeSortDirection === 'reversed'
-                  const DirIcon = reversed ? ArrowUp : ArrowDown
-                  const dirLabel = reversed ? 'Bottom to top' : 'Top to bottom'
-                  // Single toggle: selecting an inactive option starts top-to-bottom;
-                  // tapping the active option flips its direction.
-                  const nextDirection = active && activeSortDirection === 'default' ? 'reversed' : 'default'
-                  return (
-                    <div
-                      key={option.value}
-                      className={`flex items-center gap-2 px-4 py-2.5 text-sm ${active ? 'bg-brand-subtle' : ''}`}
-                    >
-                      <span className={`flex-1 ${active ? 'font-medium text-brand' : 'text-foreground'}`}>
-                        {option.label}
-                      </span>
-                      <button
-                        onClick={() => handleSortSelection(option.value, nextDirection)}
-                        className={`grid h-7 w-7 shrink-0 place-items-center rounded-lg border transition-colors active:scale-[0.95] ${
-                          active
-                            ? 'border-transparent bg-brand text-brand-foreground'
-                            : 'border-border bg-card text-muted-foreground hover:border-brand hover:text-foreground'
-                        }`}
-                        aria-label={active ? `Sorted by ${option.label}, ${dirLabel.toLowerCase()} — tap to reverse` : `Sort by ${option.label}`}
-                        aria-pressed={reversed}
-                        title={active ? `${dirLabel} — tap to reverse` : `Sort by ${option.label}`}
-                      >
-                        <DirIcon className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  )
-                })}
-              </div>
-            </>
-          )}
-        </div>
-        <button
-          onClick={() => setSearchOpen(open => !open)}
-          className={`grid h-8 w-8 shrink-0 place-items-center rounded-full transition-colors active:scale-[0.95] ${
-            searchOpen || search ? 'text-brand' : 'text-foreground hover:text-brand'
-          }`}
-          aria-label="Search recipes"
-          aria-pressed={searchOpen || !!search}
-          title="Search recipes"
-        >
-          <Search className="h-5 w-5" />
-        </button>
-      </div>
-
-      {/* Search input, revealed by the search icon */}
-      {(searchOpen || search) && (
-        <div className="relative mb-4">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Search recipes..."
-            autoFocus
-            className="bg-card pl-9 pr-9"
-          />
-          {search && (
-            <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2">
-              <X className="h-4 w-4 text-muted-foreground" />
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* Tag filter chips */}
-      {uniqueTags.length > 0 && (
-        <div className="mb-4">
-          <p className="text-xs text-muted-foreground font-medium mb-1.5 uppercase tracking-wide">Tags</p>
-          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide -mx-4 px-4">
-            <button
-              onClick={() => setSelectedTag(null)}
-              className={allChipClass(selectedTag === null)}
-            >
-              All
-            </button>
-            {uniqueTags.map(tag => (
-              <button
-                key={tag}
-                onClick={() => setSelectedTag(selectedTag === tag ? null : tag)}
-                className={`${filterChipClass(selectedTag === tag)} whitespace-nowrap`}
-              >
-                {tag}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
 
       {/* Recipe list */}
       {sortedRecipes.length === 0 && !search ? (

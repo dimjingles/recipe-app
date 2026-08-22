@@ -235,6 +235,7 @@ export function AddRecipeSheet({ open, onClose }: AddRecipeSheetProps) {
           recipe_type: details.recipe_type || undefined,
           cook_time_minutes: details.cook_time_minutes || undefined,
           servings: details.servings || 4,
+          calories: details.calories || undefined,
           instructions: details.instructions || undefined,
           difficulty: details.difficulty || undefined,
           ingredients: details.ingredients || [],
@@ -255,6 +256,14 @@ export function AddRecipeSheet({ open, onClose }: AddRecipeSheetProps) {
             body: JSON.stringify({ url: image.fullUrl }),
           })
         } catch {}
+      }
+
+      // The lookup route falls back to a name-only recipe when it can't download
+      // the picked photo. Say so rather than presenting a generic recipe under a
+      // photo the user chose — the recipe still saves and the photo still becomes
+      // the hero, they just know the two weren't matched.
+      if (image && details.photo_used === false) {
+        toast(`Couldn't read that photo — this is a standard ${name} recipe.`)
       }
 
       invalidate.recipesChanged()
@@ -304,6 +313,7 @@ export function AddRecipeSheet({ open, onClose }: AddRecipeSheetProps) {
           recipe_type: details.recipe_type || undefined,
           cook_time_minutes: details.cook_time_minutes || undefined,
           servings: details.servings || 4,
+          calories: details.calories || undefined,
           instructions: details.instructions || undefined,
           difficulty: details.difficulty || undefined,
           ingredients: details.ingredients || [],

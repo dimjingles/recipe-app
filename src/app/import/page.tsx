@@ -30,6 +30,7 @@ function extractedToEditorValues(r: ExtractedRecipe): RecipeEditorValues {
     cuisine: r.cuisine,
     cookTime: r.cook_time_minutes != null ? String(r.cook_time_minutes) : '',
     servings: r.servings != null ? String(r.servings) : '4',
+    calories: r.calories != null ? String(r.calories) : '',
     instructions: (r.instructions ?? '') + sourceNote,
     ingredients: r.ingredients,
     image_url: r.image_url,
