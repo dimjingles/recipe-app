@@ -54,6 +54,8 @@ create table if not exists recipes (
   cuisine text,
   cook_time_minutes integer,
   servings integer default 4,
+  -- Estimated calories per serving. Null means unknown — the UI hides the badge.
+  calories integer,
   instructions text,
   instruction_steps jsonb,
   image_url text,
