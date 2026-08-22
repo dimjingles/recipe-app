@@ -29,6 +29,7 @@ export interface RecipeEditorValues {
   recipeType?: string
   cookTime?: string
   servings?: string
+  calories?: string
   instructions?: string
   difficulty?: number
   tags?: string
@@ -75,6 +76,7 @@ export default function RecipeEditor({ initialValues, showLookup, autoLookup }: 
   const [recipeType, setRecipeType] = useState(initialValues?.recipeType ?? '')
   const [cookTime, setCookTime] = useState(initialValues?.cookTime ?? '')
   const [servings, setServings] = useState(initialValues?.servings ?? '4')
+  const [calories, setCalories] = useState(initialValues?.calories ?? '')
   // Instructions edited as discrete steps; reassembled into the source string
   // on save. Any trailing "Source: <url>" note is kept separate.
   const [steps, setSteps] = useState<string[]>(() => textToSteps(splitSourceNote(initialValues?.instructions).body))
@@ -118,6 +120,7 @@ export default function RecipeEditor({ initialValues, showLookup, autoLookup }: 
     if (r.cuisine) setCuisine(r.cuisine)
     if (r.cook_time_minutes != null) setCookTime(String(r.cook_time_minutes))
     if (r.servings != null) setServings(String(r.servings))
+    if (r.calories != null) setCalories(String(r.calories))
     if (r.instructions) {
       setSteps(textToSteps(r.instructions))
       setSourceNote(r.source_url ? `Source: ${r.source_url}` : '')
@@ -194,6 +197,7 @@ export default function RecipeEditor({ initialValues, showLookup, autoLookup }: 
       if (data.recipe_type) setRecipeType(data.recipe_type)
       if (data.cook_time_minutes) setCookTime(String(data.cook_time_minutes))
       if (data.servings) setServings(String(data.servings))
+      if (data.calories) setCalories(String(data.calories))
       if (data.description) setDescription(data.description)
       if (data.instructions) {
         const { body, note } = splitSourceNote(data.instructions)
@@ -254,6 +258,7 @@ export default function RecipeEditor({ initialValues, showLookup, autoLookup }: 
           recipe_type: recipeType || undefined,
           cook_time_minutes: cookTime ? parseInt(cookTime) : undefined,
           servings: servings ? parseInt(servings) : 4,
+          calories: calories ? parseInt(calories) : undefined,
           instructions: instructions.trim() || undefined,
           difficulty: difficulty ?? undefined,
           tags: tags,
@@ -461,6 +466,16 @@ export default function RecipeEditor({ initialValues, showLookup, autoLookup }: 
             value={servings}
             onChange={e => setServings(e.target.value)}
             placeholder="4"
+            type="number"
+            className="mt-1.5"
+          />
+        </div>
+        <div className="col-span-2">
+          <Label className="text-gray-700 font-medium text-sm">Calories (per serving)</Label>
+          <Input
+            value={calories}
+            onChange={e => setCalories(e.target.value)}
+            placeholder="450"
             type="number"
             className="mt-1.5"
           />

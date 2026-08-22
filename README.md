@@ -23,6 +23,7 @@ A mobile-first web app to track your home recipes, plan weekly meals, and genera
 1. Go to [supabase.com](https://supabase.com) → New Project
 2. Note your: **Project URL**, **anon key**, **service_role key**
 3. Go to **SQL Editor** and run the contents of `supabase/schema.sql`
+   (later schema changes go through `npm run migrate` — see [Database migrations](#database-migrations))
 4. Go to **Authentication → URL Configuration** → set Site URL to your Vercel URL (you'll get this in step 3, or use `http://localhost:3000` for now)
 
 ### 2. Get an Anthropic API key
@@ -78,6 +79,46 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000)
+
+---
+
+## Database migrations
+
+Schema changes live as `.sql` files in `supabase/migrations/`. Apply them with the
+runner instead of pasting into the dashboard SQL editor:
+
+```bash
+npm run migrate                        # status — what's applied, what's pending
+npm run migrate -- --all               # apply every pending migration
+npm run migrate -- add_calories.sql    # apply one file
+npm run migrate -- --dry-run --all     # print the SQL without running it
+```
+
+Applied migrations are recorded in a `schema_migrations` table, so re-running is a
+no-op. Use `--force <file>` to deliberately re-apply one.
+
+**One-time setup.** The runner talks to the [Supabase Management API](https://supabase.com/docs/reference/api/v1-run-a-query),
+so it needs an access token:
+
+1. Create one at [supabase.com/dashboard/account/tokens](https://supabase.com/dashboard/account/tokens).
+   A fine-grained token scoped to this project with **database write** access is enough — it
+   does not need full account access.
+2. Add it to `.env.local`:
+   ```
+   SUPABASE_ACCESS_TOKEN=sbp_...
+   ```
+
+The project ref is derived from `NEXT_PUBLIC_SUPABASE_URL` (override with `SUPABASE_PROJECT_REF`).
+
+**Existing databases.** Migrations applied by hand before this runner existed are not in the
+ledger, so `--all` would try to re-run them. Record them as already-applied once, without
+executing:
+
+```bash
+npm run migrate -- --baseline          # mark all pending files as applied
+```
+
+Do this *before* adding new migrations, or pass specific filenames to `--baseline`.
 
 ---
 

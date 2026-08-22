@@ -46,6 +46,7 @@ export default function EditRecipeForm({ recipe }: { recipe: RecipeWithIngredien
   const [recipeType, setRecipeType] = useState(recipe.recipe_type || '')
   const [cookTime, setCookTime] = useState(String(recipe.cook_time_minutes || ''))
   const [servings, setServings] = useState(String(recipe.servings || 4))
+  const [calories, setCalories] = useState(String(recipe.calories || ''))
   // Instructions are edited as discrete steps; the source-of-truth string is
   // reassembled on save. Prefer the AI-structured steps if present, else split
   // the raw blob. Any trailing "Source: <url>" note is preserved separately.
@@ -127,6 +128,7 @@ export default function EditRecipeForm({ recipe }: { recipe: RecipeWithIngredien
           recipe_type: recipeType || null,
           cook_time_minutes: cookTime ? parseInt(cookTime) : null,
           servings: servings ? parseInt(servings) : 4,
+          calories: calories ? parseInt(calories) : null,
           instructions: instructions.trim() || null,
           difficulty: difficulty ?? null,
           tags: tags,
@@ -188,6 +190,10 @@ export default function EditRecipeForm({ recipe }: { recipe: RecipeWithIngredien
           <div>
             <Label className="text-gray-700 font-medium text-sm">Servings</Label>
             <Input value={servings} onChange={e => setServings(e.target.value)} type="number" className="mt-1.5" />
+          </div>
+          <div className="col-span-2">
+            <Label className="text-gray-700 font-medium text-sm">Calories (per serving)</Label>
+            <Input value={calories} onChange={e => setCalories(e.target.value)} placeholder="450" type="number" className="mt-1.5" />
           </div>
         </div>
 

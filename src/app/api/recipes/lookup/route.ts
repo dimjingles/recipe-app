@@ -29,6 +29,7 @@ const RECIPE_SCHEMA = {
     recipe_type: { type: 'string', enum: ['appetizer', 'main', 'dessert', 'drink'] },
     cook_time_minutes: { type: 'integer' },
     servings: { type: 'integer' },
+    calories: { type: 'integer' },
     description: { type: 'string' },
     instructions: { type: 'string' },
     difficulty: { type: 'integer', enum: [1, 2, 3] },
@@ -39,6 +40,7 @@ const RECIPE_SCHEMA = {
     'recipe_type',
     'cook_time_minutes',
     'servings',
+    'calories',
     'description',
     'instructions',
     'difficulty',
@@ -75,6 +77,8 @@ Write the recipe for the version in this photo, not a generic version of "${name
   return `${opening}
 
 Use realistic quantities for a home meal. Write clear, actionable step-by-step instructions as a single string, numbering each step (1., 2., etc.) and being specific about temperatures, timings, and techniques.
+
+Estimate calories PER SERVING — a whole number derived from the ingredients and quantities you listed, divided by the number of servings you specified.
 
 Difficulty rating, based on the complexity of the instructions you write:
 - 1 = Easy — simple techniques, few steps, beginner-friendly
