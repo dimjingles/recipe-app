@@ -444,6 +444,7 @@ Return this exact structure:
   "cuisine": "cuisine type or null",
   "cook_time_minutes": 30,
   "servings": 4,
+  "calories": 450,
   "instructions": "full step-by-step instructions as a single string, one numbered step per line",
   "ingredients": [
     { "name": "ingredient name", "quantity": "amount", "unit": "unit of measure", "category": "produce|dairy|meat|seafood|pantry|spices|bakery|frozen|other" }
@@ -455,6 +456,7 @@ Rules:
 - The transcript is spoken language — rewrite it as clear, concise written steps and fix obvious speech-to-text errors in food terms.
 - Only include ingredients that are actually mentioned. If a quantity isn't stated, use "" for quantity and unit.
 - Use null for cook_time_minutes, servings, or cuisine if they are never stated or clearly implied.
+- calories is the per-serving calorie count — use the figure stated in the post if there is one, otherwise estimate it from the ingredients and quantities.
 - If the post contains no actual recipe (no ingredients AND no method), return: { "error": "no recipe found" }
 - Category must be one of: produce, dairy, meat, seafood, pantry, spices, bakery, frozen, other.`
 }
