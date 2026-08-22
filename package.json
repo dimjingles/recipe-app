@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "tsc --noEmit",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "migrate": "node --env-file-if-exists=.env.local scripts/migrate.mts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.105.0",
