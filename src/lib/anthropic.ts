@@ -5,6 +5,10 @@ export const anthropic = new Anthropic()
 
 export const HAIKU = 'claude-haiku-4-5-20251001'
 export const SONNET = 'claude-sonnet-4-6'
+// High-resolution vision (2576px long edge, vs 1568px on Haiku) — worth the cost
+// where the model has to read a dish off a plate. Note thinking is on by default
+// on Opus 5 and shares the `max_tokens` budget with the response.
+export const OPUS = 'claude-opus-5'
 
 /** Extract the first JSON object `{…}` from an LLM text response. */
 export function extractJsonObject(text: string): unknown {
