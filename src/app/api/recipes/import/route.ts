@@ -99,6 +99,22 @@ function parseServingsValue(val: unknown): number | undefined {
   return m ? parseInt(m[0]) : undefined
 }
 
+/**
+ * Pull per-serving calories out of a schema.org NutritionInformation block.
+ * `calories` is loosely typed in the wild — "350 calories", "350 kcal", 350.
+ */
+function parseCaloriesValue(nutrition: unknown): number | undefined {
+  if (!nutrition || typeof nutrition !== 'object') return undefined
+  const raw = (nutrition as Record<string, unknown>).calories
+  if (typeof raw === 'number') return raw > 0 ? Math.round(raw) : undefined
+  if (typeof raw !== 'string') return undefined
+  // Strip thousands separators first — "1,250 calories" must not read as 1.
+  const m = /\d+/.exec(raw.replace(/(\d),(?=\d{3}\b)/g, '$1'))
+  if (!m) return undefined
+  const n = parseInt(m[0])
+  return n > 0 ? n : undefined
+}
+
 function extractImageUrl(image: unknown): string | undefined {
   if (!image) return undefined
   if (typeof image === 'string') return image
@@ -194,6 +210,7 @@ Return this exact structure:
   "cuisine": "cuisine type or null",
   "cook_time_minutes": 30,
   "servings": 4,
+  "calories": 450,
   "instructions": "full step-by-step instructions as a single string",
   "ingredients": [
     { "name": "ingredient name", "quantity": "amount", "unit": "unit of measure", "category": "produce|dairy|meat|seafood|pantry|spices|bakery|frozen|other" }
@@ -201,7 +218,8 @@ Return this exact structure:
 }
 
 If you cannot find a clear recipe in the text, return: { "error": "no recipe found" }
-Category must be one of: produce, dairy, meat, seafood, pantry, spices, bakery, frozen, other.`
+Category must be one of: produce, dairy, meat, seafood, pantry, spices, bakery, frozen, other.
+calories is the per-serving calorie count — use the figure stated in the text if there is one, otherwise estimate it from the ingredients and quantities.`
 }
 
 async function extractFromText(text: string, sourceUrl?: string): Promise<ExtractedRecipe> {
@@ -381,6 +399,7 @@ export async function POST(request: NextRequest) {
         cuisine: Array.isArray(ld.recipeCuisine) ? (ld.recipeCuisine as string[])[0] : ld.recipeCuisine as string | undefined,
         cook_time_minutes: cookTime,
         servings: parseServingsValue(ld.recipeYield),
+        calories: parseCaloriesValue(ld.nutrition),
         instructions: parseInstructions(ld.recipeInstructions),
         ingredients,
         image_url: extractImageUrl(ld.image),
