@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { anthropic, HAIKU } from '@/lib/anthropic'
+import { anthropic, OPUS } from '@/lib/anthropic'
 import { fetchFirstImageAsBase64, type FetchedImage } from '@/lib/images/fetch-base64'
 
 // Structured-output schema. Constraining the model to this schema guarantees the
@@ -48,14 +48,33 @@ const RECIPE_SCHEMA = {
   additionalProperties: false,
 } as const
 
+// Same schema, with a forced grounding field in front. Structured outputs generate
+// keys in schema order, so making `photo_observations` the first required property
+// means the model has to commit to what it actually sees before it writes a single
+// ingredient — the recipe is then written against its own reading of the photo
+// rather than against the dish name. We never persist the field; producing it is
+// the whole point.
+const PHOTO_RECIPE_SCHEMA = {
+  ...RECIPE_SCHEMA,
+  properties: {
+    photo_observations: {
+      type: 'string',
+      description:
+        'What you can actually see in this photo: the specific ingredients, their cut and size, the sauce or coating, garnishes, doneness, and plating. Describe the dish in front of you, not the dish you expect. Everything below must match this.',
+    },
+    ...RECIPE_SCHEMA.properties,
+  },
+  required: ['photo_observations', ...RECIPE_SCHEMA.required],
+} as const
+
 function buildPrompt(name: string, hasImage: boolean): string {
-  return `You are a culinary expert.${
-    hasImage
-      ? ' Look closely at the attached photo of the finished dish and let it guide the specifics — the style, the ingredients you can see, the plating, and the likely preparation.'
-      : ''
-  } Return the most common home-cook version of "${name}"${
-    hasImage ? ' that best matches the dish shown in the photo' : ''
-  }.
+  const opening = hasImage
+    ? `You are a culinary expert. The attached photo shows the dish the user wants to cook. They call it "${name}".
+
+Write the recipe for the version in this photo, not a generic version of "${name}". Look closely and work from what is actually there: the visible ingredients, how each component is cut and sized, the sauce or coating, the garnishes and finishing touches, what the browning and texture say about the cooking method, and how much is on the plate. Your ingredient list and your steps must produce what is shown. Where the photo genuinely doesn't settle something, fall back to the most common home-cook version of "${name}".`
+    : `You are a culinary expert. Return the most common home-cook version of "${name}".`
+
+  return `${opening}
 
 Use realistic quantities for a home meal. Write clear, actionable step-by-step instructions as a single string, numbering each step (1., 2., etc.) and being specific about temperatures, timings, and techniques.
 
@@ -82,9 +101,16 @@ function generateRecipe(name: string, image?: FetchedImage) {
       ]
     : prompt
   return anthropic.messages.create({
-    model: HAIKU,
-    max_tokens: 4096,
-    output_config: { format: { type: 'json_schema', schema: RECIPE_SCHEMA } },
+    model: OPUS,
+    // Opus 5 thinks by default, and thinking shares this budget with the response —
+    // 4096 (fine on Haiku) can truncate a long recipe mid-instructions. `low` effort
+    // suits a scoped extraction task like this and keeps latency down; the user is
+    // staring at a full-screen spinner until we return.
+    max_tokens: 8192,
+    output_config: {
+      effort: 'low',
+      format: { type: 'json_schema', schema: image ? PHOTO_RECIPE_SCHEMA : RECIPE_SCHEMA },
+    },
     messages: [{ role: 'user', content }],
   })
 }
@@ -104,6 +130,12 @@ export async function POST(request: NextRequest) {
         ? await fetchFirstImageAsBase64(imageUrl, thumbnailUrl)
         : null
 
+    // Whether the model actually got to see the photo. The download can fail for
+    // reasons the user can't predict (hotlink 403, timeout, oversized file), and
+    // the caller needs to know — otherwise we hand back a generic recipe under a
+    // photo the user picked and imply the two match.
+    let photoUsed = !!image
+
     let message
     try {
       message = await generateRecipe(name, image ?? undefined)
@@ -113,19 +145,28 @@ export async function POST(request: NextRequest) {
       // request: retry name-only so the user still gets a recipe.
       if (image) {
         message = await generateRecipe(name)
+        photoUsed = false
       } else {
         throw err
       }
     }
 
+    // A safety-classifier refusal comes back as a normal 200 with no content
+    // blocks, so check it before indexing into `content`.
     const content = message.content[0]
+    if (message.stop_reason === 'refusal' || !content) {
+      return NextResponse.json(
+        { error: 'Could not generate a recipe for that dish. Try a different name.' },
+        { status: 502 },
+      )
+    }
     if (content.type !== 'text') {
       return NextResponse.json({ error: 'Unexpected response' }, { status: 500 })
     }
 
     // With structured outputs the text is guaranteed to be schema-valid JSON.
     const recipeData = JSON.parse(content.text)
-    return NextResponse.json(recipeData)
+    return NextResponse.json({ ...recipeData, photo_used: photoUsed })
   } catch (error: any) {
     console.error('Recipe lookup error:', error)
     const msg = error?.status

@@ -258,6 +258,14 @@ export function AddRecipeSheet({ open, onClose }: AddRecipeSheetProps) {
         } catch {}
       }
 
+      // The lookup route falls back to a name-only recipe when it can't download
+      // the picked photo. Say so rather than presenting a generic recipe under a
+      // photo the user chose — the recipe still saves and the photo still becomes
+      // the hero, they just know the two weren't matched.
+      if (image && details.photo_used === false) {
+        toast(`Couldn't read that photo — this is a standard ${name} recipe.`)
+      }
+
       invalidate.recipesChanged()
       // Keep the loading overlay up and navigate — do NOT close the sheet here.
       // Closing would reveal the recipe library underneath for a beat before the
