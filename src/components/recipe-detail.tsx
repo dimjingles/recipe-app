@@ -882,7 +882,7 @@ export default function RecipeDetail({
 
       {showRank && (
         <ComparisonDialog
-          thisRecipe={{ id: recipe.id, name: recipe.name, feedback: currentFeedback }}
+          thisRecipe={{ id: recipe.id, name: recipe.name, feedback: currentFeedback, recipeType: recipe.recipe_type }}
           onClose={() => setShowRank(false)}
           onRanked={handleRanked}
         />

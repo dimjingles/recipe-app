@@ -35,8 +35,8 @@ export async function getRecipes() {
 }
 
 /** Map of recipe id → 0.0–10.0 score for the current user's ranked recipes,
- *  grouped and spread within each feedback tier. Rank is per-user (recipe_rankings);
- *  the tier (feedback) is a property of the recipe. */
+ *  grouped and spread within each (recipe type, feedback tier) pool. Rank is
+ *  per-user (recipe_rankings); the tier and type are properties of the recipe. */
 export async function getRankedScores(): Promise<Record<string, number>> {
   const supabase = await createClient()
   const user = await getUser()
@@ -44,7 +44,7 @@ export async function getRankedScores(): Promise<Record<string, number>> {
 
   const { data, error } = await supabase
     .from('recipe_rankings')
-    .select('recipe_id, rank, recipe:recipes(feedback)')
+    .select('recipe_id, rank, recipe:recipes(feedback, recipe_type)')
     .eq('user_id', user.id)
 
   if (error) { console.error(error); return {} }
@@ -52,6 +52,7 @@ export async function getRankedScores(): Promise<Record<string, number>> {
     id: r.recipe_id,
     rank: r.rank,
     feedback: r.recipe?.feedback ?? null,
+    recipeType: r.recipe?.recipe_type ?? null,
   }))
   return computeScores(input)
 }

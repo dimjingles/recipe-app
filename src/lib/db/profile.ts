@@ -1,5 +1,5 @@
 import { createClient, getUser } from '@/lib/supabase/server'
-import { Database, Profile, RecipeSortPreference, RecipeSortDirection, SkillProfile, ChefPersona, ChefSkillPref, ChefPacing } from '@/types/database'
+import { Database, Profile, RecipeSortPreference, RecipeSortDirection, RecipeTypeFilter, SkillProfile, ChefPersona, ChefSkillPref, ChefPacing } from '@/types/database'
 import { normalizeSkillProfile } from '@/lib/skills'
 import { normalizeUsername, validateUsername } from '@/lib/username'
 
@@ -179,6 +179,25 @@ export async function updateRecipeSortPreference(
         id: userId,
         recipe_sort_preference: preference,
         recipe_sort_direction: direction,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'id' }
+    )
+
+  if (error) throw error
+}
+
+export async function updateRecipeTypeFilter(
+  userId: string,
+  filter: RecipeTypeFilter
+): Promise<void> {
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('profiles')
+    .upsert(
+      {
+        id: userId,
+        recipe_type_filter: filter,
         updated_at: new Date().toISOString(),
       },
       { onConflict: 'id' }

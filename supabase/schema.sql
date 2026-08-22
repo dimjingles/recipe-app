@@ -19,6 +19,7 @@ create table if not exists profiles (
   skill_profile jsonb default '{}'::jsonb,
   recipe_sort_preference text not null default 'ranking' check (recipe_sort_preference in ('ranking', 'recently_cooked', 'most_cooked', 'cook_time')),
   recipe_sort_direction text not null default 'default' check (recipe_sort_direction in ('default', 'reversed')),
+  recipe_type_filter text not null default 'main' check (recipe_type_filter in ('all', 'appetizer', 'main', 'dessert', 'drink')),
   -- Chef AI personalisation (Cook with AI flow)
   chef_persona text not null default 'warm' check (chef_persona in ('warm', 'pro', 'minimal', 'playful', 'calm')),
   chef_skill_pref text not null default 'auto' check (chef_skill_pref in ('auto', 'beginner', 'intermediate', 'expert')),

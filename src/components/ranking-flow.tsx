@@ -4,7 +4,15 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import { BottomSheet } from '@/components/ui/bottom-sheet'
 import { Button } from '@/components/ui/button'
-import { bucketScore, formatScore, FEEDBACK_OPTIONS, type Feedback } from '@/lib/scoring'
+import {
+  bucketScore,
+  formatScore,
+  rankGroup,
+  FEEDBACK_OPTIONS,
+  FEEDBACK_ADJECTIVE,
+  RANK_GROUP_NOUN,
+  type Feedback,
+} from '@/lib/scoring'
 
 // Active-state styling for each feedback choice — green / yellow / red.
 const FEEDBACK_ACTIVE: Record<Feedback, string> = {
@@ -48,10 +56,11 @@ interface RankedRecipe {
   cuisine: string | null
   rank: number
   feedback: Feedback | null
+  recipe_type: string | null
 }
 
 interface ComparisonDialogProps {
-  thisRecipe: { id: string; name: string; feedback: Feedback | null }
+  thisRecipe: { id: string; name: string; feedback: Feedback | null; recipeType: string | null }
   onClose: () => void
   onRanked: (rank: number) => void
 }
@@ -63,9 +72,12 @@ export function ComparisonDialog({ thisRecipe, onClose, onRanked }: ComparisonDi
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
+  const group = rankGroup(thisRecipe.recipeType)
+
   useState(() => {
-    // Only compare against recipes in the same like/okay/dislike tier.
-    fetch(`/api/rankings?feedback=${thisRecipe.feedback ?? 'none'}`)
+    // Only compare against recipes in the same pool: same like/okay/dislike
+    // tier AND same type, so a margarita never faces off against a lasagna.
+    fetch(`/api/rankings?feedback=${thisRecipe.feedback ?? 'none'}&group=${group}`)
       .then(async r => {
         const body = await r.json()
         if (!r.ok || !Array.isArray(body)) {
@@ -150,7 +162,11 @@ export function ComparisonDialog({ thisRecipe, onClose, onRanked }: ComparisonDi
           <h3 className="font-heading text-lg font-bold text-foreground">Rank this recipe</h3>
           <span className="text-xs text-muted-foreground">{step}/{totalSteps}</span>
         </div>
-        <p className="text-sm text-muted-foreground mb-6">Which did you like better?</p>
+        <p className="text-sm text-muted-foreground">Which did you like better?</p>
+        <p className="text-xs text-muted-foreground mb-6 mt-0.5">
+          Ranking among your{thisRecipe.feedback ? ` ${FEEDBACK_ADJECTIVE[thisRecipe.feedback]}` : ''}{' '}
+          {RANK_GROUP_NOUN[group]}
+        </p>
 
         <div className="grid grid-cols-2 gap-3">
           <button
@@ -226,6 +242,7 @@ export function RankFeedbackDialog({
 interface RankFlowProps {
   recipeId: string
   recipeName: string
+  recipeType: string | null
   initialFeedback: Feedback | null
   feedbackTitle?: string
   feedbackDescription?: string
@@ -236,6 +253,7 @@ interface RankFlowProps {
 export function RankFlow({
   recipeId,
   recipeName,
+  recipeType,
   initialFeedback,
   feedbackTitle,
   feedbackDescription,
@@ -276,7 +294,7 @@ export function RankFlow({
 
   return (
     <ComparisonDialog
-      thisRecipe={{ id: recipeId, name: recipeName, feedback }}
+      thisRecipe={{ id: recipeId, name: recipeName, feedback, recipeType }}
       onClose={onClose}
       onRanked={rank => onRanked(rank, feedback)}
     />

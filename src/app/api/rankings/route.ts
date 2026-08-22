@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, getUser } from '@/lib/supabase/server'
-import { isFeedback } from '@/lib/scoring'
+import { isFeedback, isRankGroup, rankGroup } from '@/lib/scoring'
 
 // The current user's ranked recipes (from recipe_rankings), used by the
-// head-to-head comparison dialog. An optional ?feedback= tier filter restricts
-// to one like/okay/dislike band, since recipes are ranked only within their tier.
+// head-to-head comparison dialog. Two optional filters narrow the list to a
+// single ranking pool: ?feedback= for the like/okay/dislike tier and ?group=
+// for the recipe type (main / dessert / drink / other). Recipes are only ever
+// ranked against others sharing both.
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient()
@@ -12,10 +14,11 @@ export async function GET(request: NextRequest) {
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const feedback = request.nextUrl.searchParams.get('feedback')
+    const group = request.nextUrl.searchParams.get('group')
 
     const { data, error } = await supabase
       .from('recipe_rankings')
-      .select('rank, recipe:recipes(id, name, cuisine, feedback)')
+      .select('rank, recipe:recipes(id, name, cuisine, feedback, recipe_type)')
       .eq('user_id', user.id)
       .order('rank', { ascending: true })
     if (error) throw error
@@ -23,6 +26,7 @@ export async function GET(request: NextRequest) {
     let rows = (data ?? []).filter((r: any) => r.recipe)
     if (isFeedback(feedback)) rows = rows.filter((r: any) => r.recipe.feedback === feedback)
     else if (feedback === 'none') rows = rows.filter((r: any) => r.recipe.feedback == null)
+    if (isRankGroup(group)) rows = rows.filter((r: any) => rankGroup(r.recipe.recipe_type) === group)
 
     const flat = rows.map((r: any) => ({
       id: r.recipe.id,
@@ -30,6 +34,7 @@ export async function GET(request: NextRequest) {
       cuisine: r.recipe.cuisine,
       rank: r.rank,
       feedback: r.recipe.feedback ?? null,
+      recipe_type: r.recipe.recipe_type ?? null,
     }))
     return NextResponse.json(flat)
   } catch (error: any) {
