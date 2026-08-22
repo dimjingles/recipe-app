@@ -222,6 +222,15 @@
 /* ─── Custom utilities ──────────────────────────────────────────────────── */
 
 @layer utilities {
+  /* Opaque surface for the pinned recipes header. Mirrors the body background
+     (globals.css base layer) so the bar is seamless against the page at scroll 0. */
+  .header-surface {
+    background:
+      linear-gradient(180deg, color-mix(in oklch, var(--background) 82%, white) 0, var(--background) 24rem),
+      radial-gradient(circle at top left, color-mix(in oklch, var(--sage-subtle) 48%, transparent) 0, transparent 30rem),
+      var(--background);
+  }
+
   .shadow-card {
     box-shadow: 0 2px 10px rgb(15 23 42 / 0.07);
   }

@@ -41,6 +41,7 @@ Cookbooks are accessible from the Recipes library (filter + create inline).
 - Scrollable grid of all user recipes with image thumbnails and cook-time badges
 - Text search with debounced online recipe lookup (surfaces web results inline)
 - Filter bar: cuisine dropdown, meal type (appetizer / main / dessert / drink), tag chips, cookbook filter
+- The header (cookbook picker, Cooked / Want to try tabs, filters, sort, search, tags) stays pinned to the top of the screen while the grid scrolls
 - AI Recipe Recommendations panel — Chef AI surfaces suggestions based on your library
 - Inline cookbook creation from the filter bar
 
