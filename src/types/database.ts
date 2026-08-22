@@ -61,6 +61,10 @@ export type RecipeSortPreference = 'ranking' | 'recently_cooked' | 'most_cooked'
 /** Sort order for the recipe library: 'default' is top-to-bottom, 'reversed' flips it bottom-to-top. */
 export type RecipeSortDirection = 'default' | 'reversed'
 
+/** Library recipe-type filter. 'all' means no filter — a sentinel rather than
+ *  null so "show everything" survives a round-trip through the profile. */
+export type RecipeTypeFilter = 'all' | 'appetizer' | 'main' | 'dessert' | 'drink'
+
 /** Chef AI voice/persona in the "Cook with AI" flow. */
 export type ChefPersona = 'warm' | 'pro' | 'minimal' | 'playful' | 'calm'
 /** How much the Chef AI explains. 'auto' follows the user's tracked skill profile. */
@@ -90,6 +94,7 @@ export interface Database {
           skill_profile: SkillProfile | null
           recipe_sort_preference: RecipeSortPreference
           recipe_sort_direction: RecipeSortDirection
+          recipe_type_filter: RecipeTypeFilter
           chef_persona: ChefPersona
           chef_skill_pref: ChefSkillPref
           chef_pacing: ChefPacing
@@ -115,6 +120,7 @@ export interface Database {
           skill_profile?: SkillProfile | null
           recipe_sort_preference?: RecipeSortPreference
           recipe_sort_direction?: RecipeSortDirection
+          recipe_type_filter?: RecipeTypeFilter
           chef_persona?: ChefPersona
           chef_skill_pref?: ChefSkillPref
           chef_pacing?: ChefPacing

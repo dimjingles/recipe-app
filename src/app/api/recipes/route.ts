@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, getUser } from '@/lib/supabase/server'
 import { classifyTechniques, getTechniqueKeys } from '@/lib/ai/classify-techniques'
 import { structureInstructions } from '@/lib/ai/structure-instructions'
+import { classifyRecipeType } from '@/lib/ai/classify-recipe-type'
 import { emitActivity } from '@/lib/db/activity'
 import { getRecipes } from '@/lib/db/recipes'
 
@@ -47,22 +48,30 @@ export async function POST(request: NextRequest) {
     }
 
     if (recipeData.instructions) {
-      const [techniques, instruction_steps] = await Promise.all([
+      const [techniques, instruction_steps, recipe_type] = await Promise.all([
         recipeData.techniques?.length
           ? Promise.resolve(recipeData.techniques as string[])
           : getTechniqueKeys(supabase).then(keys =>
               classifyTechniques(recipeData.name, recipeData.instructions, keys)
             ),
         structureInstructions(recipeData.name, recipeData.instructions),
+        // Every recipe needs a type — it decides which pool it's ranked in.
+        // The photo/dish-name extractors supply one; import, manual entry and
+        // adaptation don't, so infer it here rather than in each caller.
+        recipeData.recipe_type
+          ? Promise.resolve(null)
+          : classifyRecipeType(recipeData.name, recipeData.description, recipeData.instructions),
       ])
-      if (techniques.length || instruction_steps.length) {
+      if (techniques.length || instruction_steps.length || recipe_type) {
         const updatePayload = {
           ...(techniques.length ? { techniques } : {}),
           ...(instruction_steps.length ? { instruction_steps } : {}),
+          ...(recipe_type ? { recipe_type } : {}),
         }
         await supabase.from('recipes').update(updatePayload).eq('id', recipe.id).eq('user_id', user.id)
         if (techniques.length) recipe.techniques = techniques
         if (instruction_steps.length) recipe.instruction_steps = instruction_steps
+        if (recipe_type) recipe.recipe_type = recipe_type
       }
     }
 

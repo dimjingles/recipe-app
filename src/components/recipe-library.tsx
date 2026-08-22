@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import type { RecipeWithIngredients, CookbookWithCount, RecipeSortPreference, RecipeSortDirection } from '@/types/database'
+import type { RecipeWithIngredients, CookbookWithCount, RecipeSortPreference, RecipeSortDirection, RecipeTypeFilter } from '@/types/database'
 import { Plus, Search, Clock, X, Globe, ChevronDown, BookOpen, Loader2, Sparkles, ArrowDownUp, ArrowDown, ArrowUp, Trophy } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -17,10 +17,10 @@ import { EmptyState, RecipeBookIllustration } from '@/components/ui/empty-state'
 import { Shimmer } from '@/components/ui/shimmer'
 import { useCacheInvalidation } from '@/lib/queries/hooks'
 
+// Mirrors the values `recipe_type` can actually hold (RECIPE_TYPE_VALUES).
+// Breakfast/Lunch/Dinner used to be listed here but nothing ever wrote them,
+// so those filters always came back empty.
 const RECIPE_TYPES = [
-  { value: 'breakfast', label: 'Breakfast' },
-  { value: 'lunch', label: 'Lunch' },
-  { value: 'dinner', label: 'Dinner' },
   { value: 'appetizer', label: 'Appetizer' },
   { value: 'main', label: 'Main' },
   { value: 'dessert', label: 'Dessert' },
@@ -63,6 +63,15 @@ function compareRank(a: number | null, b: number | null) {
   return aRank - bRank
 }
 
+// Descending by score; unranked recipes sort last. Ranks are only comparable
+// within a recipe's own type pool, so the 0–10 score — which is normalised per
+// pool — is what makes a top dessert and a top main sort side by side.
+function compareScoreDesc(a: number | undefined, b: number | undefined) {
+  const aScore = a ?? Number.NEGATIVE_INFINITY
+  const bScore = b ?? Number.NEGATIVE_INFINITY
+  return bScore - aScore
+}
+
 // Ascending by cook time; recipes with no cook time sort last.
 function compareCookTimeAsc(a: number | null, b: number | null) {
   const aTime = a ?? Number.POSITIVE_INFINITY
@@ -70,9 +79,14 @@ function compareCookTimeAsc(a: number | null, b: number | null) {
   return aTime - bTime
 }
 
-function compareRecipes(a: RecipeWithIngredients, b: RecipeWithIngredients, sort: RecipeSortPreference) {
+function compareRecipes(
+  a: RecipeWithIngredients,
+  b: RecipeWithIngredients,
+  sort: RecipeSortPreference,
+  scores: Record<string, number>
+) {
   if (sort === 'ranking') {
-    return compareRank(a.rank, b.rank)
+    return compareScoreDesc(scores[a.id], scores[b.id])
       || compareDateDesc(a.last_cooked_at, b.last_cooked_at)
       || a.name.localeCompare(b.name)
   }
@@ -124,18 +138,22 @@ export default function RecipeLibrary({
   initialCookbooks,
   initialSortPreference = 'ranking',
   initialSortDirection = 'default',
+  initialTypeFilter = 'main',
 }: {
   initialRecipes: RecipeWithIngredients[]
   initialCookbooks: CookbookWithCount[]
   initialSortPreference?: RecipeSortPreference
   initialSortDirection?: RecipeSortDirection
+  initialTypeFilter?: RecipeTypeFilter
 }) {
   const router = useRouter()
   const invalidate = useCacheInvalidation()
   const [search, setSearch] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
   const [selectedCuisines, setSelectedCuisines] = useState<string[]>([])
-  const [selectedType, setSelectedType] = useState<string | null>(null)
+  const [selectedType, setSelectedType] = useState<string | null>(
+    initialTypeFilter === 'all' ? null : initialTypeFilter
+  )
   const [selectedTag, setSelectedTag] = useState<string | null>(null)
   const [selectedCookbook, setSelectedCookbook] = useState<string | null>(null)
   const [selectedCategory, setSelectedCategory] = useState<'cooked' | 'bookmarked'>('cooked')
@@ -165,6 +183,7 @@ export default function RecipeLibrary({
 
   const searchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null)
   const saveSortSeq = useRef(0)
+  const saveTypeSeq = useRef(0)
 
   useEffect(() => {
     if (searchDebounce.current) clearTimeout(searchDebounce.current)
@@ -279,6 +298,29 @@ export default function RecipeLibrary({
     }
   }
 
+  // The type filter persists server-side like the sort preference, so the
+  // library reopens on whatever the user last looked at rather than resetting.
+  const handleTypeFilterChange = async (nextType: string | null) => {
+    setSelectedType(nextType)
+    setOpenDropdown(null)
+    const requestSeq = saveTypeSeq.current + 1
+    saveTypeSeq.current = requestSeq
+
+    try {
+      const res = await fetch('/api/profile/preferences', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recipe_type_filter: nextType ?? 'all' }),
+      })
+      if (!res.ok) throw new Error('Could not save type filter')
+      invalidate.meChanged()
+    } catch {
+      if (saveTypeSeq.current === requestSeq) {
+        toast.error('Could not save type filter')
+      }
+    }
+  }
+
   // Routes a dropdown selection to the right place: the Cooked tab persists its
   // preference server-side, the Want to try tab keeps it in local state.
   const handleSortSelection = (
@@ -345,8 +387,16 @@ export default function RecipeLibrary({
     new Set(initialRecipes.flatMap(r => r.tags || []))
   ).sort()
 
-  // Per-tier 0–10 scores, keyed by recipe id.
-  const scores = computeScores(initialRecipes)
+  // 0–10 scores keyed by recipe id, normalised within each (type, tier) pool.
+  const scores = useMemo(
+    () => computeScores(initialRecipes.map(r => ({
+      id: r.id,
+      rank: r.rank,
+      feedback: r.feedback,
+      recipeType: r.recipe_type,
+    }))),
+    [initialRecipes]
+  )
 
   const scopedRecipes = initialRecipes.filter(r =>
     !selectedCookbook ||
@@ -391,12 +441,12 @@ export default function RecipeLibrary({
   const sortedRecipes = useMemo(
     () => {
       const ordered = [...filtered].sort((a, b) =>
-        isWantToTry ? compareWantToTry(a, b, wantToTrySort) : compareRecipes(a, b, sortPreference)
+        isWantToTry ? compareWantToTry(a, b, wantToTrySort) : compareRecipes(a, b, sortPreference, scores)
       )
       // 'reversed' flips the whole list bottom-to-top for the chosen sort option.
       return activeSortDirection === 'reversed' ? ordered.reverse() : ordered
     },
-    [filtered, isWantToTry, sortPreference, sortDirection, wantToTrySort, wantToTryDirection, activeSortDirection]
+    [filtered, isWantToTry, sortPreference, sortDirection, wantToTrySort, wantToTryDirection, activeSortDirection, scores]
   )
 
   /* ── Chip style helpers ─────────────────────────────────────────── */
@@ -560,7 +610,7 @@ export default function RecipeLibrary({
                 <div className="fixed inset-0 z-10" onClick={() => setOpenDropdown(null)} />
                 <div className="absolute left-0 top-full mt-1.5 z-20 min-w-[152px] overflow-hidden rounded-xl border border-border bg-card shadow-lg">
                   <button
-                    onClick={() => { setSelectedType(null); setOpenDropdown(null) }}
+                    onClick={() => handleTypeFilterChange(null)}
                     className={`w-full text-left px-4 py-2.5 text-sm font-medium transition-colors ${!selectedType ? 'text-brand bg-brand-subtle' : 'text-foreground hover:bg-muted'}`}
                   >
                     All types
@@ -568,7 +618,7 @@ export default function RecipeLibrary({
                   {RECIPE_TYPES.map(t => (
                     <button
                       key={t.value}
-                      onClick={() => { setSelectedType(t.value); setOpenDropdown(null) }}
+                      onClick={() => handleTypeFilterChange(t.value)}
                       className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${selectedType === t.value ? 'text-brand bg-brand-subtle font-medium' : 'text-foreground hover:bg-muted'}`}
                     >
                       {t.label}

@@ -17,6 +17,7 @@ export default function RecipesClient() {
       initialCookbooks={cookbooks.data}
       initialSortPreference={me.data.profile?.recipe_sort_preference ?? 'ranking'}
       initialSortDirection={me.data.profile?.recipe_sort_direction ?? 'default'}
+      initialTypeFilter={me.data.profile?.recipe_type_filter ?? 'main'}
     />
   )
 }

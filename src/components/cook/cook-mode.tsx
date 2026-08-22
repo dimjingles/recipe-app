@@ -669,7 +669,7 @@ export default function CookMode({
       {/* ── Rank against other recipes ────────────────────────────────────── */}
       {showRank && (
         <ComparisonDialog
-          thisRecipe={{ id: recipe.id, name: recipe.name, feedback }}
+          thisRecipe={{ id: recipe.id, name: recipe.name, feedback, recipeType: recipe.recipe_type }}
           onClose={finishToRecipe}
           onRanked={() => {
             toast.success('Ranked! 🏆')
