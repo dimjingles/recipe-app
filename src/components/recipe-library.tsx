@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import type { RecipeWithIngredients, CookbookWithCount, RecipeSortPreference, RecipeSortDirection, RecipeTypeFilter } from '@/types/database'
@@ -27,6 +27,26 @@ const COURSES = [
   { value: 'dessert', label: 'Dessert' },
   { value: 'drink', label: 'Drink' },
 ]
+
+// The "Time" filter — cook-time ranges, single-select like Course. 30 and 60 both
+// belong to the middle range.
+const COOK_TIME_OPTIONS = [
+  { value: 'under_30', label: 'Less than 30min', matches: (m: number) => m < 30 },
+  { value: '30_to_60', label: 'Between 30-60min', matches: (m: number) => m >= 30 && m <= 60 },
+  { value: 'over_60', label: 'More than 60min', matches: (m: number) => m > 60 },
+]
+
+// The "Difficulty" filter. Mirrors the 1–3 `difficulty` column.
+const DIFFICULTIES = [
+  { value: 1, label: 'Easy' },
+  { value: 2, label: 'Medium' },
+  { value: 3, label: 'Hard' },
+]
+
+// The dropdowns that live in the scrolling filter carousel.
+type FilterMenu = 'course' | 'type' | 'cuisine' | 'time' | 'difficulty'
+const FILTER_MENUS: readonly string[] = ['course', 'type', 'cuisine', 'time', 'difficulty'] satisfies FilterMenu[]
+const isFilterMenu = (menu: string | null): menu is FilterMenu => menu != null && FILTER_MENUS.includes(menu)
 
 // Sort options for the "Cooked" tab — driven by cooking history, so persisted
 // server-side via the user's profile preference.
@@ -156,6 +176,8 @@ export default function RecipeLibrary({
     initialTypeFilter === 'all' ? null : initialTypeFilter
   )
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
+  const [selectedCookTime, setSelectedCookTime] = useState<string | null>(null)
+  const [selectedDifficulties, setSelectedDifficulties] = useState<number[]>([])
   const [selectedTag, setSelectedTag] = useState<string | null>(null)
   const [selectedCookbook, setSelectedCookbook] = useState<string | null>(null)
   const [selectedCategory, setSelectedCategory] = useState<'cooked' | 'bookmarked'>('cooked')
@@ -174,7 +196,11 @@ export default function RecipeLibrary({
   const [recommendations, setRecommendations] = useState<Recommendation[]>([])
   const [recommendationsLoading, setRecommendationsLoading] = useState(false)
   const [recommendationsError, setRecommendationsError] = useState('')
-  const [openDropdown, setOpenDropdown] = useState<'course' | 'type' | 'cuisine' | 'cookbook' | 'sort' | null>(null)
+  const [openDropdown, setOpenDropdown] = useState<FilterMenu | 'cookbook' | 'sort' | null>(null)
+  // Left offset of the open filter menu within the filter bar, so it sits under its chip.
+  const [filterMenuLeft, setFilterMenuLeft] = useState(0)
+  const filterBarRef = useRef<HTMLDivElement>(null)
+  const filterMenuRef = useRef<HTMLDivElement>(null)
 
   // Create cookbook sheet
   const [showCreateCookbook, setShowCreateCookbook] = useState(false)
@@ -338,6 +364,27 @@ export default function RecipeLibrary({
     handleSortChange(value as RecipeSortPreference, nextDirection)
   }
 
+  const toggleFilterMenu = (menu: FilterMenu, chip: HTMLElement) => {
+    if (openDropdown === menu) {
+      setOpenDropdown(null)
+      return
+    }
+    const bar = filterBarRef.current
+    if (bar) setFilterMenuLeft(chip.getBoundingClientRect().left - bar.getBoundingClientRect().left)
+    setOpenDropdown(menu)
+  }
+
+  // Keep an open filter menu inside the bar: a chip scrolled near either edge would
+  // otherwise hang its menu off-screen.
+  useLayoutEffect(() => {
+    const bar = filterBarRef.current
+    const menu = filterMenuRef.current
+    if (!bar || !menu) return
+    const maxLeft = Math.max(0, bar.clientWidth - menu.offsetWidth)
+    const clamped = Math.min(Math.max(filterMenuLeft, 0), maxLeft)
+    if (clamped !== filterMenuLeft) setFilterMenuLeft(clamped)
+  }, [openDropdown, filterMenuLeft])
+
   const openCreateCookbook = () => {
     setOpenDropdown(null)
     setShowCreateCookbook(true)
@@ -360,6 +407,11 @@ export default function RecipeLibrary({
   const toggleCuisine = (cuisine: string) =>
     setSelectedCuisines(prev =>
       prev.includes(cuisine) ? prev.filter(c => c !== cuisine) : [...prev, cuisine]
+    )
+
+  const toggleDifficulty = (difficulty: number) =>
+    setSelectedDifficulties(prev =>
+      prev.includes(difficulty) ? prev.filter(d => d !== difficulty) : [...prev, difficulty]
     )
 
   const createCookbook = async () => {
@@ -433,6 +485,13 @@ export default function RecipeLibrary({
   const categoryOptions = RECIPE_CATEGORIES.filter(c => presentCategories.has(c.value))
   const activeCategories = selectedCategories.filter(c => presentCategories.has(c))
 
+  // Time and Difficulty follow suit: hidden when nothing in view has the field.
+  const hasCookTimes = categoryRecipes.some(r => r.cook_time_minutes != null)
+  const presentDifficulties = new Set(categoryRecipes.map(r => r.difficulty).filter((d): d is number => d != null))
+  const difficultyOptions = DIFFICULTIES.filter(d => presentDifficulties.has(d.value))
+  const activeDifficulties = selectedDifficulties.filter(d => presentDifficulties.has(d))
+  const activeCookTime = hasCookTimes ? COOK_TIME_OPTIONS.find(o => o.value === selectedCookTime) ?? null : null
+
   const filtered = categoryRecipes.filter(r => {
     const matchesSearch =
       r.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -445,8 +504,15 @@ export default function RecipeLibrary({
     const matchesCategory =
       activeCategories.length === 0 ||
       (r.categories ?? []).some(c => activeCategories.includes(c))
+    const matchesTime =
+      activeCookTime == null ||
+      (r.cook_time_minutes != null && activeCookTime.matches(r.cook_time_minutes))
+    const matchesDifficulty =
+      activeDifficulties.length === 0 ||
+      (r.difficulty != null && activeDifficulties.includes(r.difficulty))
     const matchesTag = !selectedTag || (r.tags || []).includes(selectedTag)
-    return matchesSearch && matchesCuisine && matchesCourse && matchesCategory && matchesTag
+    return matchesSearch && matchesCuisine && matchesCourse && matchesCategory
+      && matchesTime && matchesDifficulty && matchesTag
   })
 
   const isWantToTry = selectedCategory === 'bookmarked'
@@ -480,7 +546,15 @@ export default function RecipeLibrary({
         : 'bg-card border border-border text-foreground hover:border-brand'
     }`
 
-  const selectedCookbookName = cookbooks.find(c => c.id === selectedCookbook)?.name
+  // Dropdown chips in the filter carousel. shrink-0 + nowrap keep them on one scrolling row.
+  const filterDropdownClass = (active: boolean) =>
+    `flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium border transition-colors active:scale-[0.95] ${
+      active
+        ? 'bg-brand text-brand-foreground border-transparent'
+        : 'bg-card border-border text-foreground hover:border-brand'
+    }`
+
+  const selectedCookbookName =cookbooks.find(c => c.id === selectedCookbook)?.name
 
   return (
     <div className="mx-auto max-w-6xl px-5 md:px-8">
@@ -593,161 +667,207 @@ export default function RecipeLibrary({
           </Link>
         </div>
 
-        {/* Filter dropdowns */}
-        <div className="mb-4 flex items-start gap-2">
-          <div className="flex flex-wrap gap-2">
-            {/* Course dropdown */}
-            <div className="relative">
-              <button
-                onClick={() => setOpenDropdown(openDropdown === 'course' ? null : 'course')}
-                className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium border transition-colors active:scale-[0.95] ${
-                  selectedType
-                    ? 'bg-brand text-brand-foreground border-transparent'
-                    : 'bg-card border-border text-foreground hover:border-brand'
-                }`}
-              >
-                {selectedType
-                  ? COURSES.find(t => t.value === selectedType)?.label
-                  : 'Course'}
-                <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-150 ${openDropdown === 'course' ? 'rotate-180' : ''}`} />
-              </button>
-              {openDropdown === 'course' && (
-                <>
-                  <div className="fixed inset-0 z-10" onClick={() => setOpenDropdown(null)} />
-                  <div className="absolute left-0 top-full mt-1.5 z-20 min-w-[152px] overflow-hidden rounded-xl border border-border bg-card shadow-lg">
-                    <button
-                      onClick={() => handleTypeFilterChange(null)}
-                      className={`w-full text-left px-4 py-2.5 text-sm font-medium transition-colors ${!selectedType ? 'text-brand bg-brand-subtle' : 'text-foreground hover:bg-muted'}`}
-                    >
-                      All courses
-                    </button>
-                    {COURSES.map(t => (
-                      <button
-                        key={t.value}
-                        onClick={() => handleTypeFilterChange(t.value)}
-                        className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${selectedType === t.value ? 'text-brand bg-brand-subtle font-medium' : 'text-foreground hover:bg-muted'}`}
-                      >
-                        {t.label}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
+        {/* Filter carousel — one row of chips that scrolls sideways and runs to the screen
+            edge. The menus render outside the scroller (which would clip them), anchored
+            under whichever chip opened them. */}
+        <div ref={filterBarRef} className="relative mb-4">
+          <div className="-mx-5 flex gap-2 overflow-x-auto px-5 scrollbar-hide md:-mx-8 md:px-8">
+            <button onClick={e => toggleFilterMenu('course', e.currentTarget)} className={filterDropdownClass(!!selectedType)}>
+              {selectedType
+                ? COURSES.find(t => t.value === selectedType)?.label
+                : 'Course'}
+              <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-150 ${openDropdown === 'course' ? 'rotate-180' : ''}`} />
+            </button>
 
-            {/* Type dropdown — descriptive categories, multi-select like Cuisine */}
+            {/* Type — descriptive categories, multi-select like Cuisine */}
             {categoryOptions.length > 0 && (
-              <div className="relative">
-                <button
-                  onClick={() => setOpenDropdown(openDropdown === 'type' ? null : 'type')}
-                  className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium border transition-colors active:scale-[0.95] ${
-                    activeCategories.length > 0
-                      ? 'bg-brand text-brand-foreground border-transparent'
-                      : 'bg-card border-border text-foreground hover:border-brand'
-                  }`}
-                >
-                  {activeCategories.length === 0
-                    ? 'Type'
-                    : activeCategories.length === 1
-                      ? RECIPE_CATEGORIES.find(c => c.value === activeCategories[0])?.label
-                      : `Type (${activeCategories.length})`}
-                  <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-150 ${openDropdown === 'type' ? 'rotate-180' : ''}`} />
-                </button>
-                {openDropdown === 'type' && (
-                  <>
-                    <div className="fixed inset-0 z-10" onClick={() => setOpenDropdown(null)} />
-                    {/* Stays open while types are checked on and off; the backdrop dismisses it. */}
-                    <div className="absolute left-0 top-full mt-1.5 z-20 max-h-72 min-w-[180px] overflow-y-auto rounded-xl border border-border bg-card shadow-lg">
-                      <button
-                        onClick={() => setSelectedCategories([])}
-                        className={`w-full text-left px-4 py-2.5 text-sm font-medium transition-colors ${activeCategories.length === 0 ? 'text-brand bg-brand-subtle' : 'text-foreground hover:bg-muted'}`}
-                      >
-                        All types
-                      </button>
-                      {categoryOptions.map(c => {
-                        const checked = activeCategories.includes(c.value)
-                        return (
-                          <button
-                            key={c.value}
-                            onClick={() => toggleCategory(c.value)}
-                            role="checkbox"
-                            aria-checked={checked}
-                            className={`flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors ${
-                              checked ? 'bg-brand-subtle font-medium text-brand' : 'text-foreground hover:bg-muted'
-                            }`}
-                          >
-                            <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors ${
-                              checked ? 'bg-brand border-brand' : 'border-border'
-                            }`}>
-                              {checked && <span className="text-brand-foreground text-[10px] font-bold">✓</span>}
-                            </span>
-                            <span className="flex-1">{c.label}</span>
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </>
-                )}
-              </div>
+              <button onClick={e => toggleFilterMenu('type', e.currentTarget)} className={filterDropdownClass(activeCategories.length > 0)}>
+                {activeCategories.length === 0
+                  ? 'Type'
+                  : activeCategories.length === 1
+                    ? RECIPE_CATEGORIES.find(c => c.value === activeCategories[0])?.label
+                    : `Type (${activeCategories.length})`}
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-150 ${openDropdown === 'type' ? 'rotate-180' : ''}`} />
+              </button>
             )}
 
-            {/* Cuisine dropdown */}
             {cuisines.length > 0 && (
-              <div className="relative">
-                <button
-                  onClick={() => setOpenDropdown(openDropdown === 'cuisine' ? null : 'cuisine')}
-                  className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium border transition-colors active:scale-[0.95] ${
-                    activeCuisines.length > 0
-                      ? 'bg-brand text-brand-foreground border-transparent'
-                      : 'bg-card border-border text-foreground hover:border-brand'
-                  }`}
-                >
-                  {activeCuisines.length === 0
-                    ? 'Cuisine'
-                    : activeCuisines.length === 1
-                      ? <span className="capitalize">{activeCuisines[0]}</span>
-                      : `Cuisine (${activeCuisines.length})`}
-                  <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-150 ${openDropdown === 'cuisine' ? 'rotate-180' : ''}`} />
-                </button>
-                {openDropdown === 'cuisine' && (
-                  <>
-                    <div className="fixed inset-0 z-10" onClick={() => setOpenDropdown(null)} />
-                    {/* Stays open while cuisines are checked on and off; the backdrop dismisses it. */}
-                    <div className="absolute left-0 top-full mt-1.5 z-20 max-h-72 min-w-[180px] overflow-y-auto rounded-xl border border-border bg-card shadow-lg">
-                      <button
-                        onClick={() => setSelectedCuisines([])}
-                        className={`w-full text-left px-4 py-2.5 text-sm font-medium transition-colors ${activeCuisines.length === 0 ? 'text-brand bg-brand-subtle' : 'text-foreground hover:bg-muted'}`}
-                      >
-                        All cuisines
-                      </button>
-                      {cuisines.map(cuisine => {
-                        const checked = activeCuisines.includes(cuisine)
-                        return (
-                          <button
-                            key={cuisine}
-                            onClick={() => toggleCuisine(cuisine)}
-                            role="checkbox"
-                            aria-checked={checked}
-                            className={`flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm capitalize transition-colors ${
-                              checked ? 'bg-brand-subtle font-medium text-brand' : 'text-foreground hover:bg-muted'
-                            }`}
-                          >
-                            <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors ${
-                              checked ? 'bg-brand border-brand' : 'border-border'
-                            }`}>
-                              {checked && <span className="text-brand-foreground text-[10px] font-bold">✓</span>}
-                            </span>
-                            <span className="flex-1">{cuisine}</span>
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </>
-                )}
-              </div>
+              <button onClick={e => toggleFilterMenu('cuisine', e.currentTarget)} className={filterDropdownClass(activeCuisines.length > 0)}>
+                {activeCuisines.length === 0
+                  ? 'Cuisine'
+                  : activeCuisines.length === 1
+                    ? <span className="capitalize">{activeCuisines[0]}</span>
+                    : `Cuisine (${activeCuisines.length})`}
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-150 ${openDropdown === 'cuisine' ? 'rotate-180' : ''}`} />
+              </button>
+            )}
+
+            {/* Time — maximum cook time, single-select like Course */}
+            {hasCookTimes && (
+              <button onClick={e => toggleFilterMenu('time', e.currentTarget)} className={filterDropdownClass(activeCookTime != null)}>
+                {activeCookTime != null
+                  ? activeCookTime.label
+                  : 'Time'}
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-150 ${openDropdown === 'time' ? 'rotate-180' : ''}`} />
+              </button>
+            )}
+
+            {/* Difficulty — multi-select like Cuisine */}
+            {difficultyOptions.length > 0 && (
+              <button onClick={e => toggleFilterMenu('difficulty', e.currentTarget)} className={filterDropdownClass(activeDifficulties.length > 0)}>
+                {activeDifficulties.length === 0
+                  ? 'Difficulty'
+                  : activeDifficulties.length === 1
+                    ? DIFFICULTIES.find(d => d.value === activeDifficulties[0])?.label
+                    : `Difficulty (${activeDifficulties.length})`}
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-150 ${openDropdown === 'difficulty' ? 'rotate-180' : ''}`} />
+              </button>
             )}
           </div>
 
+          {isFilterMenu(openDropdown) && (
+            <div className="fixed inset-0 z-10" onClick={() => setOpenDropdown(null)} />
+          )}
+
+          {openDropdown === 'course' && (
+            <div ref={filterMenuRef} style={{ left: filterMenuLeft }} className="absolute top-full mt-1.5 z-20 min-w-[152px] overflow-hidden rounded-xl border border-border bg-card shadow-lg">
+              <button
+                onClick={() => handleTypeFilterChange(null)}
+                className={`w-full text-left px-4 py-2.5 text-sm font-medium transition-colors ${!selectedType ? 'text-brand bg-brand-subtle' : 'text-foreground hover:bg-muted'}`}
+              >
+                All courses
+              </button>
+              {COURSES.map(t => (
+                <button
+                  key={t.value}
+                  onClick={() => handleTypeFilterChange(t.value)}
+                  className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${selectedType === t.value ? 'text-brand bg-brand-subtle font-medium' : 'text-foreground hover:bg-muted'}`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Stays open while types are checked on and off; the backdrop dismisses it. */}
+          {openDropdown === 'type' && (
+            <div ref={filterMenuRef} style={{ left: filterMenuLeft }} className="absolute top-full mt-1.5 z-20 max-h-72 min-w-[180px] overflow-y-auto rounded-xl border border-border bg-card shadow-lg">
+              <button
+                onClick={() => setSelectedCategories([])}
+                className={`w-full text-left px-4 py-2.5 text-sm font-medium transition-colors ${activeCategories.length === 0 ? 'text-brand bg-brand-subtle' : 'text-foreground hover:bg-muted'}`}
+              >
+                All types
+              </button>
+              {categoryOptions.map(c => {
+                const checked = activeCategories.includes(c.value)
+                return (
+                  <button
+                    key={c.value}
+                    onClick={() => toggleCategory(c.value)}
+                    role="checkbox"
+                    aria-checked={checked}
+                    className={`flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors ${
+                      checked ? 'bg-brand-subtle font-medium text-brand' : 'text-foreground hover:bg-muted'
+                    }`}
+                  >
+                    <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors ${
+                      checked ? 'bg-brand border-brand' : 'border-border'
+                    }`}>
+                      {checked && <span className="text-brand-foreground text-[10px] font-bold">✓</span>}
+                    </span>
+                    <span className="flex-1">{c.label}</span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+
+          {/* Stays open while cuisines are checked on and off; the backdrop dismisses it. */}
+          {openDropdown === 'cuisine' && (
+            <div ref={filterMenuRef} style={{ left: filterMenuLeft }} className="absolute top-full mt-1.5 z-20 max-h-72 min-w-[180px] overflow-y-auto rounded-xl border border-border bg-card shadow-lg">
+              <button
+                onClick={() => setSelectedCuisines([])}
+                className={`w-full text-left px-4 py-2.5 text-sm font-medium transition-colors ${activeCuisines.length === 0 ? 'text-brand bg-brand-subtle' : 'text-foreground hover:bg-muted'}`}
+              >
+                All cuisines
+              </button>
+              {cuisines.map(cuisine => {
+                const checked = activeCuisines.includes(cuisine)
+                return (
+                  <button
+                    key={cuisine}
+                    onClick={() => toggleCuisine(cuisine)}
+                    role="checkbox"
+                    aria-checked={checked}
+                    className={`flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm capitalize transition-colors ${
+                      checked ? 'bg-brand-subtle font-medium text-brand' : 'text-foreground hover:bg-muted'
+                    }`}
+                  >
+                    <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors ${
+                      checked ? 'bg-brand border-brand' : 'border-border'
+                    }`}>
+                      {checked && <span className="text-brand-foreground text-[10px] font-bold">✓</span>}
+                    </span>
+                    <span className="flex-1">{cuisine}</span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+
+          {openDropdown === 'time' && (
+            <div ref={filterMenuRef} style={{ left: filterMenuLeft }} className="absolute top-full mt-1.5 z-20 min-w-[168px] overflow-hidden rounded-xl border border-border bg-card shadow-lg">
+              <button
+                onClick={() => { setSelectedCookTime(null); setOpenDropdown(null) }}
+                className={`w-full text-left px-4 py-2.5 text-sm font-medium transition-colors ${activeCookTime == null ? 'text-brand bg-brand-subtle' : 'text-foreground hover:bg-muted'}`}
+              >
+                Any time
+              </button>
+              {COOK_TIME_OPTIONS.map(o => (
+                <button
+                  key={o.value}
+                  onClick={() => { setSelectedCookTime(o.value); setOpenDropdown(null) }}
+                  className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${activeCookTime?.value === o.value ? 'text-brand bg-brand-subtle font-medium' : 'text-foreground hover:bg-muted'}`}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Stays open while levels are checked on and off; the backdrop dismisses it. */}
+          {openDropdown === 'difficulty' && (
+            <div ref={filterMenuRef} style={{ left: filterMenuLeft }} className="absolute top-full mt-1.5 z-20 min-w-[180px] overflow-hidden rounded-xl border border-border bg-card shadow-lg">
+              <button
+                onClick={() => setSelectedDifficulties([])}
+                className={`w-full text-left px-4 py-2.5 text-sm font-medium transition-colors ${activeDifficulties.length === 0 ? 'text-brand bg-brand-subtle' : 'text-foreground hover:bg-muted'}`}
+              >
+                Any difficulty
+              </button>
+              {difficultyOptions.map(d => {
+                const checked = activeDifficulties.includes(d.value)
+                return (
+                  <button
+                    key={d.value}
+                    onClick={() => toggleDifficulty(d.value)}
+                    role="checkbox"
+                    aria-checked={checked}
+                    className={`flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors ${
+                      checked ? 'bg-brand-subtle font-medium text-brand' : 'text-foreground hover:bg-muted'
+                    }`}
+                  >
+                    <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors ${
+                      checked ? 'bg-brand border-brand' : 'border-border'
+                    }`}>
+                      {checked && <span className="text-brand-foreground text-[10px] font-bold">✓</span>}
+                    </span>
+                    <span className="flex-1">{d.label}</span>
+                    <span className="text-xs">{'🔪'.repeat(d.value)}</span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
         </div>
 
         {/* Sort + search row */}
