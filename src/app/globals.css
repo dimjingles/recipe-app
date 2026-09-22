@@ -231,6 +231,14 @@
       var(--background);
   }
 
+  /* Horizontal chip carousels: scrollable, but without a visible scrollbar. */
+  .scrollbar-hide {
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
   .shadow-card {
     box-shadow: 0 2px 10px rgb(15 23 42 / 0.07);
   }
