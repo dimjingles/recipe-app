@@ -251,6 +251,54 @@
     box-shadow: 0 14px 28px rgb(15 23 42 / 0.16);
   }
 
+  /* Liquid-glass surface for the floating nav: translucent fill that blurs and
+     saturates whatever scrolls behind it, a specular highlight along the top
+     edge, and a rim light (::before) brightest at the top-left and bottom-right. */
+  .glass-bar {
+    position: relative;
+    background: linear-gradient(180deg, rgb(255 255 255 / 0.88), rgb(255 255 255 / 0.78));
+    -webkit-backdrop-filter: blur(32px) saturate(150%);
+    backdrop-filter: blur(32px) saturate(150%);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.9),
+      inset 0 -1px 1px rgb(255 255 255 / 0.35),
+      0 0 0 0.5px rgb(15 23 42 / 0.08),
+      0 12px 32px rgb(15 23 42 / 0.14),
+      0 2px 6px rgb(15 23 42 / 0.06);
+  }
+  .glass-bar::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(135deg, rgb(255 255 255 / 0.95), rgb(255 255 255 / 0.15) 40%, rgb(255 255 255 / 0.1) 60%, rgb(255 255 255 / 0.7));
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+
+  /* Tinted glass bubble for the selected nav item: a light-orange wash with its
+     own top highlight and a soft brand-coloured edge. */
+  .glass-pill {
+    background: linear-gradient(180deg,
+      color-mix(in oklch, var(--brand) 24%, rgb(255 255 255 / 0.6)),
+      color-mix(in oklch, var(--brand) 16%, rgb(255 255 255 / 0.4)));
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.85),
+      inset 0 0 0 1px color-mix(in oklch, var(--brand) 32%, transparent),
+      0 4px 12px color-mix(in oklch, var(--brand) 18%, transparent);
+  }
+
+  /* Solid fallbacks where the backdrop can't be blurred or the user asked for less transparency. */
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .glass-bar { background: rgb(255 255 255 / 0.96); }
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    .glass-bar { background: var(--card); -webkit-backdrop-filter: none; backdrop-filter: none; }
+  }
+
   .surface-gradient {
     background:
       linear-gradient(135deg, color-mix(in oklch, var(--brand-subtle) 54%, white) 0%, color-mix(in oklch, var(--info-subtle) 45%, white) 100%);
