@@ -148,6 +148,8 @@ export interface Database {
           image_url: string | null
           gallery_images: string[]
           tags: string[]
+          /** Descriptive categories (meat, pasta, soup, …) — RECIPE_CATEGORIES. */
+          categories: string[]
           techniques: string[]
           cooked_count: number
           last_cooked_at: string | null
@@ -160,7 +162,7 @@ export interface Database {
           share_token: string | null
           created_at: string
         }
-        Insert: Omit<Database['public']['Tables']['recipes']['Row'], 'id' | 'created_at' | 'cooked_count' | 'last_cooked_at' | 'rank' | 'feedback' | 'recipe_type' | 'gallery_images' | 'techniques' | 'instruction_steps' | 'visibility' | 'original_recipe_id' | 'adaptation_metadata' | 'share_token' | 'calories'> & {
+        Insert: Omit<Database['public']['Tables']['recipes']['Row'], 'id' | 'created_at' | 'cooked_count' | 'last_cooked_at' | 'rank' | 'feedback' | 'recipe_type' | 'gallery_images' | 'techniques' | 'instruction_steps' | 'visibility' | 'original_recipe_id' | 'adaptation_metadata' | 'share_token' | 'calories' | 'categories'> & {
           id?: string
           created_at?: string
           cooked_count?: number
@@ -172,6 +174,7 @@ export interface Database {
           gallery_images?: string[]
           difficulty?: number | null
           calories?: number | null
+          categories?: string[]
           techniques?: string[]
           instruction_steps?: InstructionStep[] | null
           original_recipe_id?: string | null

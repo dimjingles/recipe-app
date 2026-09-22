@@ -16,11 +16,12 @@ import { AddRecipeSheet } from '@/components/add-recipe-sheet'
 import { EmptyState, RecipeBookIllustration } from '@/components/ui/empty-state'
 import { Shimmer } from '@/components/ui/shimmer'
 import { useCacheInvalidation } from '@/lib/queries/hooks'
+import { RECIPE_CATEGORIES } from '@/lib/recipe-categories'
 
-// Mirrors the values `recipe_type` can actually hold (RECIPE_TYPE_VALUES).
-// Breakfast/Lunch/Dinner used to be listed here but nothing ever wrote them,
-// so those filters always came back empty.
-const RECIPE_TYPES = [
+// The "Course" filter. Mirrors the values `recipe_type` can actually hold
+// (RECIPE_TYPE_VALUES). Breakfast/Lunch/Dinner used to be listed here but
+// nothing ever wrote them, so those filters always came back empty.
+const COURSES = [
   { value: 'appetizer', label: 'Appetizer' },
   { value: 'main', label: 'Main' },
   { value: 'dessert', label: 'Dessert' },
@@ -154,6 +155,7 @@ export default function RecipeLibrary({
   const [selectedType, setSelectedType] = useState<string | null>(
     initialTypeFilter === 'all' ? null : initialTypeFilter
   )
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([])
   const [selectedTag, setSelectedTag] = useState<string | null>(null)
   const [selectedCookbook, setSelectedCookbook] = useState<string | null>(null)
   const [selectedCategory, setSelectedCategory] = useState<'cooked' | 'bookmarked'>('cooked')
@@ -172,7 +174,7 @@ export default function RecipeLibrary({
   const [recommendations, setRecommendations] = useState<Recommendation[]>([])
   const [recommendationsLoading, setRecommendationsLoading] = useState(false)
   const [recommendationsError, setRecommendationsError] = useState('')
-  const [openDropdown, setOpenDropdown] = useState<'type' | 'cuisine' | 'cookbook' | 'sort' | null>(null)
+  const [openDropdown, setOpenDropdown] = useState<'course' | 'type' | 'cuisine' | 'cookbook' | 'sort' | null>(null)
 
   // Create cookbook sheet
   const [showCreateCookbook, setShowCreateCookbook] = useState(false)
@@ -298,7 +300,7 @@ export default function RecipeLibrary({
     }
   }
 
-  // The type filter persists server-side like the sort preference, so the
+  // The course filter persists server-side like the sort preference, so the
   // library reopens on whatever the user last looked at rather than resetting.
   const handleTypeFilterChange = async (nextType: string | null) => {
     setSelectedType(nextType)
@@ -312,11 +314,11 @@ export default function RecipeLibrary({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ recipe_type_filter: nextType ?? 'all' }),
       })
-      if (!res.ok) throw new Error('Could not save type filter')
+      if (!res.ok) throw new Error('Could not save course filter')
       invalidate.meChanged()
     } catch {
       if (saveTypeSeq.current === requestSeq) {
-        toast.error('Could not save type filter')
+        toast.error('Could not save course filter')
       }
     }
   }
@@ -349,6 +351,11 @@ export default function RecipeLibrary({
 
   const toggleNewCookbookRecipe = (id: string) =>
     setNewCookbookRecipes(prev => prev.includes(id) ? prev.filter(r => r !== id) : [...prev, id])
+
+  const toggleCategory = (category: string) =>
+    setSelectedCategories(prev =>
+      prev.includes(category) ? prev.filter(c => c !== category) : [...prev, category]
+    )
 
   const toggleCuisine = (cuisine: string) =>
     setSelectedCuisines(prev =>
@@ -420,6 +427,12 @@ export default function RecipeLibrary({
   // rather than clearing state, so the selection returns when the user switches back.
   const activeCuisines = selectedCuisines.filter(c => cuisines.includes(c))
 
+  // Same idea for the "Type" filter: offer only categories present in view,
+  // in the fixed RECIPE_CATEGORIES order.
+  const presentCategories = new Set(categoryRecipes.flatMap(r => r.categories ?? []))
+  const categoryOptions = RECIPE_CATEGORIES.filter(c => presentCategories.has(c.value))
+  const activeCategories = selectedCategories.filter(c => presentCategories.has(c))
+
   const filtered = categoryRecipes.filter(r => {
     const matchesSearch =
       r.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -428,9 +441,12 @@ export default function RecipeLibrary({
     const matchesCuisine =
       activeCuisines.length === 0 ||
       (!!r.cuisine && activeCuisines.includes(r.cuisine.toLowerCase()))
-    const matchesType = !selectedType || r.recipe_type?.toLowerCase() === selectedType
+    const matchesCourse = !selectedType || r.recipe_type?.toLowerCase() === selectedType
+    const matchesCategory =
+      activeCategories.length === 0 ||
+      (r.categories ?? []).some(c => activeCategories.includes(c))
     const matchesTag = !selectedTag || (r.tags || []).includes(selectedTag)
-    return matchesSearch && matchesCuisine && matchesType && matchesTag
+    return matchesSearch && matchesCuisine && matchesCourse && matchesCategory && matchesTag
   })
 
   const isWantToTry = selectedCategory === 'bookmarked'
@@ -580,10 +596,10 @@ export default function RecipeLibrary({
         {/* Filter dropdowns */}
         <div className="mb-4 flex items-start gap-2">
           <div className="flex flex-wrap gap-2">
-            {/* Type dropdown */}
+            {/* Course dropdown */}
             <div className="relative">
               <button
-                onClick={() => setOpenDropdown(openDropdown === 'type' ? null : 'type')}
+                onClick={() => setOpenDropdown(openDropdown === 'course' ? null : 'course')}
                 className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium border transition-colors active:scale-[0.95] ${
                   selectedType
                     ? 'bg-brand text-brand-foreground border-transparent'
@@ -591,11 +607,11 @@ export default function RecipeLibrary({
                 }`}
               >
                 {selectedType
-                  ? RECIPE_TYPES.find(t => t.value === selectedType)?.label
-                  : 'Type'}
-                <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-150 ${openDropdown === 'type' ? 'rotate-180' : ''}`} />
+                  ? COURSES.find(t => t.value === selectedType)?.label
+                  : 'Course'}
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-150 ${openDropdown === 'course' ? 'rotate-180' : ''}`} />
               </button>
-              {openDropdown === 'type' && (
+              {openDropdown === 'course' && (
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => setOpenDropdown(null)} />
                   <div className="absolute left-0 top-full mt-1.5 z-20 min-w-[152px] overflow-hidden rounded-xl border border-border bg-card shadow-lg">
@@ -603,9 +619,9 @@ export default function RecipeLibrary({
                       onClick={() => handleTypeFilterChange(null)}
                       className={`w-full text-left px-4 py-2.5 text-sm font-medium transition-colors ${!selectedType ? 'text-brand bg-brand-subtle' : 'text-foreground hover:bg-muted'}`}
                     >
-                      All types
+                      All courses
                     </button>
-                    {RECIPE_TYPES.map(t => (
+                    {COURSES.map(t => (
                       <button
                         key={t.value}
                         onClick={() => handleTypeFilterChange(t.value)}
@@ -618,6 +634,62 @@ export default function RecipeLibrary({
                 </>
               )}
             </div>
+
+            {/* Type dropdown — descriptive categories, multi-select like Cuisine */}
+            {categoryOptions.length > 0 && (
+              <div className="relative">
+                <button
+                  onClick={() => setOpenDropdown(openDropdown === 'type' ? null : 'type')}
+                  className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium border transition-colors active:scale-[0.95] ${
+                    activeCategories.length > 0
+                      ? 'bg-brand text-brand-foreground border-transparent'
+                      : 'bg-card border-border text-foreground hover:border-brand'
+                  }`}
+                >
+                  {activeCategories.length === 0
+                    ? 'Type'
+                    : activeCategories.length === 1
+                      ? RECIPE_CATEGORIES.find(c => c.value === activeCategories[0])?.label
+                      : `Type (${activeCategories.length})`}
+                  <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-150 ${openDropdown === 'type' ? 'rotate-180' : ''}`} />
+                </button>
+                {openDropdown === 'type' && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setOpenDropdown(null)} />
+                    {/* Stays open while types are checked on and off; the backdrop dismisses it. */}
+                    <div className="absolute left-0 top-full mt-1.5 z-20 max-h-72 min-w-[180px] overflow-y-auto rounded-xl border border-border bg-card shadow-lg">
+                      <button
+                        onClick={() => setSelectedCategories([])}
+                        className={`w-full text-left px-4 py-2.5 text-sm font-medium transition-colors ${activeCategories.length === 0 ? 'text-brand bg-brand-subtle' : 'text-foreground hover:bg-muted'}`}
+                      >
+                        All types
+                      </button>
+                      {categoryOptions.map(c => {
+                        const checked = activeCategories.includes(c.value)
+                        return (
+                          <button
+                            key={c.value}
+                            onClick={() => toggleCategory(c.value)}
+                            role="checkbox"
+                            aria-checked={checked}
+                            className={`flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors ${
+                              checked ? 'bg-brand-subtle font-medium text-brand' : 'text-foreground hover:bg-muted'
+                            }`}
+                          >
+                            <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors ${
+                              checked ? 'bg-brand border-brand' : 'border-border'
+                            }`}>
+                              {checked && <span className="text-brand-foreground text-[10px] font-bold">✓</span>}
+                            </span>
+                            <span className="flex-1">{c.label}</span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
 
             {/* Cuisine dropdown */}
             {cuisines.length > 0 && (
