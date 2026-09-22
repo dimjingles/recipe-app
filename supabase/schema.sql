@@ -62,6 +62,8 @@ create table if not exists recipes (
   image_url text,
   gallery_images text[] default '{}',
   tags text[] default '{}',
+  -- Descriptive categories (meat, seafood, pasta, …) — the library's "Type" filter.
+  categories text[] not null default '{}',
   techniques text[] default '{}',
   cooked_count integer default 0,
   last_cooked_at timestamptz,

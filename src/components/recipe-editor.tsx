@@ -13,6 +13,7 @@ import CuisineCombobox from '@/components/cuisine-combobox'
 import { CookingLoader } from '@/components/cooking-loader'
 import InstructionsEditor from '@/components/instructions-editor'
 import { textToSteps, stepsToText, splitSourceNote } from '@/lib/instructions'
+import { RECIPE_CATEGORIES } from '@/lib/recipe-categories'
 import type { ExtractedRecipe } from '@/types/database'
 
 export interface IngredientRow {
@@ -88,6 +89,8 @@ export default function RecipeEditor({ initialValues, showLookup, autoLookup }: 
       : []
   )
   const [customTagInput, setCustomTagInput] = useState('')
+  // Left empty, the server tags the recipe with AI on save.
+  const [categories, setCategories] = useState<string[]>([])
   const [ingredients, setIngredients] = useState<IngredientRow[]>(initialValues?.ingredients ?? [])
   const [imageUrl] = useState(initialValues?.image_url ?? '')
   const [galleryImages] = useState<string[]>(initialValues?.gallery_images ?? [])
@@ -232,6 +235,12 @@ export default function RecipeEditor({ initialValues, showLookup, autoLookup }: 
     )
   }
 
+  const toggleCategory = (category: string) => {
+    setCategories(prev =>
+      prev.includes(category) ? prev.filter(c => c !== category) : [...prev, category]
+    )
+  }
+
   const addCustomTag = () => {
     const t = customTagInput.trim()
     if (!t) return
@@ -262,6 +271,7 @@ export default function RecipeEditor({ initialValues, showLookup, autoLookup }: 
           instructions: instructions.trim() || undefined,
           difficulty: difficulty ?? undefined,
           tags: tags,
+          categories: categories.length > 0 ? categories : undefined,
           ingredients: ingredients.filter(i => i.name.trim()),
           image_url: imageUrl || undefined,
           gallery_images: galleryImages.length > 0 ? galleryImages : undefined,
@@ -437,7 +447,7 @@ export default function RecipeEditor({ initialValues, showLookup, autoLookup }: 
           <CuisineCombobox value={cuisine} onChange={setCuisine} className="mt-1.5" />
         </div>
         <div>
-          <Label className="text-gray-700 font-medium text-sm">Type</Label>
+          <Label className="text-gray-700 font-medium text-sm">Course</Label>
           <select
             value={recipeType}
             onChange={e => setRecipeType(e.target.value)}
@@ -582,6 +592,28 @@ export default function RecipeEditor({ initialValues, showLookup, autoLookup }: 
         onStepsChange={setSteps}
         ingredientNames={ingredients.map(i => i.name).filter(Boolean)}
       />
+
+      {/* Type - descriptive categories, chip multi-select */}
+      <div>
+        <Label className="text-gray-700 font-medium">
+          Type <span className="font-normal text-gray-400">(auto-tagged if left blank)</span>
+        </Label>
+        <div className="mt-1.5 flex flex-wrap gap-1.5">
+          {RECIPE_CATEGORIES.map(c => (
+            <button
+              key={c.value}
+              onClick={() => toggleCategory(c.value)}
+              className={`rounded-full px-3 py-1 text-xs font-medium border transition-colors ${
+                categories.includes(c.value)
+                  ? 'bg-orange-50 border-orange-300 text-orange-700'
+                  : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'
+              }`}
+            >
+              {c.label}
+            </button>
+          ))}
+        </div>
+      </div>
 
       {/* Tags - Chip multi-select */}
       <div>

@@ -14,6 +14,7 @@ import { RecipeWithIngredients } from '@/types/database'
 import CuisineCombobox from '@/components/cuisine-combobox'
 import InstructionsEditor from '@/components/instructions-editor'
 import { textToSteps, stepsToText, splitSourceNote } from '@/lib/instructions'
+import { RECIPE_CATEGORIES } from '@/lib/recipe-categories'
 
 const CATEGORIES = ['produce', 'dairy', 'meat', 'seafood', 'pantry', 'spices', 'bakery', 'frozen', 'other']
 
@@ -58,6 +59,7 @@ export default function EditRecipeForm({ recipe }: { recipe: RecipeWithIngredien
   const [sourceNote] = useState(() => splitSourceNote(recipe.instructions).note)
   const [difficulty, setDifficulty] = useState<number | null>(recipe.difficulty ?? null)
   const [tags, setTags] = useState<string[]>(recipe.tags || [])
+  const [categories, setCategories] = useState<string[]>(recipe.categories || [])
   const [customTagInput, setCustomTagInput] = useState('')
   const [ingredients, setIngredients] = useState<IngredientRow[]>(
     (recipe.ingredients || []).map(i => ({
@@ -85,6 +87,12 @@ export default function EditRecipeForm({ recipe }: { recipe: RecipeWithIngredien
   const toggleTag = (tag: string) => {
     setTags(prev =>
       prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
+    )
+  }
+
+  const toggleCategory = (category: string) => {
+    setCategories(prev =>
+      prev.includes(category) ? prev.filter(c => c !== category) : [...prev, category]
     )
   }
 
@@ -132,6 +140,7 @@ export default function EditRecipeForm({ recipe }: { recipe: RecipeWithIngredien
           instructions: instructions.trim() || null,
           difficulty: difficulty ?? null,
           tags: tags,
+          categories,
           ingredients: ingredients.filter(i => i.name.trim()),
         }),
       })
@@ -170,7 +179,7 @@ export default function EditRecipeForm({ recipe }: { recipe: RecipeWithIngredien
             <CuisineCombobox value={cuisine} onChange={setCuisine} className="mt-1.5" />
           </div>
           <div>
-            <Label className="text-gray-700 font-medium text-sm">Type</Label>
+            <Label className="text-gray-700 font-medium text-sm">Course</Label>
             <select
               value={recipeType}
               onChange={e => setRecipeType(e.target.value)}
@@ -250,6 +259,26 @@ export default function EditRecipeForm({ recipe }: { recipe: RecipeWithIngredien
           onStepsChange={setSteps}
           ingredientNames={ingredients.map(i => i.name).filter(Boolean)}
         />
+
+        {/* Type - descriptive categories, chip multi-select */}
+        <div>
+          <Label className="text-gray-700 font-medium">Type</Label>
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {RECIPE_CATEGORIES.map(c => (
+              <button
+                key={c.value}
+                onClick={() => toggleCategory(c.value)}
+                className={`rounded-full px-3 py-1 text-xs font-medium border transition-colors ${
+                  categories.includes(c.value)
+                    ? 'bg-orange-50 border-orange-300 text-orange-700'
+                    : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'
+                }`}
+              >
+                {c.label}
+              </button>
+            ))}
+          </div>
+        </div>
 
         {/* Tags - Chip multi-select */}
         <div>

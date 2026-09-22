@@ -3,6 +3,7 @@ import { createClient, getUser } from '@/lib/supabase/server'
 import { classifyTechniques, getTechniqueKeys } from '@/lib/ai/classify-techniques'
 import { structureInstructions } from '@/lib/ai/structure-instructions'
 import { classifyRecipeType } from '@/lib/ai/classify-recipe-type'
+import { classifyRecipeCategories } from '@/lib/ai/classify-recipe-categories'
 import { emitActivity } from '@/lib/db/activity'
 import { getRecipes } from '@/lib/db/recipes'
 
@@ -48,7 +49,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (recipeData.instructions) {
-      const [techniques, instruction_steps, recipe_type] = await Promise.all([
+      const [techniques, instruction_steps, recipe_type, categories] = await Promise.all([
         recipeData.techniques?.length
           ? Promise.resolve(recipeData.techniques as string[])
           : getTechniqueKeys(supabase).then(keys =>
@@ -61,17 +62,28 @@ export async function POST(request: NextRequest) {
         recipeData.recipe_type
           ? Promise.resolve(null)
           : classifyRecipeType(recipeData.name, recipeData.description, recipeData.instructions),
+        // Categories drive the library's "Type" filter (meat, pasta, soup, …).
+        recipeData.categories?.length
+          ? Promise.resolve(null)
+          : classifyRecipeCategories(
+              recipeData.name,
+              recipeData.description,
+              recipeData.instructions,
+              (ingredients ?? []).map((i: any) => i.name).filter(Boolean)
+            ),
       ])
-      if (techniques.length || instruction_steps.length || recipe_type) {
+      if (techniques.length || instruction_steps.length || recipe_type || categories?.length) {
         const updatePayload = {
           ...(techniques.length ? { techniques } : {}),
           ...(instruction_steps.length ? { instruction_steps } : {}),
           ...(recipe_type ? { recipe_type } : {}),
+          ...(categories?.length ? { categories } : {}),
         }
         await supabase.from('recipes').update(updatePayload).eq('id', recipe.id).eq('user_id', user.id)
         if (techniques.length) recipe.techniques = techniques
         if (instruction_steps.length) recipe.instruction_steps = instruction_steps
         if (recipe_type) recipe.recipe_type = recipe_type
+        if (categories?.length) recipe.categories = categories
       }
     }
 
