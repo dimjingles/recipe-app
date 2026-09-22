@@ -53,7 +53,7 @@ export default function FriendProfileView({ profile, isSelf, initialStatus, reci
   )
 
   const FriendButton = () => {
-    if (isSelf) return <Link href="/profile" className="rounded-full bg-muted px-5 py-2.5 text-sm font-bold text-foreground">Edit profile</Link>
+    if (isSelf) return <Link href="/profile/edit" className="rounded-full bg-muted px-5 py-2.5 text-sm font-bold text-foreground">Edit profile</Link>
     if (status === 'friends') return (
       <button onClick={removeFriend} disabled={busy} className="flex items-center gap-1.5 rounded-full bg-sage-subtle px-5 py-2.5 text-sm font-bold text-sage disabled:opacity-60">
         <Check className="h-4 w-4" /> Friends

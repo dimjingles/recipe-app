@@ -397,7 +397,7 @@ export default function OnboardingWizard({ isAuthenticated }: { isAuthenticated:
         // false) would bounce the user straight back here from the home page.
         clearPersistedCache()
         // Rare: the handle got claimed between selection and save — let them re-pick.
-        window.location.href = body.username_taken ? '/profile' : '/'
+        window.location.href = body.username_taken ? '/profile/edit' : '/'
       })
       .catch((err: unknown) => {
         const message = err instanceof Error ? err.message : 'Something went wrong'

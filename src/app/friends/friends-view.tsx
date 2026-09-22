@@ -341,7 +341,7 @@ export default function FriendsView({ myUsername, initialFriends, initialIncomin
               </>
             ) : (
               <p className="text-sm text-muted-foreground">
-                <Link href="/profile" className="font-bold text-brand">Set a username</Link> to get your shareable invite link.
+                <Link href="/profile/edit" className="font-bold text-brand">Set a username</Link> to get your shareable invite link.
               </p>
             )}
           </div>

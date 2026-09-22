@@ -4,7 +4,7 @@ import { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import type { RecipeWithIngredients, CookbookWithCount, RecipeSortPreference, RecipeSortDirection, RecipeTypeFilter } from '@/types/database'
-import { Plus, Search, Clock, X, Globe, ChevronDown, BookOpen, Loader2, Sparkles, ArrowDownUp, ArrowDown, ArrowUp, Trophy } from 'lucide-react'
+import { Plus, Search, Clock, X, Globe, ChevronDown, BookOpen, Loader2, Sparkles, ArrowDownUp, ArrowDown, ArrowUp } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { BottomSheet } from '@/components/ui/bottom-sheet'
@@ -157,12 +157,14 @@ interface Recommendation {
 export default function RecipeLibrary({
   initialRecipes,
   initialCookbooks,
+  initialCategory = 'cooked',
   initialSortPreference = 'ranking',
   initialSortDirection = 'default',
   initialTypeFilter = 'main',
 }: {
   initialRecipes: RecipeWithIngredients[]
   initialCookbooks: CookbookWithCount[]
+  initialCategory?: 'cooked' | 'bookmarked'
   initialSortPreference?: RecipeSortPreference
   initialSortDirection?: RecipeSortDirection
   initialTypeFilter?: RecipeTypeFilter
@@ -180,7 +182,7 @@ export default function RecipeLibrary({
   const [selectedDifficulties, setSelectedDifficulties] = useState<number[]>([])
   const [selectedTag, setSelectedTag] = useState<string | null>(null)
   const [selectedCookbook, setSelectedCookbook] = useState<string | null>(null)
-  const [selectedCategory, setSelectedCategory] = useState<'cooked' | 'bookmarked'>('cooked')
+  const [selectedCategory, setSelectedCategory] = useState<'cooked' | 'bookmarked'>(initialCategory)
   const [sortPreference, setSortPreference] = useState<RecipeSortPreference>(initialSortPreference)
   const [sortDirection, setSortDirection] = useState<RecipeSortDirection>(initialSortDirection)
   // The "Want to try" tab keeps its own sort, independent of the persisted
@@ -658,13 +660,6 @@ export default function RecipeLibrary({
               </button>
             )
           })}
-          <Link
-            href="/skills"
-            className="relative -mb-px ml-auto flex items-center gap-1.5 pb-3 text-lg font-bold text-muted-foreground transition-colors hover:text-foreground"
-          >
-            <Trophy className="h-4 w-4" />
-            Skills
-          </Link>
         </div>
 
         {/* Filter carousel — one row of chips that scrolls sideways and runs to the screen

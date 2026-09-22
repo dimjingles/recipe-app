@@ -4,7 +4,7 @@ import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useCacheInvalidation } from '@/lib/queries/hooks'
 import Link from 'next/link'
-import { ArrowLeft, Camera, LogOut, Loader2, Settings } from 'lucide-react'
+import { ArrowLeft, Camera, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -93,19 +93,12 @@ export default function ProfileEditor({
     <div className="mx-auto max-w-lg px-5 pt-8 pb-24">
       <div className="mb-8 flex items-center gap-3">
         <Link
-          href="/"
+          href="/settings"
           className="p-1 -ml-1 text-muted-foreground transition-all hover:text-foreground active:scale-[0.95]"
         >
           <ArrowLeft className="h-5 w-5" />
         </Link>
-        <h1 className="font-heading text-3xl font-bold tracking-tight text-foreground">Profile</h1>
-        <Link
-          href="/settings"
-          title="Settings"
-          className="ml-auto grid h-11 w-11 place-items-center rounded-xl bg-card text-muted-foreground shadow-card ring-1 ring-border transition-all hover:text-foreground active:scale-[0.95]"
-        >
-          <Settings className="h-4 w-4" />
-        </Link>
+        <h1 className="font-heading text-3xl font-bold tracking-tight text-foreground">Edit profile</h1>
       </div>
 
       {/* Avatar */}
@@ -180,15 +173,6 @@ export default function ProfileEditor({
       >
         {saving ? 'Saving…' : 'Save profile'}
       </Button>
-
-      <form action="/auth/signout" method="POST" className="mt-8">
-        <button
-          type="submit"
-          className="flex w-full items-center justify-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-destructive"
-        >
-          <LogOut className="h-4 w-4" /> Sign out
-        </button>
-      </form>
     </div>
   )
 }

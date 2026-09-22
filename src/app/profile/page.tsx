@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient, getUser } from '@/lib/supabase/server'
-import ProfileEditor from './profile-editor'
+import ProfileView from './profile-view'
 
 export default async function ProfilePage() {
   const supabase = await createClient()
@@ -9,18 +9,24 @@ export default async function ProfilePage() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('id, username, display_name, avatar_url')
+    .select('id, username, display_name, avatar_url, created_at')
     .eq('id', user.id)
     .single()
 
+  // Formatted here so server and client render the same string. UTC keeps the
+  // month stable regardless of where the server runs.
+  const memberSince = profile?.created_at
+    ? new Date(profile.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' })
+    : null
+
   return (
-    <ProfileEditor
-      initial={{
+    <ProfileView
+      profile={{
         username: profile?.username ?? '',
         display_name: profile?.display_name ?? '',
         avatar_url: profile?.avatar_url ?? '',
       }}
-      email={user.email ?? ''}
+      memberSince={memberSince}
     />
   )
 }

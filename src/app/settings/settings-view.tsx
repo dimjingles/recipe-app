@@ -15,7 +15,7 @@ import ChefPreferencesCard from './chef-preferences-card'
 import { clearPersistedCache } from '@/components/query-provider'
 
 const LINKS = [
-  { href: '/profile', label: 'Edit profile', description: 'Name, username & photo', icon: User },
+  { href: '/profile/edit', label: 'Edit profile', description: 'Name, username & photo', icon: User },
   { href: '/skills', label: 'Skills', description: 'Techniques & badges', icon: Trophy },
 ]
 
