@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { anthropic, extractJsonObject, HAIKU } from '@/lib/anthropic'
+import { anthropic, extractJsonObject, HAIKU, QUICK_CALL } from '@/lib/anthropic'
 import { classifyTechniques, getTechniqueKeys } from '@/lib/ai/classify-techniques'
 import { structureInstructions } from '@/lib/ai/structure-instructions'
 import { getRecipe } from '@/lib/db/recipes'
@@ -61,7 +61,7 @@ Current instructions:
 ${currentInstructions}`,
         },
       ],
-    })
+    }, QUICK_CALL)
 
     const text = result.content.find(part => part.type === 'text')?.text || ''
     const parsed = extractJsonObject(text) as { instructions?: unknown }

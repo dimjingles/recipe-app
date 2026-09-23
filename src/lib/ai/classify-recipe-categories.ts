@@ -1,4 +1,4 @@
-import { anthropic, HAIKU } from '@/lib/anthropic'
+import { anthropic, HAIKU, QUICK_CALL } from '@/lib/anthropic'
 import { RECIPE_CATEGORIES, RECIPE_CATEGORY_VALUES, type RecipeCategory } from '@/lib/recipe-categories'
 
 /**
@@ -28,7 +28,7 @@ Pick every category that fits, based on the main components of the dish — not 
 
 Answer with the chosen category words separated by commas, or "none". No other text.`,
       }],
-    })
+    }, QUICK_CALL)
     const content = message.content[0]
     if (content.type !== 'text') return null
     const words = content.text.toLowerCase().split(/[^a-z]+/).filter(Boolean)

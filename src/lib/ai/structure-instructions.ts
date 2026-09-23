@@ -17,7 +17,7 @@
  * so a recipe save can never be broken by this step.
  */
 
-import { anthropic, HAIKU, extractJsonArray } from '@/lib/anthropic'
+import { anthropic, HAIKU, extractJsonArray, QUICK_CALL } from '@/lib/anthropic'
 import { splitStepsFromText, stripSourceNote } from '@/lib/instructions'
 import type { InstructionStep, StepToken, StepTokenType } from '@/types/database'
 
@@ -42,7 +42,7 @@ export async function structureInstructions(
           content: buildPrompt(recipeName, cleaned),
         },
       ],
-    })
+    }, QUICK_CALL)
 
     const content = message.content[0]
     if (content.type !== 'text') return fallback(cleaned)

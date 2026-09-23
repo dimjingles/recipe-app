@@ -18,6 +18,8 @@ export async function GET() {
   }
 }
 
+export const maxDuration = 120
+
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()

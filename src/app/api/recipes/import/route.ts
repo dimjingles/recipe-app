@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getUser } from '@/lib/supabase/server'
-import { anthropic, HAIKU } from '@/lib/anthropic'
+import { anthropic, HAIKU, LONG_CALL } from '@/lib/anthropic'
 import { fetchPage, getMeta, stripTags } from '@/lib/import/html'
+import { validateUrl } from '@/lib/net'
 import {
   classifyVideoUrl,
   fetchVideoContext,
@@ -15,47 +16,6 @@ import {
   type VideoPlatform,
 } from '@/lib/import/video'
 import type { ExtractedRecipe, ExtractedIngredient } from '@/types/database'
-
-// ── SSRF protection ───────────────────────────────────────────────────────────
-// Block requests to private/loopback/link-local IP ranges and localhost.
-// This uses hostname-string analysis, which guards against the most common
-// attack vectors. A hostname that resolves to a private IP through DNS is not
-// caught here — acceptable risk tradeoff for a recipe app.
-
-function isBlockedHost(hostname: string): boolean {
-  const h = hostname.toLowerCase()
-  if (h === 'localhost' || h.endsWith('.local') || h.endsWith('.internal')) return true
-
-  const ipv4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(h)
-  if (ipv4) {
-    const [a, b] = [parseInt(ipv4[1]), parseInt(ipv4[2])]
-    if (a === 127) return true                         // loopback 127.0.0.0/8
-    if (a === 10) return true                          // RFC 1918 10.0.0.0/8
-    if (a === 172 && b >= 16 && b <= 31) return true   // RFC 1918 172.16.0.0/12
-    if (a === 192 && b === 168) return true            // RFC 1918 192.168.0.0/16
-    if (a === 169 && b === 254) return true            // link-local / AWS metadata
-    if (a === 0) return true                           // this-network 0.0.0.0/8
-  }
-
-  if (h === '::1' || h === '[::1]') return true       // IPv6 loopback
-  return false
-}
-
-function validateUrl(raw: string): URL {
-  let url: URL
-  try {
-    url = new URL(raw)
-  } catch {
-    throw new Error('Invalid URL')
-  }
-  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-    throw new Error('Only http and https URLs are supported')
-  }
-  if (isBlockedHost(url.hostname)) {
-    throw new Error('URL not allowed')
-  }
-  return url
-}
 
 // ── JSON-LD extraction ────────────────────────────────────────────────────────
 
@@ -168,7 +128,7 @@ Use this exact structure:
 
 Category must be one of: produce, dairy, meat, seafood, pantry, spices, bakery, frozen, other.`,
     }],
-  })
+  }, LONG_CALL)
 
   const c = msg.content[0]
   if (c.type !== 'text') return raw.map(name => ({ name, quantity: '', unit: '', category: 'other' }))
@@ -187,7 +147,7 @@ async function runRecipeExtraction(prompt: string, sourceUrl?: string): Promise<
     model: HAIKU,
     max_tokens: 3000,
     messages: [{ role: 'user', content: prompt }],
-  })
+  }, LONG_CALL)
 
   const c = msg.content[0]
   if (c.type !== 'text') throw new Error('Unexpected AI response')
@@ -315,6 +275,8 @@ async function importFromVideo(platform: VideoPlatform, url: URL): Promise<NextR
 }
 
 // ── Route handler ─────────────────────────────────────────────────────────────
+
+export const maxDuration = 120
 
 export async function POST(request: NextRequest) {
   try {

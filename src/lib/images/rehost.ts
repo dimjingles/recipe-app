@@ -1,4 +1,5 @@
 import type { createClient } from '@/lib/supabase/server'
+import { isFetchableUrl, readBodyCapped } from '@/lib/net'
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>
 
@@ -40,7 +41,7 @@ export async function rehostImage(
   userId: string,
   remoteUrl: string,
 ): Promise<string | null> {
-  if (!/^https?:\/\//i.test(remoteUrl)) return null
+  if (!isFetchableUrl(remoteUrl)) return null
   if (isOwnStorageUrl(remoteUrl)) return null
 
   const controller = new AbortController()
@@ -57,8 +58,8 @@ export async function rehostImage(
     const contentType = (res.headers.get('content-type') || '').split(';')[0].trim().toLowerCase()
     if (!contentType.startsWith('image/')) return null
 
-    const buffer = new Uint8Array(await res.arrayBuffer())
-    if (buffer.byteLength === 0 || buffer.byteLength > MAX_BYTES) return null
+    const buffer = await readBodyCapped(res, MAX_BYTES)
+    if (!buffer || buffer.byteLength === 0) return null
 
     const ext = EXT_BY_TYPE[contentType] ?? 'jpg'
     const path = `${userId}/${crypto.randomUUID()}.${ext}`

@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { anthropic, HAIKU } from '@/lib/anthropic'
+import { getUser } from '@/lib/supabase/server'
+import { anthropic, HAIKU, QUICK_CALL } from '@/lib/anthropic'
 
 export async function POST(request: NextRequest) {
   try {
+    const user = await getUser()
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const { query } = await request.json()
     if (!query?.trim()) {
       return NextResponse.json({ results: [] })
@@ -35,7 +41,7 @@ Rules:
 - Keep descriptions to one sentence`,
         },
       ],
-    })
+    }, QUICK_CALL)
 
     const content = message.content[0]
     if (content.type !== 'text') {

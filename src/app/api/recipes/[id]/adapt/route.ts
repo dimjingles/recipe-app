@@ -11,6 +11,8 @@ const ADAPTATION_TYPES: AdaptationType[] = [
   'freeform',
 ]
 
+export const maxDuration = 120
+
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params

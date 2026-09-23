@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { anthropic, HAIKU } from '@/lib/anthropic'
+import { getUser } from '@/lib/supabase/server'
+import { anthropic, HAIKU, LONG_CALL } from '@/lib/anthropic'
 import type { AnthropicImageMediaType } from '@/lib/images/fetch-base64'
 
 // Anthropic rejects base64 images larger than ~5MB. The client downscales
@@ -88,8 +89,15 @@ function parseDataUrl(
   return { mediaType: mediaType as AnthropicImageMediaType, base64: match[2] }
 }
 
+export const maxDuration = 120
+
 export async function POST(request: NextRequest) {
   try {
+    const user = await getUser()
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const { image } = await request.json()
     const parsed = parseDataUrl(image)
     if (!parsed) {
@@ -118,7 +126,7 @@ export async function POST(request: NextRequest) {
           ],
         },
       ],
-    })
+    }, LONG_CALL)
 
     const content = message.content[0]
     if (content.type !== 'text') {

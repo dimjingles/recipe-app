@@ -1,4 +1,4 @@
-import { anthropic, HAIKU, SONNET, extractJsonObject } from '@/lib/anthropic'
+import { anthropic, HAIKU, SONNET, extractJsonObject, LONG_CALL } from '@/lib/anthropic'
 import type { AdaptationType, AdaptedRecipeDraft } from '@/types/database'
 
 /** The subset of a recipe the adapter needs. Matches columns selected via getRecipe. */
@@ -120,7 +120,7 @@ export async function adaptRecipe(recipe: AdaptRecipeInput, opts: AdaptOptions):
     model: pickModel(opts.adaptation_type),
     max_tokens: 3072,
     messages: [{ role: 'user', content: prompt }],
-  })
+  }, LONG_CALL)
 
   const content = message.content[0]
   if (content.type !== 'text') throw new Error('Unexpected AI response')

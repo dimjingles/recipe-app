@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, getUser } from '@/lib/supabase/server'
 import { getProfile, buildPrefLines } from '@/lib/db/profile'
 import { normalizeSkillProfile } from '@/lib/skills'
-import { anthropic, HAIKU, extractJsonObject } from '@/lib/anthropic'
+import { anthropic, HAIKU, extractJsonObject, QUICK_CALL } from '@/lib/anthropic'
 import { SkillProfile } from '@/types/database'
 
 const DAY_LABELS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
@@ -131,7 +131,7 @@ Return ONLY valid JSON (no markdown): {"slots":[{"day_of_week":0,"recipe_id":"..
       model: HAIKU,
       max_tokens: 1024,
       messages: [{ role: 'user', content: prompt }],
-    })
+    }, QUICK_CALL)
 
     const content = message.content[0]
     if (content.type !== 'text') {
