@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, getUser } from '@/lib/supabase/server'
+import { compressImage, PHOTO_MAX_EDGE } from '@/lib/images/compress'
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -24,12 +25,18 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (!file.type.startsWith('image/')) return NextResponse.json({ error: 'File must be an image' }, { status: 400 })
     if (file.size > 10 * 1024 * 1024) return NextResponse.json({ error: 'File too large (max 10 MB)' }, { status: 400 })
 
-    const ext = (file.name.split('.').pop() ?? 'jpg').toLowerCase()
+    // Store a resized WebP rather than the raw camera file.
+    const compressed = await compressImage(await file.arrayBuffer(), file.type, PHOTO_MAX_EDGE)
+    const ext = compressed?.ext ?? (file.name.split('.').pop() ?? 'jpg').toLowerCase()
     const path = `${user.id}/${crypto.randomUUID()}.${ext}`
 
     const { error: uploadError } = await supabase.storage
       .from('recipe-images')
-      .upload(path, file, { contentType: file.type, upsert: false })
+      .upload(path, compressed?.data ?? file, {
+        contentType: compressed?.contentType ?? file.type,
+        upsert: false,
+        cacheControl: '31536000', // paths are unique per upload, so cache for a year
+      })
 
     if (uploadError) return NextResponse.json({ error: uploadError.message }, { status: 500 })
 

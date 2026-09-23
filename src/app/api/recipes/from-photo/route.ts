@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { anthropic, HAIKU } from '@/lib/anthropic'
+import { CATEGORY_PROMPT_GUIDE, RECIPE_CATEGORY_VALUES } from '@/lib/recipe-categories'
+import { getUser } from '@/lib/supabase/server'
+import { anthropic, HAIKU, LONG_CALL } from '@/lib/anthropic'
 import type { AnthropicImageMediaType } from '@/lib/images/fetch-base64'
 
 // Anthropic rejects base64 images larger than ~5MB. The client downscales
@@ -39,6 +41,7 @@ const RECIPE_SCHEMA = {
     },
     cuisine: { type: 'string' },
     recipe_type: { type: 'string', enum: ['appetizer', 'main', 'dessert', 'drink'] },
+    categories: { type: 'array', items: { type: 'string', enum: [...RECIPE_CATEGORY_VALUES] } },
     cook_time_minutes: { type: 'integer' },
     servings: { type: 'integer' },
     calories: { type: 'integer' },
@@ -51,6 +54,7 @@ const RECIPE_SCHEMA = {
     'ingredients',
     'cuisine',
     'recipe_type',
+    'categories',
     'cook_time_minutes',
     'servings',
     'calories',
@@ -72,7 +76,9 @@ Estimate calories PER SERVING — a whole number derived from the ingredients an
 Difficulty rating, based on the complexity of the instructions you write:
 - 1 = Easy — simple techniques, few steps, beginner-friendly
 - 2 = Medium — requires some skill, multiple components, moderate timing
-- 3 = Hard — advanced techniques, precise timing, complex preparations`
+- 3 = Hard — advanced techniques, precise timing, complex preparations
+
+${CATEGORY_PROMPT_GUIDE}`
 
 // Parse a `data:<mediaType>;base64,<data>` URL into the pieces Anthropic's
 // vision API needs. Returns null for anything that isn't a supported image.
@@ -88,8 +94,15 @@ function parseDataUrl(
   return { mediaType: mediaType as AnthropicImageMediaType, base64: match[2] }
 }
 
+export const maxDuration = 120
+
 export async function POST(request: NextRequest) {
   try {
+    const user = await getUser()
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const { image } = await request.json()
     const parsed = parseDataUrl(image)
     if (!parsed) {
@@ -118,7 +131,7 @@ export async function POST(request: NextRequest) {
           ],
         },
       ],
-    })
+    }, LONG_CALL)
 
     const content = message.content[0]
     if (content.type !== 'text') {

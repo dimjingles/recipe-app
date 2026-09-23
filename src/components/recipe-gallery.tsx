@@ -8,6 +8,7 @@ import { CameraIllustration } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Shimmer } from '@/components/ui/shimmer'
+import { downscaleForUpload } from '@/lib/images/downscale'
 
 interface ImageResult {
   thumbnailUrl: string
@@ -164,7 +165,7 @@ export default function RecipeGallery({
     setUploading(true)
     try {
       const form = new FormData()
-      form.append('image', file)
+      form.append('image', await downscaleForUpload(file))
       const uploadRes = await fetch(`/api/recipes/${recipeId}/upload`, { method: 'POST', body: form })
       const uploadData = await uploadRes.json()
       if (uploadData.error) throw new Error(uploadData.error)
@@ -224,6 +225,8 @@ export default function RecipeGallery({
                   <img
                     src={url}
                     alt=""
+                    loading="lazy"
+                    decoding="async"
                     className={`w-32 h-24 rounded-xl object-cover cursor-pointer active:scale-[0.97] transition-all ${isHero ? 'ring-2 ring-brand ring-offset-2 ring-offset-background' : ''}`}
                     onClick={() => setLightbox(url)}
                   />

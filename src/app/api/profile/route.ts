@@ -16,7 +16,7 @@ export async function GET() {
       .single()
 
     if (error) throw error
-    return NextResponse.json(data)
+    return NextResponse.json(data, { headers: { 'Cache-Control': 'private, no-store' } })
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }

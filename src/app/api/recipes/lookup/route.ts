@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { anthropic, OPUS } from '@/lib/anthropic'
+import { CATEGORY_PROMPT_GUIDE, RECIPE_CATEGORY_VALUES } from '@/lib/recipe-categories'
+import Anthropic from '@anthropic-ai/sdk'
+import { anthropic, OPUS, SONNET, LONG_CALL } from '@/lib/anthropic'
+import { getUser } from '@/lib/supabase/server'
 import { fetchFirstImageAsBase64, type FetchedImage } from '@/lib/images/fetch-base64'
 
 // Structured-output schema. Constraining the model to this schema guarantees the
@@ -27,6 +30,7 @@ const RECIPE_SCHEMA = {
     },
     cuisine: { type: 'string' },
     recipe_type: { type: 'string', enum: ['appetizer', 'main', 'dessert', 'drink'] },
+    categories: { type: 'array', items: { type: 'string', enum: [...RECIPE_CATEGORY_VALUES] } },
     cook_time_minutes: { type: 'integer' },
     servings: { type: 'integer' },
     calories: { type: 'integer' },
@@ -38,6 +42,7 @@ const RECIPE_SCHEMA = {
     'ingredients',
     'cuisine',
     'recipe_type',
+    'categories',
     'cook_time_minutes',
     'servings',
     'calories',
@@ -83,7 +88,9 @@ Estimate calories PER SERVING — a whole number derived from the ingredients an
 Difficulty rating, based on the complexity of the instructions you write:
 - 1 = Easy — simple techniques, few steps, beginner-friendly
 - 2 = Medium — requires some skill, multiple components, moderate timing
-- 3 = Hard — advanced techniques, precise timing, complex preparations`
+- 3 = Hard — advanced techniques, precise timing, complex preparations
+
+${CATEGORY_PROMPT_GUIDE}`
 }
 
 // Ask the model for a recipe, optionally letting it "see" the photo the user
@@ -101,8 +108,10 @@ function generateRecipe(name: string, image?: FetchedImage) {
       ]
     : prompt
   return anthropic.messages.create({
-    model: OPUS,
-    // Opus 5 thinks by default, and thinking shares this budget with the response —
+    // Opus only earns its price reading a dish off a photo; a name-only recipe is
+    // plain recipe writing, which Sonnet 5 handles at well under half the cost.
+    model: image ? OPUS : SONNET,
+    // Opus 5 / Sonnet 5 think by default, and thinking shares this budget with the response —
     // 4096 (fine on Haiku) can truncate a long recipe mid-instructions. `low` effort
     // suits a scoped extraction task like this and keeps latency down; the user is
     // staring at a full-screen spinner until we return.
@@ -112,11 +121,18 @@ function generateRecipe(name: string, image?: FetchedImage) {
       format: { type: 'json_schema', schema: image ? PHOTO_RECIPE_SCHEMA : RECIPE_SCHEMA },
     },
     messages: [{ role: 'user', content }],
-  })
+  }, LONG_CALL)
 }
+
+export const maxDuration = 120
 
 export async function POST(request: NextRequest) {
   try {
+    const user = await getUser()
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const { name, imageUrl, thumbnailUrl } = await request.json()
     if (!name) {
       return NextResponse.json({ error: 'Recipe name is required' }, { status: 400 })
@@ -142,8 +158,10 @@ export async function POST(request: NextRequest) {
     } catch (err) {
       // The image is already downloaded and validated, so this is unlikely — but
       // if the model still rejects it (e.g. odd dimensions), don't fail the whole
-      // request: retry name-only so the user still gets a recipe.
-      if (image) {
+      // request: retry name-only so the user still gets a recipe. Only a 400 means
+      // "bad image"; rate limits and timeouts would just fail again (and the SDK
+      // has already retried those).
+      if (image && err instanceof Anthropic.BadRequestError) {
         message = await generateRecipe(name)
         photoUsed = false
       } else {

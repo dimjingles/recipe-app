@@ -443,6 +443,38 @@ export interface Database {
         Args: { other_id: string }
         Returns: undefined
       }
+      get_feed: {
+        Args: { p_cursor?: string | null; p_limit?: number }
+        Returns: {
+          id: string
+          type: string
+          created_at: string
+          actor_id: string
+          username: string | null
+          display_name: string | null
+          avatar_url: string | null
+          recipe_id: string | null
+          recipe_name: string | null
+          recipe_image_url: string | null
+          recipe_cuisine: string | null
+          cookbook_id: string | null
+          cookbook_name: string | null
+        }[]
+      }
+      my_friend_ids: {
+        Args: Record<string, never>
+        Returns: string[]
+      }
+      log_cook: {
+        Args: {
+          p_recipe_id: string
+          p_cooked_at?: string
+          p_notes?: string | null
+          p_set_feedback?: boolean
+          p_feedback?: string | null
+        }
+        Returns: undefined
+      }
     }
   }
 }
@@ -463,9 +495,33 @@ export type Cookbook = Database['public']['Tables']['cookbooks']['Row']
 export type CookbookRecipe = Database['public']['Tables']['cookbook_recipes']['Row']
 export type RecipeRanking = Database['public']['Tables']['recipe_rankings']['Row']
 
+/** Detail-only recipe columns that list views never render. */
+type RecipeDetailColumns =
+  | 'description' | 'instructions' | 'instruction_steps' | 'techniques'
+  | 'adaptation_metadata' | 'share_token'
+
+/** A recipe as list views (cards, planner slots, cookbooks) see it — see
+ *  RECIPE_SUMMARY_COLUMNS in src/lib/recipe-columns.ts. */
+export type RecipeSummary = Omit<Recipe, RecipeDetailColumns>
+
+/** A row of the user's library (GET /api/recipes). Ingredient names only, for
+ *  the planner's allergy/diet matching. */
+export type RecipeListItem = RecipeSummary & {
+  ingredients: { name: string }[]
+  cookbook_recipes?: { cookbook_id: string }[]
+}
+
 export type RecipeWithIngredients = Recipe & {
   ingredients: Ingredient[]
   cookbook_recipes?: { cookbook_id: string }[]
+}
+
+/** A sibling recipe adapted from this one (or the original this was adapted from). */
+export interface RecipeVariantLink {
+  id: string
+  name: string
+  cuisine: string | null
+  adaptation_type: string | null
 }
 
 export type RecipeWithDetails = Recipe & {
@@ -479,11 +535,11 @@ export type CookbookWithCount = Cookbook & {
 }
 
 export type CookbookWithRecipes = Cookbook & {
-  cookbook_recipes: { recipe: Recipe }[]
+  cookbook_recipes: { recipe: RecipeSummary }[]
 }
 
 export type SlotWithRecipe = WeeklyPlanSlot & {
-  recipe: Recipe
+  recipe: RecipeSummary
 }
 
 export type PlanWithSlots = WeeklyPlan & {
@@ -514,6 +570,10 @@ export interface ExtractedRecipe {
   calories?: number
   instructions?: string
   difficulty?: number
+  /** Course (appetizer/main/dessert/drink), when the extractor supplied one */
+  recipe_type?: string
+  /** Descriptive categories (RECIPE_CATEGORIES), when the extractor supplied them */
+  categories?: string[]
   ingredients: ExtractedIngredient[]
   /** og:image or JSON-LD image — stored in recipes.image_url when saving */
   image_url?: string

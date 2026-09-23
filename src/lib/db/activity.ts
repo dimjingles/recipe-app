@@ -27,50 +27,38 @@ export interface Feed {
 }
 
 /**
- * Fan-out-on-read feed of friends' activity. RLS on `activity` limits rows to
- * self + friends; RLS on the embedded recipe/cookbook drops private subjects,
- * so we filter those out here — a friend cooking a private recipe never surfaces.
+ * Fan-out-on-read feed of friends' activity, via the get_feed() RPC: one query
+ * that filters to the caller's friends, joins actor profiles, and joins the
+ * recipe/cookbook under RLS — a private subject comes back null, so a friend
+ * cooking a private recipe never surfaces.
  */
 export async function getFeed(cursor?: string, limit = 20): Promise<Feed> {
   const supabase = await createClient()
   const user = await getUser()
   if (!user) return { items: [], nextCursor: null }
 
-  let query = supabase
-    .from('activity')
-    .select('id, type, created_at, actor_id, recipe:recipes(id, name, image_url, cuisine), cookbook:cookbooks(id, name)')
-    .neq('actor_id', user.id) // the feed shows friends, not yourself
-    .order('created_at', { ascending: false })
-    .limit(limit)
-  if (cursor) query = query.lt('created_at', cursor)
-
-  const { data, error } = await query
+  const { data, error } = await supabase.rpc('get_feed', { p_cursor: cursor ?? null, p_limit: limit })
   if (error) { console.error('getFeed error:', error); return { items: [], nextCursor: null } }
 
-  const rows = (data ?? []) as any[]
+  const rows = data ?? []
   // Cursor advances on raw row count so pagination survives filtered-out items.
   const nextCursor = rows.length === limit ? rows[rows.length - 1].created_at : null
 
-  // Drop events whose subject didn't resolve (private / deleted).
-  const visible = rows.filter(r => (r.type === 'cookbook_created' ? !!r.cookbook : !!r.recipe))
-
-  const actorIds = Array.from(new Set(visible.map(r => r.actor_id)))
-  const { data: profiles } = await supabase.from('public_profiles').select('*').in('id', actorIds)
-  const profileMap = new Map((profiles ?? []).map(p => [p.id, p]))
-
-  const items = visible
+  const items = rows
     .map((r): FeedItem | null => {
-      const actor = profileMap.get(r.actor_id)
-      if (!actor) return null
+      // Drop events whose subject didn't resolve (private / deleted) and
+      // actors without a public handle.
+      const hasSubject = r.type === 'cookbook_created' ? !!r.cookbook_id : !!r.recipe_id
+      if (!hasSubject || !r.username) return null
       return {
         id: r.id,
-        type: r.type,
+        type: r.type as ActivityType,
         created_at: r.created_at,
-        actor,
-        recipe: r.recipe
-          ? { id: r.recipe.id, name: r.recipe.name, image_url: r.recipe.image_url, cuisine: r.recipe.cuisine }
+        actor: { id: r.actor_id, username: r.username, display_name: r.display_name, avatar_url: r.avatar_url },
+        recipe: r.recipe_id
+          ? { id: r.recipe_id, name: r.recipe_name!, image_url: r.recipe_image_url, cuisine: r.recipe_cuisine }
           : null,
-        cookbook: r.cookbook ? { id: r.cookbook.id, name: r.cookbook.name } : null,
+        cookbook: r.cookbook_id ? { id: r.cookbook_id, name: r.cookbook_name! } : null,
       }
     })
     .filter((x): x is FeedItem => x !== null)

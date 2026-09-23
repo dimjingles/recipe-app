@@ -1,12 +1,13 @@
-import { getWeekStart } from '@/lib/db/planner'
-import GroceryList from '@/components/grocery-list'
+import { Suspense } from 'react'
+import GroceryClient from './grocery-client'
+import { DetailSkeleton } from '@/components/cached-page'
 
-export default async function GroceryPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ week_start?: string }>
-}) {
-  const params = await searchParams
-  const weekStart = params.week_start || getWeekStart()
-  return <GroceryList weekStart={weekStart} />
+// Static shell: the week comes from the query string on the client, and the
+// list renders from the query cache (prefetched from the planner).
+export default function GroceryPage() {
+  return (
+    <Suspense fallback={<DetailSkeleton />}>
+      <GroceryClient />
+    </Suspense>
+  )
 }

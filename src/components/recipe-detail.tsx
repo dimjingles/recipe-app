@@ -1,7 +1,6 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useCallback, useState } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, Clock, Users, Edit, ChefHat, Trophy, X, BookOpen, Plus, Minus, Play, Sparkles, GitBranch, Maximize2, Images, Check, Share2, ImagePlus, ImageOff, Flame } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -10,9 +9,9 @@ import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
 import { RecipeWithDetails, Cookbook, SkillProfile, Technique, InstructionStep } from '@/types/database'
-import AdaptRecipeDialog from '@/components/adapt-recipe-dialog'
+import type { RecipeVariantLink } from '@/types/database'
+import dynamic from 'next/dynamic'
 import RecipeGallery from '@/components/recipe-gallery'
-import ChefAiChat from '@/components/chef-ai-chat'
 import InstructionSteps from '@/components/instruction-steps'
 import { isRecipeTechnique, resolveTechniqueState } from '@/lib/skills'
 import { getCuisineEmoji } from '@/lib/cuisine-emoji'
@@ -20,6 +19,10 @@ import { useCacheInvalidation } from '@/lib/queries/hooks'
 import { formatScore, FEEDBACK_ADJECTIVE, type Feedback } from '@/lib/scoring'
 import { scaleQuantity } from '@/lib/servings'
 import { FeedbackButtons, ComparisonDialog, RankFeedbackDialog } from '@/components/ranking-flow'
+
+// Opened on demand — loaded then, not with the page.
+const AdaptRecipeDialog = dynamic(() => import('@/components/adapt-recipe-dialog'), { ssr: false })
+const ChefAiChat = dynamic(() => import('@/components/chef-ai-chat'), { ssr: false })
 
 const CATEGORY_EMOJI: Record<string, string> = {
   produce: '🥦', dairy: '🧀', meat: '🥩', seafood: '🐟',
@@ -58,17 +61,13 @@ function CookDialog({ recipeId, initialFeedback, onClose, onSaved }: CookDialogP
       const res = await fetch(`/api/recipes/${recipeId}/log`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ notes: notes || undefined }),
+        // The taste verdict, if the user changed it, is saved in the same call.
+        body: JSON.stringify({
+          notes: notes || undefined,
+          ...(feedback !== initialFeedback ? { feedback } : {}),
+        }),
       })
       if (!res.ok) throw new Error('Failed')
-      // Persist the taste verdict alongside the cook, if the user set one.
-      if (feedback !== initialFeedback) {
-        await fetch(`/api/recipes/${recipeId}/feedback`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ feedback }),
-        })
-      }
       toast.success('Cooking logged! 🎉')
       onSaved(feedback!)
       onClose()
@@ -308,13 +307,7 @@ function ServingsControl({
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-/** A sibling recipe adapted from this one (or the original this was adapted from). */
-export interface RecipeVariantLink {
-  id: string
-  name: string
-  cuisine: string | null
-  adaptation_type: string | null
-}
+export type { RecipeVariantLink }
 
 export default function RecipeDetail({
   recipe,
@@ -333,21 +326,29 @@ export default function RecipeDetail({
   variants?: RecipeVariantLink[]
   score: number | null
 }) {
-  const router = useRouter()
   const invalidate = useCacheInvalidation()
-  // Converted pages (home/recipes/planner/cookbooks) render from the client
-  // query cache, so a refresh of this server-rendered page alone isn't enough.
-  const refreshEverywhere = () => {
-    invalidate.recipesChanged()
-    router.refresh()
-  }
+  // Every view (this one included) renders from the client query cache, so a
+  // change here just invalidates the recipe queries.
+  const refreshEverywhere = () => invalidate.recipesChanged()
   const [showCook, setShowCook] = useState(false)
   const [showRerankFeedback, setShowRerankFeedback] = useState(false)
   const [showRank, setShowRank] = useState(false)
   const [showCookbook, setShowCookbook] = useState(false)
-  const [showChefAi, setShowChefAi] = useState(false)
+  const [showChefAi, setShowChefAiState] = useState(false)
+  const [chefAiEverOpened, setChefAiEverOpened] = useState(false)
+  const setShowChefAi = useCallback((open: boolean) => {
+    if (open) setChefAiEverOpened(true)
+    setShowChefAiState(open)
+  }, [])
   const [showAdapt, setShowAdapt] = useState(false)
   const [chefInitialPrompt, setChefInitialPrompt] = useState<string | undefined>(undefined)
+  // Stable so the memoized InstructionSteps doesn't re-render with the page.
+  const askChefAboutStep = useCallback((step: InstructionStep) => {
+    setChefInitialPrompt(
+      `I'm on step ${step.n} and I need help understanding it. Can you explain it clearly?\n\nStep ${step.n}: ${step.text}`
+    )
+    setShowChefAi(true)
+  }, [])
   const [cookedCount, setCookedCount] = useState(recipe.cooked_count)
   // Live servings adjuster — rescales displayed ingredient amounts only.
   const baseServings = recipe.servings || 4
@@ -414,6 +415,7 @@ export default function RecipeDetail({
       })
       if (!res.ok) throw new Error((await res.json()).error || 'Failed')
       toast.success('Display image updated')
+      invalidate.recipesChanged()
     } catch (e: any) {
       setDisplayUrl(prev) // revert
       toast.error(e.message || 'Could not update display image')
@@ -425,7 +427,7 @@ export default function RecipeDetail({
     (recipe.cookbook_recipes || []).map(cr => cr.cookbook_id)
   )
   const [logs, setLogs] = useState(
-    (recipe.cooking_log || [])
+    [...(recipe.cooking_log || [])]
       .sort((a, b) => new Date(b.cooked_at).getTime() - new Date(a.cooked_at).getTime())
       .slice(0, 5)
   )
@@ -438,6 +440,7 @@ export default function RecipeDetail({
   // After logging a cook, always rank it against the other recipes — same as the
   // re-rank flow. The taste verdict was just chosen in the cook dialog.
   const handleCookSaved = (feedback: Feedback) => {
+    invalidate.recipesChanged()
     setCookedCount(c => c + 1)
     setCurrentFeedback(feedback)
     setShowRank(true)
@@ -458,6 +461,7 @@ export default function RecipeDetail({
         body: JSON.stringify({ cooked_at }),
       })
       if (!res.ok) throw new Error('Failed')
+      refreshEverywhere() // last_cooked_at feeds the library's sorts
     } catch {
       toast.error('Could not update date')
       refreshEverywhere()
@@ -470,6 +474,7 @@ export default function RecipeDetail({
     try {
       const res = await fetch(`/api/recipes/${recipe.id}/log/${logId}`, { method: 'DELETE' })
       if (!res.ok) throw new Error('Failed')
+      refreshEverywhere() // cooked_count / last_cooked_at changed
     } catch {
       toast.error('Could not delete log entry')
       refreshEverywhere()
@@ -524,6 +529,8 @@ export default function RecipeDetail({
             <img
               src={heroUrl}
               alt={recipe.name}
+              // The page's largest paint — fetch it ahead of everything else.
+              fetchPriority="high"
               className="w-full h-[45vh] object-cover"
               onError={() => setBrokenUrls(prev => new Set(prev).add(heroUrl))}
             />
@@ -758,12 +765,7 @@ export default function RecipeDetail({
               steps={recipe.instruction_steps as InstructionStep[] | null}
               rawInstructions={recipe.instructions}
               ingredients={recipe.ingredients}
-              onAskChef={(step) => {
-                setChefInitialPrompt(
-                  `I'm on step ${step.n} and I need help understanding it. Can you explain it clearly?\n\nStep ${step.n}: ${step.text}`
-                )
-                setShowChefAi(true)
-              }}
+              onAskChef={askChefAboutStep}
             />
           </div>
         )}
@@ -813,7 +815,7 @@ export default function RecipeDetail({
           recipeId={recipe.id}
           recipeName={recipe.name}
           images={galleryImages}
-          onImagesChange={setGalleryImages}
+          onImagesChange={images => { setGalleryImages(images); invalidate.recipesChanged() }}
           heroUrl={heroUrl}
           onSetHero={setAsDisplay}
           openRequest={addPhotoSignal}
@@ -888,12 +890,15 @@ export default function RecipeDetail({
         />
       )}
 
-      <ChefAiChat
-        recipeId={recipe.id}
-        open={showChefAi}
-        onClose={() => setShowChefAi(false)}
-        initialPrompt={chefInitialPrompt}
-      />
+      {/* Loaded and mounted on first open (it resets itself when closed). */}
+      {chefAiEverOpened && (
+        <ChefAiChat
+          recipeId={recipe.id}
+          open={showChefAi}
+          onClose={() => setShowChefAi(false)}
+          initialPrompt={chefInitialPrompt}
+        />
+      )}
 
       {showAdapt && (
         <AdaptRecipeDialog
@@ -962,7 +967,7 @@ export default function RecipeDetail({
                       onClick={() => { setAsDisplay(url); setShowChooser(false) }}
                       className={`relative aspect-square rounded-xl overflow-hidden border-2 active:scale-[0.97] transition-all ${active ? 'border-brand' : 'border-border'}`}
                     >
-                      <img src={url} alt="" className="w-full h-full object-cover" />
+                      <img src={url} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                       {active && (
                         <span className="absolute inset-0 bg-brand/20 flex items-center justify-center">
                           <span className="bg-brand text-brand-foreground rounded-full p-1"><Check className="w-4 h-4" /></span>

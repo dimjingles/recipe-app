@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getUser } from '@/lib/supabase/server'
-import { getRecipe } from '@/lib/db/recipes'
+import { getRecipeForAI } from '@/lib/db/recipes'
 import { adaptRecipe } from '@/lib/ai/adapt-recipe'
 import type { AdaptationType } from '@/types/database'
 
@@ -10,6 +10,8 @@ const ADAPTATION_TYPES: AdaptationType[] = [
   'pantry_substitution',
   'freeform',
 ]
+
+export const maxDuration = 120
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -40,7 +42,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: 'request is required' }, { status: 400 })
     }
 
-    const recipe = await getRecipe(id)
+    const recipe = await getRecipeForAI(id)
     if (!recipe || recipe.user_id !== user.id) {
       return NextResponse.json({ error: 'Recipe not found' }, { status: 404 })
     }

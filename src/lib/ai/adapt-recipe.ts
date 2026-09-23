@@ -1,7 +1,7 @@
-import { anthropic, HAIKU, SONNET, extractJsonObject } from '@/lib/anthropic'
+import { anthropic, HAIKU, SONNET, LONG_CALL } from '@/lib/anthropic'
 import type { AdaptationType, AdaptedRecipeDraft } from '@/types/database'
 
-/** The subset of a recipe the adapter needs. Matches columns selected via getRecipe. */
+/** The subset of a recipe the adapter needs. Matches columns selected via getRecipeForAI. */
 export interface AdaptRecipeInput {
   id: string
   name: string
@@ -108,6 +108,46 @@ Return ONLY valid JSON (no markdown, no commentary) with this exact structure:
 }`
 }
 
+// Schema-constrained reply: always parseable, so a malformed answer can't waste
+// a (Sonnet) generation.
+const ADAPTED_RECIPE_SCHEMA = {
+  type: 'object',
+  properties: {
+    name: { type: 'string' },
+    description: { type: 'string' },
+    cuisine: { type: 'string' },
+    cook_time_minutes: { type: 'integer' },
+    servings: { type: 'integer' },
+    difficulty: { type: 'integer', enum: [1, 2, 3] },
+    instructions: { type: 'string' },
+    ingredients: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          name: { type: 'string' },
+          quantity: { type: 'string' },
+          unit: { type: 'string' },
+          category: {
+            type: 'string',
+            enum: ['produce', 'dairy', 'meat', 'seafood', 'pantry', 'spices', 'bakery', 'frozen', 'other'],
+          },
+        },
+        required: ['name', 'quantity', 'unit', 'category'],
+        additionalProperties: false,
+      },
+    },
+    tags: { type: 'array', items: { type: 'string' } },
+    warnings: { type: 'array', items: { type: 'string' } },
+    substitution_notes: { type: 'array', items: { type: 'string' } },
+  },
+  required: [
+    'name', 'description', 'cuisine', 'cook_time_minutes', 'servings', 'difficulty',
+    'instructions', 'ingredients', 'tags', 'warnings', 'substitution_notes',
+  ],
+  additionalProperties: false,
+} as const
+
 /**
  * Ask Claude to produce an adapted recipe draft. The result is a preview the
  * caller reviews and saves as a NEW variant — it never mutates the original.
@@ -116,16 +156,23 @@ export async function adaptRecipe(recipe: AdaptRecipeInput, opts: AdaptOptions):
   const currentServings = recipe.servings || 4
   const prompt = buildPrompt(recipe, opts, currentServings)
 
+  const model = pickModel(opts.adaptation_type)
   const message = await anthropic.messages.create({
-    model: pickModel(opts.adaptation_type),
-    max_tokens: 3072,
+    model,
+    // Sonnet 5 thinks by default and thinking shares this budget; low effort
+    // keeps it brief for a scoped rewrite like this.
+    max_tokens: 8192,
+    output_config: {
+      format: { type: 'json_schema', schema: ADAPTED_RECIPE_SCHEMA },
+      ...(model === SONNET ? { effort: 'low' as const } : {}),
+    },
     messages: [{ role: 'user', content: prompt }],
-  })
+  }, LONG_CALL)
 
-  const content = message.content[0]
-  if (content.type !== 'text') throw new Error('Unexpected AI response')
+  const content = message.content.find(b => b.type === 'text')
+  if (message.stop_reason !== 'end_turn' || !content) throw new Error('Unexpected AI response')
 
-  const parsed = extractJsonObject(content.text) as Record<string, unknown>
+  const parsed = JSON.parse(content.text) as Record<string, unknown>
 
   return {
     name: typeof parsed.name === 'string' && parsed.name.trim() ? parsed.name.trim() : `${recipe.name} (adapted)`,

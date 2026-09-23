@@ -19,7 +19,7 @@ import { useVoiceControl, type VoiceCommand } from '@/lib/cook/use-voice-control
 import { useCookTimers } from '@/lib/cook/use-cook-timers'
 import { FeedbackButtons, ComparisonDialog } from '@/components/ranking-flow'
 import type { Feedback } from '@/lib/scoring'
-import type { RecipeWithDetails, InstructionStep, ChefPacing } from '@/types/database'
+import type { RecipeWithIngredients, InstructionStep, ChefPacing } from '@/types/database'
 
 const MANUAL_PRESETS = [1, 2, 3, 5, 10, 15, 20, 30, 45, 60] // minutes
 
@@ -42,7 +42,7 @@ export default function CookMode({
   voiceURI = null,
   pacing = 'step_by_step',
 }: {
-  recipe: RecipeWithDetails
+  recipe: RecipeWithIngredients
   /** SpeechSynthesis voiceURI the user picked in settings (device-specific). */
   voiceURI?: string | null
   /** Chef AI pacing preference — 'hands_free' auto-reads each reply aloud. */
@@ -102,6 +102,7 @@ export default function CookMode({
   const exit = () => router.push(`/recipes/${recipe.id}`)
 
   // ── Chef streaming ────────────────────────────────────────────────────────
+  const flushRef = useRef<() => void>(() => {})
   async function runTurn(userMsg: Msg, fallback?: string) {
     const next = [...messagesRef.current, userMsg]
     setMessages([...next, { role: 'assistant', content: '' }])
@@ -117,6 +118,17 @@ export default function CookMode({
       const reader = res.body.getReader()
       const decoder = new TextDecoder()
       let buffer = ''
+      // Streamed text is applied at most once per animation frame rather than
+      // once per network chunk.
+      let pending = ''
+      let raf = 0
+      const flush = () => {
+        raf = 0
+        const text = pending
+        pending = ''
+        if (text) setMessages(prev => prev.map((m, i) => i === prev.length - 1 ? { ...m, content: m.content + text } : m))
+      }
+      flushRef.current = () => { if (raf) cancelAnimationFrame(raf); flush() }
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
@@ -127,13 +139,17 @@ export default function CookMode({
           const line = chunk.split('\n').find(l => l.startsWith('data: '))
           if (!line) continue
           const data = line.slice(6)
-          if (data === '[DONE]') { setStreaming(false); setWaitingFirstChunk(false); return }
+          if (data === '[DONE]') { flushRef.current(); setStreaming(false); setWaitingFirstChunk(false); return }
           const parsed = JSON.parse(data)
           setWaitingFirstChunk(false)
-          setMessages(prev => prev.map((m, i) => i === prev.length - 1 ? { ...m, content: m.content + parsed.text } : m))
+          if (typeof parsed.text === 'string') {
+            pending += parsed.text
+            if (!raf) raf = requestAnimationFrame(flush)
+          }
         }
       }
     } catch {
+      flushRef.current()
       // Fall back to the canonical step text so the user can still cook offline.
       setMessages(prev => prev.map((m, i) =>
         i === prev.length - 1
@@ -141,6 +157,8 @@ export default function CookMode({
           : m,
       ))
     } finally {
+      flushRef.current()
+      flushRef.current = () => {}
       setStreaming(false)
       setWaitingFirstChunk(false)
     }
@@ -160,9 +178,10 @@ export default function CookMode({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Auto-scroll the transcript.
+  // Auto-scroll the transcript. Instant while text streams in (a smooth scroll
+  // per update just queues animations); smooth once the reply is complete.
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: streaming ? 'auto' : 'smooth' })
   }, [messages, streaming])
 
   // ── Navigation ────────────────────────────────────────────────────────────
@@ -333,7 +352,6 @@ export default function CookMode({
   const finishToRecipe = () => {
     invalidate.recipesChanged()
     router.push(`/recipes/${recipe.id}`)
-    router.refresh()
   }
 
   const markCooked = async () => {

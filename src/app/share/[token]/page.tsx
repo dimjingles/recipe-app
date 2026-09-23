@@ -1,3 +1,4 @@
+import { cache } from 'react'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -10,15 +11,21 @@ import PublicRecipeView from '@/components/public-recipe-view'
 //
 // This path is allowlisted as public in src/lib/supabase/proxy.ts.
 
-async function fetchSharedRecipe(token: string) {
+// cache(): generateMetadata and the page both need the recipe; dedupe to one
+// query per request. Only the columns the public view renders — never user_id,
+// share_token or adaptation metadata.
+const fetchSharedRecipe = cache(async (token: string) => {
   const supabase = createAdminClient()
   const { data } = await supabase
     .from('recipes')
-    .select('*, ingredients(*)')
+    .select(
+      'name, description, cuisine, cook_time_minutes, servings, calories, difficulty, ' +
+      'image_url, tags, instructions, instruction_steps, ingredients(*)',
+    )
     .eq('share_token', token)
     .single()
-  return data
-}
+  return data as any
+})
 
 export async function generateMetadata({ params }: { params: Promise<{ token: string }> }): Promise<Metadata> {
   const { token } = await params

@@ -20,3 +20,7 @@ export const RECIPE_CATEGORY_VALUES: readonly RecipeCategory[] = RECIPE_CATEGORI
 export function isRecipeCategory(value: unknown): value is RecipeCategory {
   return RECIPE_CATEGORY_VALUES.includes(value as RecipeCategory)
 }
+
+/** Prompt text telling an extraction model how to fill `categories`. */
+export const CATEGORY_PROMPT_GUIDE = `Categories: tag every category that describes the dish, based on its main components — not garnishes or stock (chicken stock alone does not make a dish poultry). Leave the list empty if none fit, e.g. drinks and most desserts.
+${RECIPE_CATEGORIES.map(c => `- ${c.value} — ${c.hint}`).join('\n')}`

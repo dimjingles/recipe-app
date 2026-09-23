@@ -5,19 +5,23 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ChefHat, CalendarDays, Plus, ShoppingCart, Sparkles, Users } from 'lucide-react'
 import { format, addDays } from 'date-fns'
-import { useFeed, useMe, usePlan, useRecipes } from '@/lib/queries/hooks'
+import { queries, useFeed, useMe, usePlan, useRecipes } from '@/lib/queries/hooks'
+import { useQueryClient } from '@tanstack/react-query'
 import { PageSkeleton, useAuthRedirect } from '@/components/cached-page'
 import { getWeekStart } from '@/lib/week'
 import { getCuisineEmoji } from '@/lib/cuisine-emoji'
-import { AddRecipeLauncher } from '@/components/add-recipe-sheet'
+import { AddRecipeLauncher } from '@/components/add-recipe-launcher'
 import { EmptyState, RecipeBookIllustration } from '@/components/ui/empty-state'
 import { FeedItemRow } from '@/components/feed-item'
 import { RecipeCard } from '@/components/recipe-card'
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
+const HOME_FEED_PREVIEW = 3
+
 export default function HomeClient() {
   const router = useRouter()
+  const queryClient = useQueryClient()
   const weekStart = getWeekStart()
   const me = useMe()
   const recipes = useRecipes()
@@ -35,7 +39,8 @@ export default function HomeClient() {
 
   const recentRecipes = (recipes.data ?? []).slice(0, 6)
   const slots = plan.data?.weekly_plan_slots ?? []
-  const feedItems = feed.data?.items ?? []
+  // A preview — "See all" opens the full feed.
+  const feedItems = (feed.data?.items ?? []).slice(0, HOME_FEED_PREVIEW)
   const plannedCount = slots.length
   const todayIndex = Math.max(0, Math.min(6, Math.floor((new Date().getDay() + 6) % 7)))
   const tonightSlot = slots.find(s => s.day_of_week === todayIndex)
@@ -191,8 +196,9 @@ export default function HomeClient() {
                 key={recipe.id}
                 recipe={recipe}
                 variant="grid"
-                onClick={() => router.push(`/recipes/${recipe.id}`)}
-                style={{ animationDelay: `${i * 40}ms` }}
+                href={`/recipes/${recipe.id}`}
+                onIntent={() => void queryClient.prefetchQuery(queries.recipe(recipe.id))}
+                style={{ animationDelay: `${Math.min(i, 8) * 40}ms` }}
               />
             ))}
           </div>

@@ -5,21 +5,23 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, UserPlus, Check, Clock, BookOpen } from 'lucide-react'
 import { toast } from 'sonner'
+import { useCacheInvalidation } from '@/lib/queries/hooks'
 import { UserAvatar } from '@/components/user-avatar'
 import { RecipeCard } from '@/components/recipe-card'
-import { PublicProfile, Recipe, CookbookWithCount } from '@/types/database'
+import { PublicProfile, RecipeSummary, CookbookWithCount } from '@/types/database'
 import type { FriendshipStatus } from '@/lib/db/social'
 
 interface Props {
   profile: PublicProfile
   isSelf: boolean
   initialStatus: FriendshipStatus
-  recipes: Recipe[]
+  recipes: RecipeSummary[]
   cookbooks: CookbookWithCount[]
 }
 
 export default function FriendProfileView({ profile, isSelf, initialStatus, recipes, cookbooks }: Props) {
   const router = useRouter()
+  const invalidate = useCacheInvalidation()
   const [status, setStatus] = useState<FriendshipStatus>(initialStatus)
   const [busy, setBusy] = useState(false)
 
@@ -31,6 +33,7 @@ export default function FriendProfileView({ profile, isSelf, initialStatus, reci
       const res = await fn()
       if (!res.ok) throw new Error((await res.json()).error || 'Failed')
       toast.success(successMsg)
+      invalidate.socialChanged()
     } catch (e: any) {
       setStatus(prev)
       toast.error(e.message || 'Something went wrong')
@@ -128,7 +131,7 @@ export default function FriendProfileView({ profile, isSelf, initialStatus, reci
             ) : (
               <div className="grid grid-cols-2 gap-3">
                 {recipes.map(r => (
-                  <RecipeCard key={r.id} recipe={r} variant="grid" onClick={() => router.push(`/recipes/${r.id}`)} />
+                  <RecipeCard key={r.id} recipe={r} variant="grid" href={`/recipes/${r.id}`} />
                 ))}
               </div>
             )}

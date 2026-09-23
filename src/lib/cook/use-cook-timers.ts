@@ -45,7 +45,14 @@ export function useCookTimers() {
         }
         return { ...t, remainingMs }
       })
-      setTimers(next)
+      // The tray shows whole seconds. Polling at 250ms keeps the second
+      // boundary accurate, but only a change the user can see re-renders cook
+      // mode — ~1 render/s instead of 4.
+      const secs = (ms: number) => Math.ceil(ms / 1000)
+      const visibleChange =
+        finished.length > 0 ||
+        next.some((t, i) => secs(t.remainingMs) !== secs(timersRef.current[i].remainingMs))
+      if (visibleChange) setTimers(next)
       finished.forEach(fireAlarm)
     }, 250)
     return () => clearInterval(iv)

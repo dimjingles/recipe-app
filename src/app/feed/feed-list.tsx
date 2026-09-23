@@ -1,37 +1,21 @@
 'use client'
 
-import { useState } from 'react'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { FeedItemRow } from '@/components/feed-item'
 import type { FeedItem } from '@/lib/db/activity'
 
 export default function FeedList({
-  initialItems,
-  initialCursor,
+  items,
+  hasMore,
+  loading,
+  onLoadMore,
 }: {
-  initialItems: FeedItem[]
-  initialCursor: string | null
+  items: FeedItem[]
+  hasMore: boolean
+  loading: boolean
+  onLoadMore: () => void
 }) {
-  const [items, setItems] = useState(initialItems)
-  const [cursor, setCursor] = useState(initialCursor)
-  const [loading, setLoading] = useState(false)
-
-  const loadMore = async () => {
-    if (!cursor) return
-    setLoading(true)
-    try {
-      const res = await fetch(`/api/feed?cursor=${encodeURIComponent(cursor)}`)
-      const data = await res.json()
-      setItems(prev => [...prev, ...(data.items ?? [])])
-      setCursor(data.nextCursor ?? null)
-    } catch {
-      // keep existing items on error
-    } finally {
-      setLoading(false)
-    }
-  }
-
   return (
     <div className="mx-auto max-w-lg px-5 pt-8 pb-24">
       <div className="mb-6 flex items-center gap-3">
@@ -55,9 +39,9 @@ export default function FeedList({
         </div>
       )}
 
-      {cursor && (
+      {hasMore && (
         <button
-          onClick={loadMore}
+          onClick={onLoadMore}
           disabled={loading}
           className="mt-4 w-full rounded-xl bg-muted py-3 text-sm font-bold text-foreground transition-colors hover:bg-border disabled:opacity-60"
         >

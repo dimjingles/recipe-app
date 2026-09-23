@@ -1,7 +1,13 @@
+import sharp from 'sharp'
+import { isFetchableUrl, readBodyCapped } from '@/lib/net'
+
 // Anthropic rejects base64 images larger than ~5MB, and base64 inflates bytes
-// by ~33%, so cap the raw download well under that. Oversized full images fall
-// through to the smaller search thumbnail (see fetchFirstImageAsBase64).
-const MAX_BYTES = 3.5 * 1024 * 1024
+// by ~33%, so anything over INLINE_MAX_BYTES is shrunk before inlining. Large
+// originals used to be discarded in favour of the low-res search thumbnail.
+const MAX_DOWNLOAD_BYTES = 10 * 1024 * 1024
+const INLINE_MAX_BYTES = 3.5 * 1024 * 1024
+// Opus's native vision resolution — no detail is lost below this.
+const VISION_MAX_EDGE = 2576
 const FETCH_TIMEOUT_MS = 10_000
 
 // Some hosts 403 non-browser fetches, so present as a normal browser.
@@ -25,7 +31,7 @@ export type FetchedImage = { mediaType: AnthropicImageMediaType; base64: string 
  * Returns null on any failure so the caller can fall back to name-only.
  */
 export async function fetchImageAsBase64(url: string): Promise<FetchedImage | null> {
-  if (!/^https?:\/\//i.test(url)) return null
+  if (!isFetchableUrl(url)) return null
 
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
@@ -42,10 +48,20 @@ export async function fetchImageAsBase64(url: string): Promise<FetchedImage | nu
     if (contentType === 'image/jpg') contentType = 'image/jpeg'
     if (!ANTHROPIC_IMAGE_TYPES.has(contentType)) return null
 
-    const buffer = Buffer.from(await res.arrayBuffer())
-    if (buffer.byteLength === 0 || buffer.byteLength > MAX_BYTES) return null
+    const bytes = await readBodyCapped(res, MAX_DOWNLOAD_BYTES)
+    if (!bytes || bytes.byteLength === 0) return null
 
-    return { mediaType: contentType as AnthropicImageMediaType, base64: buffer.toString('base64') }
+    if (bytes.byteLength > INLINE_MAX_BYTES) {
+      const shrunk = await sharp(bytes, { failOn: 'none' })
+        .rotate()
+        .resize({ width: VISION_MAX_EDGE, height: VISION_MAX_EDGE, fit: 'inside', withoutEnlargement: true })
+        .jpeg({ quality: 85 })
+        .toBuffer()
+      if (shrunk.byteLength > INLINE_MAX_BYTES) return null
+      return { mediaType: 'image/jpeg', base64: shrunk.toString('base64') }
+    }
+
+    return { mediaType: contentType as AnthropicImageMediaType, base64: Buffer.from(bytes).toString('base64') }
   } catch {
     return null
   } finally {
@@ -53,13 +69,17 @@ export async function fetchImageAsBase64(url: string): Promise<FetchedImage | nu
   }
 }
 
-/** Try each URL in order, returning the first that downloads as a usable image. */
+/**
+ * Return the first URL (in preference order) that downloads as a usable image.
+ * All candidates download in parallel, so a failing full-size image doesn't make
+ * the thumbnail wait out its timeout behind it.
+ */
 export async function fetchFirstImageAsBase64(
   ...urls: Array<string | undefined | null>
 ): Promise<FetchedImage | null> {
-  for (const url of urls) {
-    if (!url) continue
-    const image = await fetchImageAsBase64(url)
+  const attempts = urls.filter((u): u is string => !!u).map(fetchImageAsBase64)
+  for (const attempt of attempts) {
+    const image = await attempt
     if (image) return image
   }
   return null

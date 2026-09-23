@@ -4,6 +4,7 @@ import { ArrowLeft } from 'lucide-react'
 import { createClient, getUser } from '@/lib/supabase/server'
 import { getPublicProfile } from '@/lib/db/social'
 import { RecipeCard } from '@/components/recipe-card'
+import { RECIPE_SUMMARY_COLUMNS } from '@/lib/recipe-columns'
 
 // Read-only view of a friend's cookbook. Visibility is enforced entirely by RLS:
 // the cookbook, its entries, and each recipe are only returned if visible to us,
@@ -14,16 +15,16 @@ export default async function FriendCookbookPage({ params }: { params: Promise<{
   const user = await getUser()
   if (!user) redirect(`/login?next=/u/${username}/cookbooks/${id}`)
 
-  const profile = await getPublicProfile(username)
-  if (!profile) notFound()
-
-  const { data: cookbook } = await supabase
-    .from('cookbooks')
-    .select('*, cookbook_recipes(recipe:recipes(*))')
-    .eq('id', id)
-    .eq('user_id', profile.id)
-    .maybeSingle()
-  if (!cookbook) notFound()
+  // Fetch the profile and the cookbook in parallel, then check ownership.
+  const [profile, { data: cookbook }] = await Promise.all([
+    getPublicProfile(username),
+    supabase
+      .from('cookbooks')
+      .select(`*, cookbook_recipes(recipe:recipes(${RECIPE_SUMMARY_COLUMNS}))`)
+      .eq('id', id)
+      .maybeSingle(),
+  ])
+  if (!profile || !cookbook || cookbook.user_id !== profile.id) notFound()
 
   const cb = cookbook as any
   const recipes = (cb.cookbook_recipes || []).map((cr: any) => cr.recipe).filter(Boolean)

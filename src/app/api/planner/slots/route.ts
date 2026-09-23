@@ -9,39 +9,21 @@ export async function POST(request: NextRequest) {
 
     const { weekStart, dayOfWeek, recipeId, mealType = 'dinner' } = await request.json()
 
-    // Get or create plan
-    let { data: plan } = await supabase
+    // Get or create the week's plan in one statement.
+    const { data: plan, error: planError } = await supabase
       .from('weekly_plans')
+      .upsert({ user_id: user.id, week_start: weekStart }, { onConflict: 'user_id,week_start' })
       .select('id')
-      .eq('user_id', user.id)
-      .eq('week_start', weekStart)
       .single()
+    if (planError) throw planError
 
-    if (!plan) {
-      const { data: newPlan, error } = await supabase
-        .from('weekly_plans')
-        .insert({ user_id: user.id, week_start: weekStart })
-        .select('id')
-        .single()
-      if (error) throw error
-      plan = newPlan
-    }
-
-    // Remove existing slot for this day+meal
-    await supabase
+    // One recipe per day + meal: replace whatever was there.
+    const { error } = await supabase
       .from('weekly_plan_slots')
-      .delete()
-      .eq('plan_id', plan.id)
-      .eq('day_of_week', dayOfWeek)
-      .eq('meal_type', mealType)
-
-    // Insert new slot
-    const { error } = await supabase.from('weekly_plan_slots').insert({
-      plan_id: plan.id,
-      recipe_id: recipeId,
-      day_of_week: dayOfWeek,
-      meal_type: mealType,
-    })
+      .upsert(
+        { plan_id: plan.id, recipe_id: recipeId, day_of_week: dayOfWeek, meal_type: mealType },
+        { onConflict: 'plan_id,day_of_week,meal_type' },
+      )
     if (error) throw error
 
     return NextResponse.json({ success: true })
@@ -50,14 +32,19 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// Body: { slotId } or { slotIds: [...] } (e.g. undoing an auto-fill in one call).
 export async function DELETE(request: NextRequest) {
   try {
     const supabase = await createClient()
     const user = await getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const { slotId } = await request.json()
-    await supabase.from('weekly_plan_slots').delete().eq('id', slotId)
+    const { slotId, slotIds } = await request.json()
+    const ids: string[] = Array.isArray(slotIds) ? slotIds : slotId ? [slotId] : []
+    if (!ids.length) return NextResponse.json({ error: 'slotId required' }, { status: 400 })
+
+    const { error } = await supabase.from('weekly_plan_slots').delete().in('id', ids)
+    if (error) throw error
     return NextResponse.json({ success: true })
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 })

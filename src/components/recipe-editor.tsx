@@ -28,6 +28,7 @@ export interface RecipeEditorValues {
   description?: string
   cuisine?: string
   recipeType?: string
+  categories?: string[]
   cookTime?: string
   servings?: string
   calories?: string
@@ -90,7 +91,7 @@ export default function RecipeEditor({ initialValues, showLookup, autoLookup }: 
   )
   const [customTagInput, setCustomTagInput] = useState('')
   // Left empty, the server tags the recipe with AI on save.
-  const [categories, setCategories] = useState<string[]>([])
+  const [categories, setCategories] = useState<string[]>(initialValues?.categories ?? [])
   const [ingredients, setIngredients] = useState<IngredientRow[]>(initialValues?.ingredients ?? [])
   const [imageUrl] = useState(initialValues?.image_url ?? '')
   const [galleryImages] = useState<string[]>(initialValues?.gallery_images ?? [])
@@ -121,6 +122,8 @@ export default function RecipeEditor({ initialValues, showLookup, autoLookup }: 
     if (r.name) setName(r.name)
     if (r.description) setDescription(r.description)
     if (r.cuisine) setCuisine(r.cuisine)
+    if (r.recipe_type) setRecipeType(r.recipe_type)
+    if (r.categories?.length) setCategories(r.categories)
     if (r.cook_time_minutes != null) setCookTime(String(r.cook_time_minutes))
     if (r.servings != null) setServings(String(r.servings))
     if (r.calories != null) setCalories(String(r.calories))
@@ -198,6 +201,7 @@ export default function RecipeEditor({ initialValues, showLookup, autoLookup }: 
       setIngredients(data.ingredients || [])
       if (data.cuisine) setCuisine(data.cuisine)
       if (data.recipe_type) setRecipeType(data.recipe_type)
+      if (data.categories?.length) setCategories(data.categories)
       if (data.cook_time_minutes) setCookTime(String(data.cook_time_minutes))
       if (data.servings) setServings(String(data.servings))
       if (data.calories) setCalories(String(data.calories))

@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
+import { useRecipes } from '@/lib/queries/hooks'
 
 interface Props {
   value: string
@@ -10,16 +11,18 @@ interface Props {
 }
 
 export default function CuisineCombobox({ value, onChange, placeholder = 'e.g. Italian', className = '' }: Props) {
-  const [suggestions, setSuggestions] = useState<string[]>([])
   const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    fetch('/api/cuisines')
-      .then(r => r.json())
-      .then(data => { if (Array.isArray(data)) setSuggestions(data) })
-      .catch(() => {})
-  }, [])
+  // The cuisines already in the user's library, from the cached recipe list —
+  // no request of its own.
+  const recipes = useRecipes()
+  const suggestions = useMemo(
+    () => Array.from(
+      new Set((recipes.data ?? []).map(r => r.cuisine?.toLowerCase()).filter((c): c is string => !!c))
+    ).sort(),
+    [recipes.data],
+  )
 
   const safeValue = typeof value === 'string' ? value : ''
   const filtered = safeValue.trim()

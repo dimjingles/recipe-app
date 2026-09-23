@@ -1,27 +1,29 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useIsRestoring } from '@tanstack/react-query'
 import { cn } from '@/lib/utils'
 import { CookingLoader } from '@/components/cooking-loader'
 
 /**
  * Cold-start splash. Lives in the root layout, so it mounts once per full page
- * load (not on client-side navigations) and covers the app while it boots and
- * hydrates. It shows a fun cooking animation, then fades out.
+ * load (not on client-side navigations) and covers the app while it boots:
+ * until React has hydrated and the persisted query cache has been restored, so
+ * the first thing revealed is real data. There's no minimum display time — it
+ * used to hold for a fixed 750ms (+500ms fade) even with a warm cache.
  */
+const FADE_MS = 200
+
 export function AppSplash() {
+  const isRestoring = useIsRestoring()
   const [phase, setPhase] = useState<'show' | 'fade' | 'gone'>('show')
 
   useEffect(() => {
-    // Keep it on screen briefly so the animation reads as intentional rather
-    // than a flash, then fade out and unmount.
-    const fade = setTimeout(() => setPhase('fade'), 750)
-    const gone = setTimeout(() => setPhase('gone'), 750 + 500)
-    return () => {
-      clearTimeout(fade)
-      clearTimeout(gone)
-    }
-  }, [])
+    if (isRestoring) return
+    setPhase('fade')
+    const gone = setTimeout(() => setPhase('gone'), FADE_MS)
+    return () => clearTimeout(gone)
+  }, [isRestoring])
 
   if (phase === 'gone') return null
 
@@ -29,7 +31,7 @@ export function AppSplash() {
     <div
       aria-hidden="true"
       className={cn(
-        'fixed inset-0 z-[100] grid place-items-center bg-background transition-opacity duration-500',
+        'fixed inset-0 z-[100] grid place-items-center bg-background transition-opacity duration-200',
         phase === 'fade' ? 'opacity-0' : 'opacity-100',
       )}
     >

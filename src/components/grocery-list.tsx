@@ -6,39 +6,24 @@ import Link from 'next/link'
 import { format, addDays } from 'date-fns'
 import { Shimmer } from '@/components/ui/shimmer'
 import { EmptyState, BasketIllustration } from '@/components/ui/empty-state'
+import { useGrocery } from '@/lib/queries/hooks'
 
 const CATEGORY_EMOJI: Record<string, string> = {
   produce: '🥦', dairy: '🧀', meat: '🥩', seafood: '🐟',
   pantry: '🫙', spices: '🌿', bakery: '🍞', frozen: '🧊', other: '📦',
 }
 
-interface GroceryItem {
-  name: string
-  quantity: number
-  displayQty: string
-  unit: string
-  category: string
-  recipes: string[]
-}
-
-interface GroceryData {
-  grouped: Record<string, GroceryItem[]>
-  items: GroceryItem[]
-}
-
 export default function GroceryList({ weekStart }: { weekStart: string }) {
-  const [data, setData] = useState<GroceryData | null>(null)
-  const [loading, setLoading] = useState(true)
+  // Cached per week (and prefetched from the planner), so reopening the list
+  // is instant; planner/recipe changes invalidate it.
+  const grocery = useGrocery(weekStart)
+  const data = grocery.data ?? null
+  const loading = grocery.isPending
   const [checked, setChecked] = useState<Set<string>>(new Set())
 
   const weekEnd = addDays(new Date(weekStart + 'T00:00:00'), 6)
 
   useEffect(() => {
-    fetch(`/api/planner/grocery?week_start=${weekStart}`)
-      .then(r => r.json())
-      .then(d => { setData(d); setLoading(false) })
-      .catch(() => setLoading(false))
-
     // Load checked state from localStorage
     const stored = localStorage.getItem(`grocery-checked-${weekStart}`)
     if (stored) {

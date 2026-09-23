@@ -38,7 +38,7 @@ export function FeedItemRow({ item }: { item: FeedItem }) {
         <p className="mt-0.5 text-xs text-muted-foreground">{when}</p>
       </div>
       {item.recipe?.image_url ? (
-        <img src={item.recipe.image_url} alt="" className="h-11 w-11 shrink-0 rounded-xl object-cover" />
+        <img src={item.recipe.image_url} alt="" loading="lazy" decoding="async" className="h-11 w-11 shrink-0 rounded-xl object-cover" />
       ) : item.recipe ? (
         <div className="food-placeholder grid h-11 w-11 shrink-0 place-items-center rounded-xl text-xl">
           {getCuisineEmoji(item.recipe.cuisine)}

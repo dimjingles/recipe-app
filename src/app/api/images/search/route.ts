@@ -15,7 +15,16 @@ const PAGE_SIZE = 9
 const FETCH_SIZE = 45
 
 type CacheEntry = { expiresAt: number; results: ImageResult[]; provider: string }
+// Bounded: a long-lived server process would otherwise keep every query ever
+// searched. Map iteration order is insertion order, so the first key is the
+// least recently stored.
+const CACHE_MAX_ENTRIES = 200
 const cache = new Map<string, CacheEntry>()
+function cacheSet(key: string, entry: CacheEntry) {
+  cache.delete(key)
+  cache.set(key, entry)
+  while (cache.size > CACHE_MAX_ENTRIES) cache.delete(cache.keys().next().value!)
+}
 
 function hostnameOf(...urls: string[]): string {
   for (const u of urls) {
@@ -82,7 +91,7 @@ export async function GET(request: NextRequest) {
   if (!entry || entry.expiresAt <= Date.now()) {
     const fresh = await fetchBatch(q)
     if (!fresh) return NextResponse.json({ results: [], hasMore: false, error: 'Search unavailable' })
-    cache.set(key, fresh)
+    cacheSet(key, fresh)
     entry = fresh
   }
 

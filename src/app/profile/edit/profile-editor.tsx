@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useCacheInvalidation } from '@/lib/queries/hooks'
+import { downscaleForUpload } from '@/lib/images/downscale'
 import Link from 'next/link'
 import { ArrowLeft, Camera, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -43,7 +44,7 @@ export default function ProfileEditor({
     setUploading(true)
     try {
       const form = new FormData()
-      form.append('image', file)
+      form.append('image', await downscaleForUpload(file, 512))
       const res = await fetch('/api/profile/avatar', { method: 'POST', body: form })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Upload failed')
@@ -81,7 +82,6 @@ export default function ProfileEditor({
       }
       toast.success('Profile saved')
       invalidate.meChanged()
-      router.refresh()
     } catch (e: any) {
       toast.error(e.message || 'Could not save profile')
     } finally {

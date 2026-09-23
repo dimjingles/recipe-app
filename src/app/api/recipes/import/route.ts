@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getUser } from '@/lib/supabase/server'
-import { anthropic, HAIKU } from '@/lib/anthropic'
-import { fetchPage, getMeta, stripTags } from '@/lib/import/html'
+import { anthropic, HAIKU, LONG_CALL } from '@/lib/anthropic'
+import { fetchPage, getMeta, mainContent, stripTags } from '@/lib/import/html'
+import { validateUrl } from '@/lib/net'
+import { CATEGORY_PROMPT_GUIDE, RECIPE_CATEGORY_VALUES } from '@/lib/recipe-categories'
+import { RECIPE_TYPE_VALUES } from '@/lib/ai/classify-recipe-type'
 import {
   classifyVideoUrl,
   fetchVideoContext,
@@ -16,48 +19,14 @@ import {
 } from '@/lib/import/video'
 import type { ExtractedRecipe, ExtractedIngredient } from '@/types/database'
 
-// ── SSRF protection ───────────────────────────────────────────────────────────
-// Block requests to private/loopback/link-local IP ranges and localhost.
-// This uses hostname-string analysis, which guards against the most common
-// attack vectors. A hostname that resolves to a private IP through DNS is not
-// caught here — acceptable risk tradeoff for a recipe app.
-
-function isBlockedHost(hostname: string): boolean {
-  const h = hostname.toLowerCase()
-  if (h === 'localhost' || h.endsWith('.local') || h.endsWith('.internal')) return true
-
-  const ipv4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(h)
-  if (ipv4) {
-    const [a, b] = [parseInt(ipv4[1]), parseInt(ipv4[2])]
-    if (a === 127) return true                         // loopback 127.0.0.0/8
-    if (a === 10) return true                          // RFC 1918 10.0.0.0/8
-    if (a === 172 && b >= 16 && b <= 31) return true   // RFC 1918 172.16.0.0/12
-    if (a === 192 && b === 168) return true            // RFC 1918 192.168.0.0/16
-    if (a === 169 && b === 254) return true            // link-local / AWS metadata
-    if (a === 0) return true                           // this-network 0.0.0.0/8
-  }
-
-  if (h === '::1' || h === '[::1]') return true       // IPv6 loopback
-  return false
-}
-
-function validateUrl(raw: string): URL {
-  let url: URL
-  try {
-    url = new URL(raw)
-  } catch {
-    throw new Error('Invalid URL')
-  }
-  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-    throw new Error('Only http and https URLs are supported')
-  }
-  if (isBlockedHost(url.hostname)) {
-    throw new Error('URL not allowed')
-  }
-  return url
-}
-
 // ── JSON-LD extraction ────────────────────────────────────────────────────────
+
+// "@type" may be a string or an array ("Recipe" alongside e.g. "NewsArticle").
+function isRecipeNode(node: unknown): node is Record<string, unknown> {
+  if (!node || typeof node !== 'object') return false
+  const t = (node as Record<string, unknown>)['@type']
+  return t === 'Recipe' || (Array.isArray(t) && t.includes('Recipe'))
+}
 
 function findJsonLdRecipe(html: string): Record<string, unknown> | null {
   const re = /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi
@@ -69,13 +38,9 @@ function findJsonLdRecipe(html: string): Record<string, unknown> | null {
       for (const item of candidates) {
         if (!item || typeof item !== 'object') continue
         const obj = item as Record<string, unknown>
-        if (obj['@type'] === 'Recipe') return obj
+        if (isRecipeNode(obj)) return obj
         if (Array.isArray(obj['@graph'])) {
-          const r = (obj['@graph'] as unknown[]).find(
-            (g): g is Record<string, unknown> =>
-              typeof g === 'object' && g !== null &&
-              (g as Record<string, unknown>)['@type'] === 'Recipe',
-          )
+          const r = (obj['@graph'] as unknown[]).find(isRecipeNode)
           if (r) return r
         }
       }
@@ -132,70 +97,137 @@ function extractImageUrl(image: unknown): string | undefined {
 function parseInstructions(raw: unknown): string {
   if (!raw) return ''
   if (typeof raw === 'string') return raw
-  if (Array.isArray(raw)) {
-    return raw
-      .map((step, i) => {
-        if (typeof step === 'string') return `${i + 1}. ${step}`
-        if (step && typeof step === 'object') {
-          const s = step as Record<string, unknown>
-          return `${i + 1}. ${s.text || s.name || ''}`
-        }
-        return ''
-      })
-      .filter(Boolean)
-      .join('\n')
+  if (!Array.isArray(raw)) return ''
+  // HowToStep lists, possibly grouped into HowToSections ("For the sauce"),
+  // flattened into one numbered list. Sections used to contribute only their
+  // name, dropping every step inside them.
+  const steps: string[] = []
+  const walk = (items: unknown[]) => {
+    for (const step of items) {
+      if (typeof step === 'string') { if (step.trim()) steps.push(step.trim()); continue }
+      if (!step || typeof step !== 'object') continue
+      const s = step as Record<string, unknown>
+      if (Array.isArray(s.itemListElement)) { walk(s.itemListElement); continue }
+      const text = s.text || s.name
+      if (typeof text === 'string' && text.trim()) steps.push(text.trim())
+    }
   }
-  return ''
+  walk(raw)
+  return steps.map((t, i) => `${i + 1}. ${t}`).join('\n')
 }
 
 // ── Claude helpers ────────────────────────────────────────────────────────────
 
+const INGREDIENT_CATEGORIES = ['produce', 'dairy', 'meat', 'seafood', 'pantry', 'spices', 'bakery', 'frozen', 'other']
+
+const INGREDIENT_SCHEMA = {
+  type: 'object',
+  properties: {
+    name: { type: 'string' },
+    quantity: { type: 'string' },
+    unit: { type: 'string' },
+    category: { type: 'string', enum: INGREDIENT_CATEGORIES },
+  },
+  required: ['name', 'quantity', 'unit', 'category'],
+  additionalProperties: false,
+} as const
+
 async function categorizeIngredients(raw: string[]): Promise<ExtractedIngredient[]> {
   if (raw.length === 0) return []
+  const fallback = () => raw.map(name => ({ name, quantity: '', unit: '', category: 'other' }))
   const msg = await anthropic.messages.create({
     model: HAIKU,
-    max_tokens: 1024,
+    // Long ingredient lists (35+) truncated at 1024 and fell back to "other".
+    max_tokens: 2048,
+    // Schema-constrained output: always valid JSON, no regex scraping.
+    output_config: {
+      format: {
+        type: 'json_schema',
+        schema: {
+          type: 'object',
+          properties: { ingredients: { type: 'array', items: INGREDIENT_SCHEMA } },
+          required: ['ingredients'],
+          additionalProperties: false,
+        },
+      },
+    },
     messages: [{
       role: 'user',
-      content: `Parse these recipe ingredients into structured form. Return ONLY a valid JSON array (no markdown, no explanation):
+      content: `Parse these recipe ingredients into structured form, one entry per line below, in order. Use "" for a missing quantity or unit.
 
-${raw.map((s, i) => `${i + 1}. ${s}`).join('\n')}
-
-Use this exact structure:
-[
-  { "name": "ingredient name", "quantity": "amount or empty string", "unit": "unit or empty string", "category": "produce|dairy|meat|seafood|pantry|spices|bakery|frozen|other" }
-]
-
-Category must be one of: produce, dairy, meat, seafood, pantry, spices, bakery, frozen, other.`,
+${raw.map((s, i) => `${i + 1}. ${s}`).join('\n')}`,
     }],
-  })
+  }, LONG_CALL)
 
   const c = msg.content[0]
-  if (c.type !== 'text') return raw.map(name => ({ name, quantity: '', unit: '', category: 'other' }))
-  const arrMatch = c.text.match(/\[[\s\S]*\]/)
-  if (!arrMatch) return raw.map(name => ({ name, quantity: '', unit: '', category: 'other' }))
-  try {
-    return JSON.parse(arrMatch[0]) as ExtractedIngredient[]
-  } catch {
-    return raw.map(name => ({ name, quantity: '', unit: '', category: 'other' }))
-  }
+  if (msg.stop_reason !== 'end_turn' || c?.type !== 'text') return fallback()
+  const { ingredients } = JSON.parse(c.text) as { ingredients: ExtractedIngredient[] }
+  return ingredients.length ? ingredients : fallback()
 }
 
-/** Run a recipe-extraction prompt through Haiku and parse the JSON reply. */
+// Shared by the text, HTML-fallback and video extractors. Unknown values come
+// back as "" / 0 (mapped to undefined below) rather than nulls.
+const RECIPE_EXTRACTION_SCHEMA = {
+  type: 'object',
+  properties: {
+    found: { type: 'boolean', description: 'false when the input contains no actual recipe' },
+    name: { type: 'string' },
+    description: { type: 'string' },
+    cuisine: { type: 'string' },
+    recipe_type: { type: 'string', enum: [...RECIPE_TYPE_VALUES] },
+    categories: { type: 'array', items: { type: 'string', enum: [...RECIPE_CATEGORY_VALUES] } },
+    cook_time_minutes: { type: 'integer' },
+    servings: { type: 'integer' },
+    calories: { type: 'integer' },
+    instructions: { type: 'string' },
+    ingredients: { type: 'array', items: INGREDIENT_SCHEMA },
+  },
+  required: [
+    'found', 'name', 'description', 'cuisine', 'recipe_type', 'categories',
+    'cook_time_minutes', 'servings', 'calories', 'instructions', 'ingredients',
+  ],
+  additionalProperties: false,
+} as const
+
+const EXTRACTION_OUTPUT_NOTE = `
+
+Output notes: set "found" to false if there is no actual recipe. Use "" for unknown text fields and 0 for unknown numbers. recipe_type is the course (appetizer, main, dessert, drink).
+${CATEGORY_PROMPT_GUIDE}`
+
+/**
+ * Run a recipe-extraction prompt through Haiku with a schema-constrained reply
+ * (a malformed free-form reply used to waste the call). Also returns course and
+ * categories, so saving the recipe needs no separate classifier call.
+ */
 async function runRecipeExtraction(prompt: string, sourceUrl?: string): Promise<ExtractedRecipe> {
   const msg = await anthropic.messages.create({
     model: HAIKU,
-    max_tokens: 3000,
-    messages: [{ role: 'user', content: prompt }],
-  })
+    max_tokens: 4096,
+    output_config: { format: { type: 'json_schema', schema: RECIPE_EXTRACTION_SCHEMA } },
+    messages: [{ role: 'user', content: prompt + EXTRACTION_OUTPUT_NOTE }],
+  }, LONG_CALL)
 
   const c = msg.content[0]
-  if (c.type !== 'text') throw new Error('Unexpected AI response')
-  const jsonMatch = c.text.match(/\{[\s\S]*\}/)
-  if (!jsonMatch) throw new Error('Could not parse AI response')
-  const data = JSON.parse(jsonMatch[0]) as { error?: string } & Partial<ExtractedRecipe>
-  if (data.error) throw new Error(data.error)
-  return { ...data, ingredients: data.ingredients ?? [], name: data.name ?? 'Untitled Recipe', source_url: sourceUrl }
+  if (msg.stop_reason !== 'end_turn' || c?.type !== 'text') throw new Error('Unexpected AI response')
+  const d = JSON.parse(c.text) as {
+    found: boolean; name: string; description: string; cuisine: string; recipe_type: string
+    categories: string[]; cook_time_minutes: number; servings: number; calories: number
+    instructions: string; ingredients: ExtractedIngredient[]
+  }
+  if (!d.found) throw new Error('no recipe found')
+  return {
+    name: d.name || 'Untitled Recipe',
+    description: d.description || undefined,
+    cuisine: d.cuisine || undefined,
+    recipe_type: d.recipe_type || undefined,
+    categories: d.categories,
+    cook_time_minutes: d.cook_time_minutes || undefined,
+    servings: d.servings || undefined,
+    calories: d.calories || undefined,
+    instructions: d.instructions || undefined,
+    ingredients: d.ingredients,
+    source_url: sourceUrl,
+  }
 }
 
 function textExtractionPrompt(text: string): string {
@@ -316,6 +348,8 @@ async function importFromVideo(platform: VideoPlatform, url: URL): Promise<NextR
 
 // ── Route handler ─────────────────────────────────────────────────────────────
 
+export const maxDuration = 120
+
 export async function POST(request: NextRequest) {
   try {
     // Require auth — prevents this endpoint being used as an open HTTP proxy
@@ -413,7 +447,7 @@ export async function POST(request: NextRequest) {
     const ogTitle = getMeta(html, 'og:title')
     const ogDesc = getMeta(html, 'og:description')
     const ogImage = getMeta(html, 'og:image')
-    const bodyText = stripTags(html).slice(0, 6000)
+    const bodyText = stripTags(mainContent(html)).slice(0, 6000)
 
     if (!bodyText && !ogTitle && !ogDesc) {
       return NextResponse.json({

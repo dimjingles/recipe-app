@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useRecipes } from '@/lib/queries/hooks'
 import { toast } from 'sonner'
 import { BottomSheet } from '@/components/ui/bottom-sheet'
 import { Button } from '@/components/ui/button'
@@ -74,30 +75,43 @@ export function ComparisonDialog({ thisRecipe, onClose, onRanked }: ComparisonDi
 
   const group = rankGroup(thisRecipe.recipeType)
 
-  useState(() => {
-    // Only compare against recipes in the same pool: same like/okay/dislike
-    // tier AND same type, so a margarita never faces off against a lasagna.
-    fetch(`/api/rankings?feedback=${thisRecipe.feedback ?? 'none'}&group=${group}`)
-      .then(async r => {
-        const body = await r.json()
-        if (!r.ok || !Array.isArray(body)) {
-          throw new Error(body?.error || 'Failed to load rankings')
-        }
-        return body as RankedRecipe[]
-      })
-      .then(data => {
-        const others = data.filter(r => r.id !== thisRecipe.id)
-        setRanked(others)
-        setLo(0)
-        setHi(others.length)
-        setLoading(false)
-        if (others.length === 0) saveRank(1)
-      })
-      .catch(err => {
-        toast.error(err?.message || 'Could not load rankings')
-        onClose()
-      })
-  })
+  // Only compare against recipes in the same pool: same like/okay/dislike tier
+  // AND same type, so a margarita never faces off against a lasagna. The pool
+  // comes from the cached library (every row carries rank, feedback and type),
+  // so the first comparison shows immediately. Snapshot it once — a background
+  // refetch mid-comparison must not shift the binary search under the user.
+  const library = useRecipes()
+  useEffect(() => {
+    if (ranked || !library.data) return
+    const others: RankedRecipe[] = library.data
+      .filter(r =>
+        r.id !== thisRecipe.id &&
+        r.rank != null &&
+        (r.feedback ?? null) === (thisRecipe.feedback ?? null) &&
+        rankGroup(r.recipe_type) === group
+      )
+      .sort((a, b) => a.rank! - b.rank!)
+      .map(r => ({
+        id: r.id,
+        name: r.name,
+        cuisine: r.cuisine,
+        rank: r.rank!,
+        feedback: r.feedback ?? null,
+        recipe_type: r.recipe_type ?? null,
+      }))
+    setRanked(others)
+    setLo(0)
+    setHi(others.length)
+    setLoading(false)
+    if (others.length === 0) saveRank(1)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [library.data])
+  useEffect(() => {
+    if (!library.error) return
+    toast.error('Could not load rankings')
+    onClose()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [library.error])
 
   const saveRank = async (position: number) => {
     setSaving(true)

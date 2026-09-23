@@ -233,6 +233,7 @@ export function AddRecipeSheet({ open, onClose }: AddRecipeSheetProps) {
           description: details.description || undefined,
           cuisine: details.cuisine || undefined,
           recipe_type: details.recipe_type || undefined,
+          categories: details.categories || undefined,
           cook_time_minutes: details.cook_time_minutes || undefined,
           servings: details.servings || 4,
           calories: details.calories || undefined,
@@ -240,23 +241,13 @@ export function AddRecipeSheet({ open, onClose }: AddRecipeSheetProps) {
           difficulty: details.difficulty || undefined,
           ingredients: details.ingredients || [],
           tags: [],
+          // The save re-hosts the picked photo into our storage and attaches it
+          // as the hero (best-effort) in the same request.
+          hero_image_url: image?.fullUrl,
         }),
       })
       const saved = await saveRes.json()
       if (saved.error) throw new Error(saved.error)
-
-      // Attach the picked photo as the recipe's hero. The images route re-hosts
-      // the third-party URL into our storage so the hero doesn't break later.
-      // Best-effort: a failed attach still lands the user on their recipe.
-      if (image) {
-        try {
-          await fetch(`/api/recipes/${saved.id}/images`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url: image.fullUrl }),
-          })
-        } catch {}
-      }
 
       // The lookup route falls back to a name-only recipe when it can't download
       // the picked photo. Say so rather than presenting a generic recipe under a
@@ -311,6 +302,7 @@ export function AddRecipeSheet({ open, onClose }: AddRecipeSheetProps) {
           description: details.description || undefined,
           cuisine: details.cuisine || undefined,
           recipe_type: details.recipe_type || undefined,
+          categories: details.categories || undefined,
           cook_time_minutes: details.cook_time_minutes || undefined,
           servings: details.servings || 4,
           calories: details.calories || undefined,
@@ -760,27 +752,3 @@ export function AddRecipeSheet({ open, onClose }: AddRecipeSheetProps) {
   )
 }
 
-/**
- * Drop-in trigger: renders its children as a button that opens the
- * Add-a-recipe sheet. Lets server components (e.g. the Home page) offer the
- * sheet without managing state.
- */
-export function AddRecipeLauncher({
-  className,
-  children,
-  ariaLabel = 'Add recipe',
-}: {
-  className?: string
-  children: ReactNode
-  ariaLabel?: string
-}) {
-  const [open, setOpen] = useState(false)
-  return (
-    <>
-      <button onClick={() => setOpen(true)} className={className} aria-label={ariaLabel}>
-        {children}
-      </button>
-      <AddRecipeSheet open={open} onClose={() => setOpen(false)} />
-    </>
-  )
-}

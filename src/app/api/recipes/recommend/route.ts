@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, getUser } from '@/lib/supabase/server'
-import { getProfile } from '@/lib/db/profile'
-import { anthropic, HAIKU } from '@/lib/anthropic'
+import { getProfile, buildPrefLines } from '@/lib/db/profile'
+import { anthropic, HAIKU, LONG_CALL } from '@/lib/anthropic'
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,7 +16,8 @@ export async function POST(request: NextRequest) {
         .from('recipes')
         .select('name, cuisine, tags, cooked_count')
         .eq('user_id', user.id)
-        .order('cooked_count', { ascending: false }),
+        .order('cooked_count', { ascending: false })
+        .limit(50),
       getProfile(),
     ])
 
@@ -24,26 +25,7 @@ export async function POST(request: NextRequest) {
       `${r.name} (${r.cuisine || 'various'}, cooked ${r.cooked_count}x${r.tags?.length ? ', tags: ' + r.tags.join(', ') : ''})`
     ).join('\n') || 'No recipes yet'
 
-    // Build personalization context from onboarding answers
-    const prefLines: string[] = []
-    if (profile?.diet && profile.diet !== 'balanced') {
-      prefLines.push(`Diet: ${profile.diet.replace('_', '-')}`)
-    }
-    if (profile?.favorite_cuisines?.length) {
-      prefLines.push(`Favourite cuisines: ${profile.favorite_cuisines.join(', ')}`)
-    }
-    if (profile?.allergies?.length && !profile.allergies.includes('none')) {
-      prefLines.push(`Allergies / avoid: ${profile.allergies.join(', ')}`)
-    }
-    if (profile?.primary_goal) {
-      prefLines.push(`Cooking goal: ${profile.primary_goal.replace('_', ' ')}`)
-    }
-    if (profile?.skill_level) {
-      prefLines.push(`Skill level: ${profile.skill_level.replace('_', ' ')}`)
-    }
-    if (profile?.household_size) {
-      prefLines.push(`Cooking for: ${profile.household_size.replace('_', ' ')}`)
-    }
+    const prefLines = buildPrefLines(profile)
     const prefSection = prefLines.length
       ? `\n\nUser preferences from onboarding:\n${prefLines.join('\n')}`
       : ''
@@ -73,7 +55,7 @@ Suggest 5 new recipes they would likely enjoy. Respect dietary restrictions and 
 Vary cuisines and cooking styles. Prefer recipes that share some ingredients with their existing ones for convenience.`,
         },
       ],
-    })
+    }, LONG_CALL)
 
     const content = message.content[0]
     if (content.type !== 'text') {

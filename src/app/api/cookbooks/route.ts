@@ -31,14 +31,15 @@ export async function POST(request: NextRequest) {
 
     if (cbError) throw cbError
 
-    await emitActivity('cookbook_created', { cookbook_id: cookbook.id })
-
-    if (recipe_ids.length > 0) {
-      const { error: joinError } = await supabase
-        .from('cookbook_recipes')
-        .insert(recipe_ids.map((recipe_id: string) => ({ cookbook_id: cookbook.id, recipe_id })))
-      if (joinError) throw joinError
-    }
+    const [, join] = await Promise.all([
+      emitActivity('cookbook_created', { cookbook_id: cookbook.id }),
+      recipe_ids.length > 0
+        ? supabase
+            .from('cookbook_recipes')
+            .insert(recipe_ids.map((recipe_id: string) => ({ cookbook_id: cookbook.id, recipe_id })))
+        : Promise.resolve({ error: null }),
+    ])
+    if (join.error) throw join.error
 
     return NextResponse.json(cookbook)
   } catch (error: any) {

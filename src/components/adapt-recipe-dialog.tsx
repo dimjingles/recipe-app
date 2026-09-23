@@ -115,7 +115,6 @@ export default function AdaptRecipeDialog({ recipeId, currentServings, onClose }
       invalidate.recipesChanged()
       onClose()
       router.push(`/recipes/${data.id}`)
-      router.refresh()
     } catch (e) {
       toast.error((e as Error).message || 'Could not save variant')
       setSaving(false)

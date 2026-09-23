@@ -1,4 +1,4 @@
-import { anthropic, HAIKU } from '@/lib/anthropic'
+import { anthropic, HAIKU, QUICK_CALL } from '@/lib/anthropic'
 
 /** The values `recipes.recipe_type` can hold — the same enum the photo and
  *  dish-name extractors emit. Ranking pools are derived from these
@@ -38,7 +38,7 @@ Choose ONE of:
 
 Answer with the single word only, no punctuation or explanation.`,
       }],
-    })
+    }, QUICK_CALL)
     const content = message.content[0]
     if (content.type !== 'text') return null
     const answer = content.text.trim().toLowerCase().replace(/[^a-z]/g, '')
