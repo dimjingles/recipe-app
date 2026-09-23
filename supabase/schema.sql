@@ -532,3 +532,148 @@ begin
 end;
 $$;
 grant execute on function log_cook(uuid, timestamptz, text, boolean, text) to authenticated;
+
+-- ── RLS performance rewrite (032_rls_initplan.sql) ──────────
+-- Same access rules as the policies above, cheaper to evaluate: (select
+-- auth.uid()) initplans, my_friend_ids() instead of per-row are_friends(), and
+-- one combined SELECT policy per table.
+create or replace function my_friend_ids()
+returns setof uuid
+language sql stable security definer set search_path = public as $$
+  select case when user_id_a = auth.uid() then user_id_b else user_id_a end
+  from friendships
+  where status = 'accepted' and auth.uid() in (user_id_a, user_id_b)
+$$;
+revoke all on function my_friend_ids() from public;
+grant execute on function my_friend_ids() to authenticated;
+
+-- ── recipes ─────────────────────────────────────────────────
+drop policy if exists "Users can view own recipes" on recipes;
+drop policy if exists "Friends can view friend recipes" on recipes;
+drop policy if exists "View own and friends' recipes" on recipes;
+create policy "View own and friends' recipes" on recipes for select using (
+  user_id = (select auth.uid())
+  or (visibility = 'friends' and user_id in (select my_friend_ids()))
+);
+alter policy "Users can insert own recipes" on recipes with check (user_id = (select auth.uid()));
+alter policy "Users can update own recipes" on recipes using (user_id = (select auth.uid()));
+alter policy "Users can delete own recipes" on recipes using (user_id = (select auth.uid()));
+
+-- ── ingredients (visible exactly when the parent recipe is) ─
+drop policy if exists "Users can view ingredients of own recipes" on ingredients;
+drop policy if exists "Friends can view ingredients of visible recipes" on ingredients;
+drop policy if exists "View ingredients of visible recipes" on ingredients;
+create policy "View ingredients of visible recipes" on ingredients for select using (
+  exists (select 1 from recipes r where r.id = ingredients.recipe_id)
+);
+alter policy "Users can insert ingredients to own recipes" on ingredients with check (
+  exists (select 1 from recipes r where r.id = ingredients.recipe_id and r.user_id = (select auth.uid()))
+);
+alter policy "Users can update ingredients of own recipes" on ingredients using (
+  exists (select 1 from recipes r where r.id = ingredients.recipe_id and r.user_id = (select auth.uid()))
+);
+alter policy "Users can delete ingredients of own recipes" on ingredients using (
+  exists (select 1 from recipes r where r.id = ingredients.recipe_id and r.user_id = (select auth.uid()))
+);
+
+-- ── cookbooks ───────────────────────────────────────────────
+drop policy if exists "Users can view own cookbooks" on cookbooks;
+drop policy if exists "Friends can view friend cookbooks" on cookbooks;
+drop policy if exists "View own and friends' cookbooks" on cookbooks;
+create policy "View own and friends' cookbooks" on cookbooks for select using (
+  user_id = (select auth.uid())
+  or (visibility = 'friends' and user_id in (select my_friend_ids()))
+);
+alter policy "Users can insert own cookbooks" on cookbooks with check (user_id = (select auth.uid()));
+alter policy "Users can update own cookbooks" on cookbooks using (user_id = (select auth.uid()));
+alter policy "Users can delete own cookbooks" on cookbooks using (user_id = (select auth.uid()));
+
+-- ── cookbook_recipes (visible exactly when the cookbook is) ─
+drop policy if exists "Users can view own cookbook recipes" on cookbook_recipes;
+drop policy if exists "Friends can view cookbook_recipes of visible cookbooks" on cookbook_recipes;
+drop policy if exists "View entries of visible cookbooks" on cookbook_recipes;
+create policy "View entries of visible cookbooks" on cookbook_recipes for select using (
+  exists (select 1 from cookbooks c where c.id = cookbook_recipes.cookbook_id)
+);
+alter policy "Users can insert own cookbook recipes" on cookbook_recipes with check (
+  exists (select 1 from cookbooks c where c.id = cookbook_recipes.cookbook_id and c.user_id = (select auth.uid()))
+);
+alter policy "Users can update own cookbook recipes" on cookbook_recipes using (
+  exists (select 1 from cookbooks c where c.id = cookbook_recipes.cookbook_id and c.user_id = (select auth.uid()))
+);
+alter policy "Users can delete own cookbook recipes" on cookbook_recipes using (
+  exists (select 1 from cookbooks c where c.id = cookbook_recipes.cookbook_id and c.user_id = (select auth.uid()))
+);
+
+-- ── owner-only tables ───────────────────────────────────────
+alter policy "Users can view own cooking log"   on cooking_log using (user_id = (select auth.uid()));
+alter policy "Users can insert own cooking log" on cooking_log with check (user_id = (select auth.uid()));
+alter policy "Users can update own cooking log" on cooking_log using (user_id = (select auth.uid()));
+alter policy "Users can delete own cooking log" on cooking_log using (user_id = (select auth.uid()));
+
+alter policy "own profile - select" on profiles using (id = (select auth.uid()));
+alter policy "own profile - insert" on profiles with check (id = (select auth.uid()));
+alter policy "own profile - update" on profiles using (id = (select auth.uid()));
+
+alter policy "Users can manage own recipe rankings" on recipe_rankings
+  using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
+
+alter policy "Users can view own plans"   on weekly_plans using (user_id = (select auth.uid()));
+alter policy "Users can insert own plans" on weekly_plans with check (user_id = (select auth.uid()));
+alter policy "Users can update own plans" on weekly_plans using (user_id = (select auth.uid()));
+alter policy "Users can delete own plans" on weekly_plans using (user_id = (select auth.uid()));
+
+alter policy "Users can view own plan slots" on weekly_plan_slots using (
+  exists (select 1 from weekly_plans p where p.id = weekly_plan_slots.plan_id and p.user_id = (select auth.uid()))
+);
+alter policy "Users can insert own plan slots" on weekly_plan_slots with check (
+  exists (select 1 from weekly_plans p where p.id = weekly_plan_slots.plan_id and p.user_id = (select auth.uid()))
+);
+alter policy "Users can update own plan slots" on weekly_plan_slots using (
+  exists (select 1 from weekly_plans p where p.id = weekly_plan_slots.plan_id and p.user_id = (select auth.uid()))
+);
+alter policy "Users can delete own plan slots" on weekly_plan_slots using (
+  exists (select 1 from weekly_plans p where p.id = weekly_plan_slots.plan_id and p.user_id = (select auth.uid()))
+);
+
+-- ── social ──────────────────────────────────────────────────
+alter policy "friendship participants can select" on friendships
+  using ((select auth.uid()) in (user_id_a, user_id_b));
+
+alter policy "View own and friends' activity" on activity using (
+  actor_id = (select auth.uid()) or actor_id in (select my_friend_ids())
+);
+alter policy "Insert own activity" on activity with check (actor_id = (select auth.uid()));
+
+-- ── Feed RPC (033_feed_rpc.sql) ─────────────────────────────
+create or replace function get_feed(p_cursor timestamptz default null, p_limit int default 20)
+returns table (
+  id               uuid,
+  type             text,
+  created_at       timestamptz,
+  actor_id         uuid,
+  username         citext,
+  display_name     text,
+  avatar_url       text,
+  recipe_id        uuid,
+  recipe_name      text,
+  recipe_image_url text,
+  recipe_cuisine   text,
+  cookbook_id      uuid,
+  cookbook_name    text
+)
+language sql stable security invoker set search_path = public as $$
+  select a.id, a.type, a.created_at, a.actor_id,
+         p.username, p.display_name, p.avatar_url,
+         r.id, r.name, r.image_url, r.cuisine,
+         c.id, c.name
+  from activity a
+  left join public_profiles p on p.id = a.actor_id
+  left join recipes   r on r.id = a.recipe_id
+  left join cookbooks c on c.id = a.cookbook_id
+  where a.actor_id in (select my_friend_ids())
+    and (p_cursor is null or a.created_at < p_cursor)
+  order by a.created_at desc
+  limit least(greatest(p_limit, 1), 50)
+$$;
+grant execute on function get_feed(timestamptz, int) to authenticated;

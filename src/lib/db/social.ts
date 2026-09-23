@@ -114,47 +114,42 @@ async function profilesByIds(supabase: Client, ids: string[]): Promise<PublicPro
   return data ?? []
 }
 
-/** Accepted friends of the current user. */
-export async function getFriends(): Promise<PublicProfile[]> {
-  const supabase = await createClient()
-  const user = await getUser()
-  if (!user) return []
-  const { data: rows, error } = await supabase
-    .from('friendships')
-    .select('user_id_a, user_id_b')
-    .eq('status', 'accepted')
-  if (error) { console.error('getFriends error:', error); return [] }
-  const ids = (rows ?? []).map(r => (r.user_id_a === user.id ? r.user_id_b : r.user_id_a))
-  return profilesByIds(supabase, ids)
+export interface FriendGraph {
+  friends: PublicProfile[]
+  /** Incoming pending requests (someone else asked to be my friend). */
+  incoming: PublicProfile[]
+  /** Outgoing pending requests I've sent that haven't been answered. */
+  sent: PublicProfile[]
 }
 
-/** Incoming pending requests (someone else asked to be my friend). */
-export async function getPendingRequests(): Promise<PublicProfile[]> {
+/**
+ * Friends plus incoming and outgoing requests in two queries: every friendship
+ * row I'm part of (RLS limits it to mine), then one profile lookup for all of
+ * them. Was six queries across three helpers.
+ */
+export async function getFriendGraph(): Promise<FriendGraph> {
+  const empty: FriendGraph = { friends: [], incoming: [], sent: [] }
   const supabase = await createClient()
   const user = await getUser()
-  if (!user) return []
+  if (!user) return empty
   const { data: rows, error } = await supabase
     .from('friendships')
-    .select('requested_by')
-    .eq('status', 'pending')
-    .neq('requested_by', user.id)
-  if (error) { console.error('getPendingRequests error:', error); return [] }
-  return profilesByIds(supabase, (rows ?? []).map(r => r.requested_by))
-}
+    .select('user_id_a, user_id_b, status, requested_by')
+    .in('status', ['accepted', 'pending'])
+  if (error) { console.error('getFriendGraph error:', error); return empty }
 
-/** Outgoing pending requests I've sent that haven't been answered. */
-export async function getSentRequests(): Promise<PublicProfile[]> {
-  const supabase = await createClient()
-  const user = await getUser()
-  if (!user) return []
-  const { data: rows, error } = await supabase
-    .from('friendships')
-    .select('user_id_a, user_id_b')
-    .eq('status', 'pending')
-    .eq('requested_by', user.id)
-  if (error) { console.error('getSentRequests error:', error); return [] }
-  const ids = (rows ?? []).map(r => (r.user_id_a === user.id ? r.user_id_b : r.user_id_a))
-  return profilesByIds(supabase, ids)
+  const other = (r: { user_id_a: string; user_id_b: string }) =>
+    r.user_id_a === user.id ? r.user_id_b : r.user_id_a
+  const profiles = await profilesByIds(supabase, (rows ?? []).map(other))
+  const byId = new Map(profiles.map(p => [p.id, p]))
+  const pick = (ids: string[]) => ids.map(id => byId.get(id)).filter((p): p is PublicProfile => !!p)
+
+  const list = rows ?? []
+  return {
+    friends: pick(list.filter(r => r.status === 'accepted').map(other)),
+    incoming: pick(list.filter(r => r.status === 'pending' && r.requested_by !== user.id).map(other)),
+    sent: pick(list.filter(r => r.status === 'pending' && r.requested_by === user.id).map(other)),
+  }
 }
 
 /** The current user's relationship toward `otherId`. */

@@ -443,6 +443,28 @@ export interface Database {
         Args: { other_id: string }
         Returns: undefined
       }
+      get_feed: {
+        Args: { p_cursor?: string | null; p_limit?: number }
+        Returns: {
+          id: string
+          type: string
+          created_at: string
+          actor_id: string
+          username: string | null
+          display_name: string | null
+          avatar_url: string | null
+          recipe_id: string | null
+          recipe_name: string | null
+          recipe_image_url: string | null
+          recipe_cuisine: string | null
+          cookbook_id: string | null
+          cookbook_name: string | null
+        }[]
+      }
+      my_friend_ids: {
+        Args: Record<string, never>
+        Returns: string[]
+      }
       log_cook: {
         Args: {
           p_recipe_id: string

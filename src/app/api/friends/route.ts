@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getUser } from '@/lib/supabase/server'
-import { getFriends, unfriend } from '@/lib/db/social'
+import { getFriendGraph, unfriend } from '@/lib/db/social'
 
 export async function GET() {
   try {
   const user = await getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    return NextResponse.json({ friends: await getFriends() })
+    // The whole graph: `friends` plus pending `incoming` / `sent` requests.
+    return NextResponse.json(await getFriendGraph())
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
