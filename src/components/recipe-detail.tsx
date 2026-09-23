@@ -1,7 +1,6 @@
 'use client'
 
 import { useCallback, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Clock, Users, Edit, ChefHat, Trophy, X, BookOpen, Plus, Minus, Play, Sparkles, GitBranch, Maximize2, Images, Check, Share2, ImagePlus, ImageOff, Flame } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -10,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
 import { RecipeWithDetails, Cookbook, SkillProfile, Technique, InstructionStep } from '@/types/database'
+import type { RecipeVariantLink } from '@/types/database'
 import AdaptRecipeDialog from '@/components/adapt-recipe-dialog'
 import RecipeGallery from '@/components/recipe-gallery'
 import ChefAiChat from '@/components/chef-ai-chat'
@@ -304,13 +304,7 @@ function ServingsControl({
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-/** A sibling recipe adapted from this one (or the original this was adapted from). */
-export interface RecipeVariantLink {
-  id: string
-  name: string
-  cuisine: string | null
-  adaptation_type: string | null
-}
+export type { RecipeVariantLink }
 
 export default function RecipeDetail({
   recipe,
@@ -329,14 +323,10 @@ export default function RecipeDetail({
   variants?: RecipeVariantLink[]
   score: number | null
 }) {
-  const router = useRouter()
   const invalidate = useCacheInvalidation()
-  // Converted pages (home/recipes/planner/cookbooks) render from the client
-  // query cache, so a refresh of this server-rendered page alone isn't enough.
-  const refreshEverywhere = () => {
-    invalidate.recipesChanged()
-    router.refresh()
-  }
+  // Every view (this one included) renders from the client query cache, so a
+  // change here just invalidates the recipe queries.
+  const refreshEverywhere = () => invalidate.recipesChanged()
   const [showCook, setShowCook] = useState(false)
   const [showRerankFeedback, setShowRerankFeedback] = useState(false)
   const [showRank, setShowRank] = useState(false)
@@ -463,6 +453,7 @@ export default function RecipeDetail({
         body: JSON.stringify({ cooked_at }),
       })
       if (!res.ok) throw new Error('Failed')
+      refreshEverywhere() // last_cooked_at feeds the library's sorts
     } catch {
       toast.error('Could not update date')
       refreshEverywhere()
@@ -475,6 +466,7 @@ export default function RecipeDetail({
     try {
       const res = await fetch(`/api/recipes/${recipe.id}/log/${logId}`, { method: 'DELETE' })
       if (!res.ok) throw new Error('Failed')
+      refreshEverywhere() // cooked_count / last_cooked_at changed
     } catch {
       toast.error('Could not delete log entry')
       refreshEverywhere()

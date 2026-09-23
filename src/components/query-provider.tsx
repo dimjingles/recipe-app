@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import { QueryClient, defaultShouldDehydrateQuery, useIsRestoring, useQueryClient, type Query } from '@tanstack/react-query'
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client'
 import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persister'
-import { queries, queryKeys, warmCache, UnauthorizedError } from '@/lib/queries/hooks'
+import { queries, queryKeys, warmCache, NotFoundError, UnauthorizedError } from '@/lib/queries/hooks'
 
 /** Bump to discard everyone's persisted cache after a breaking shape change. */
 const CACHE_VERSION = 'v2' // v2: slim recipe list rows (no instructions/steps)
@@ -23,6 +23,7 @@ const PERSISTED_ROOTS = new Set<unknown>([
   queryKeys.cookbooks[0],
   queryKeys.feed[0],
   queryKeys.plannerPatterns[0],
+  queryKeys.friends[0],
 ])
 function shouldPersist(query: Query) {
   return defaultShouldDehydrateQuery(query) && PERSISTED_ROOTS.has(query.queryKey[0])
@@ -50,7 +51,7 @@ function makeQueryClient() {
         staleTime: 5 * 60 * 1000,
         gcTime: DAY_MS, // must be >= persister maxAge or restores get dropped
         retry: (failureCount, error) =>
-          error instanceof UnauthorizedError ? false : failureCount < 2,
+          error instanceof UnauthorizedError || error instanceof NotFoundError ? false : failureCount < 2,
         refetchOnWindowFocus: true,
         refetchOnReconnect: true,
       },

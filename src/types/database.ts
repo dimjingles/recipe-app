@@ -516,6 +516,14 @@ export type RecipeWithIngredients = Recipe & {
   cookbook_recipes?: { cookbook_id: string }[]
 }
 
+/** A sibling recipe adapted from this one (or the original this was adapted from). */
+export interface RecipeVariantLink {
+  id: string
+  name: string
+  cuisine: string | null
+  adaptation_type: string | null
+}
+
 export type RecipeWithDetails = Recipe & {
   ingredients: Ingredient[]
   cooking_log: CookingLog[]

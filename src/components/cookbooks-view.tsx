@@ -9,7 +9,8 @@ import { BottomSheet } from '@/components/ui/bottom-sheet'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { CookbookWithCount, RecipeListItem } from '@/types/database'
-import { useCacheInvalidation } from '@/lib/queries/hooks'
+import { queryKeys, useCacheInvalidation } from '@/lib/queries/hooks'
+import { useQueryClient } from '@tanstack/react-query'
 
 interface CookbooksViewProps {
   initialCookbooks: CookbookWithCount[]
@@ -19,7 +20,12 @@ interface CookbooksViewProps {
 export default function CookbooksView({ initialCookbooks, initialRecipes }: CookbooksViewProps) {
   const router = useRouter()
   const invalidate = useCacheInvalidation()
-  const [cookbooks, setCookbooks] = useState(initialCookbooks)
+  const queryClient = useQueryClient()
+  // Render straight from the cached query (the prop is useCookbooks().data), and
+  // write edits into that cache — a local copy would ignore background refetches.
+  const cookbooks = initialCookbooks
+  const setCookbooks = (fn: (prev: CookbookWithCount[]) => CookbookWithCount[]) =>
+    queryClient.setQueryData<CookbookWithCount[]>(queryKeys.cookbooks, old => fn(old ?? []))
 
   // Create sheet
   const [showCreate, setShowCreate] = useState(false)

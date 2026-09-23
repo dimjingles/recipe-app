@@ -1,6 +1,7 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { ChevronLeft, ChevronRight, X, Search, ShoppingCart, Sparkles, Loader2, Undo2, AlertTriangle } from 'lucide-react'
 import Link from 'next/link'
 import { format, addDays, addWeeks, subWeeks, startOfWeek } from 'date-fns'
@@ -21,7 +22,7 @@ import type { DayCuisinePattern } from '@/lib/db/planner'
 import PlanDiversityBar from '@/components/plan-diversity-bar'
 import RescueRecipeCard from '@/components/rescue-recipe-card'
 import TopCookedCard from '@/components/top-cooked-card'
-import { useCacheInvalidation } from '@/lib/queries/hooks'
+import { queries, queryKeys, useCacheInvalidation, usePlan } from '@/lib/queries/hooks'
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 const FULL_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
@@ -31,7 +32,6 @@ function getWeekStartFromDate(date: Date): string {
 }
 
 interface Props {
-  initialPlan: PlanWithSlots | null
   recipes: ScorableRecipe[]
   weekStart: string
   profile: Profile | null
@@ -41,7 +41,6 @@ interface Props {
 }
 
 export default function PlannerView({
-  initialPlan,
   recipes,
   weekStart: initialWeekStart,
   profile,
@@ -50,12 +49,37 @@ export default function PlannerView({
   cookbooks,
 }: Props) {
   const invalidate = useCacheInvalidation()
+  const queryClient = useQueryClient()
   const [weekStart, setWeekStart] = useState(initialWeekStart)
-  const [plan, setPlan] = useState<PlanWithSlots | null>(initialPlan)
-  const [slots, setSlots] = useState<SlotWithRecipe[]>((initialPlan?.weekly_plan_slots as SlotWithRecipe[]) || [])
+  // The week's plan lives in the query cache (not a local copy), so background
+  // refetches and other devices' changes show up, and weeks you've visited
+  // switch instantly.
+  const planQuery = usePlan(weekStart)
+  const plan = planQuery.data ?? null
+  const slots = useMemo(() => (plan?.weekly_plan_slots ?? []) as SlotWithRecipe[], [plan])
+  const loading = planQuery.isPending
   const [pickingDay, setPickingDay] = useState<number | null>(null)
   const [search, setSearch] = useState('')
-  const [loading, setLoading] = useState(false)
+
+  // Adjacent weeks are one tap away — have them ready.
+  useEffect(() => {
+    const d = new Date(weekStart + 'T00:00:00')
+    for (const w of [subWeeks(d, 1), addWeeks(d, 1)]) {
+      void queryClient.prefetchQuery(queries.plan(getWeekStartFromDate(w)))
+    }
+  }, [weekStart, queryClient])
+
+  /** Optimistically edit this week's cached slots. Returns an undo for rollback. */
+  const updateSlots = (fn: (prev: SlotWithRecipe[]) => SlotWithRecipe[]) => {
+    const key = queryKeys.plan(weekStart)
+    void queryClient.cancelQueries({ queryKey: key })
+    const previous = queryClient.getQueryData<PlanWithSlots | null>(key)
+    queryClient.setQueryData<PlanWithSlots | null>(key, old => {
+      const base = old ?? ({ id: '', user_id: '', week_start: weekStart, created_at: '', weekly_plan_slots: [] } as PlanWithSlots)
+      return { ...base, weekly_plan_slots: fn((base.weekly_plan_slots ?? []) as SlotWithRecipe[]) }
+    })
+    return () => queryClient.setQueryData(key, previous)
+  }
 
   // Slice 2 — auto-fill
   const [showAutoFillConfirm, setShowAutoFillConfirm] = useState(false)
@@ -109,22 +133,10 @@ export default function PlannerView({
   const firstEmptyDay = (): number | null =>
     [0, 1, 2, 3, 4, 5, 6].find(d => !slots.some(s => s.day_of_week === d)) ?? null
 
-  const navigateWeek = async (direction: 'prev' | 'next') => {
+  const navigateWeek = (direction: 'prev' | 'next') => {
     const newDate = direction === 'next' ? addWeeks(currentWeekDate, 1) : subWeeks(currentWeekDate, 1)
-    const newWeekStart = getWeekStartFromDate(newDate)
-    setWeekStart(newWeekStart)
+    setWeekStart(getWeekStartFromDate(newDate))
     setAutoFillUndo(null)
-    setLoading(true)
-    try {
-      const res = await fetch(`/api/planner/week?week_start=${newWeekStart}`)
-      const data = await res.json()
-      setPlan(data.plan)
-      setSlots(data.plan?.weekly_plan_slots || [])
-    } catch {
-      setSlots([])
-    } finally {
-      setLoading(false)
-    }
   }
 
   const commitAssign = async (recipe: ScorableRecipe, day: number) => {
@@ -136,19 +148,22 @@ export default function PlannerView({
       meal_type: 'dinner',
       recipe,
     }
-    setSlots(prev => [...prev.filter(s => s.day_of_week !== day), optimisticSlot])
+    const rollback = updateSlots(prev => [...prev.filter(s => s.day_of_week !== day), optimisticSlot])
     setAutoFillUndo(null) // manual change invalidates the auto-fill undo
 
     const res = await fetch('/api/planner/slots', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ weekStart, dayOfWeek: day, recipeId: recipe.id }),
-    })
-    if (!res.ok) toast.error('Could not save - tap to retry')
-    else {
+    }).catch(() => null)
+    if (!res?.ok) {
+      rollback()
+      toast.error('Could not save - tap to retry')
+    } else {
       toast.success(`${recipe.name} added to ${FULL_DAYS[day]}`)
-      invalidate.planChanged()
     }
+    // Refetch either way: swaps the temp slot for the real row (with its id).
+    invalidate.planChanged()
   }
 
   const handlePick = (recipe: ScorableRecipe, hasConflict: boolean) => {
@@ -181,13 +196,19 @@ export default function PlannerView({
   }
 
   const removeSlot = async (slot: SlotWithRecipe) => {
-    setSlots(prev => prev.filter(s => s.id !== slot.id))
+    // A just-added slot has no server id until the refetch lands.
+    if (slot.id.startsWith('temp-')) return
+    const rollback = updateSlots(prev => prev.filter(s => s.id !== slot.id))
     setAutoFillUndo(null)
-    await fetch('/api/planner/slots', {
+    const res = await fetch('/api/planner/slots', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ slotId: slot.id }),
-    })
+    }).catch(() => null)
+    if (!res?.ok) {
+      rollback()
+      toast.error('Could not remove - try again')
+    }
     invalidate.planChanged()
   }
 
@@ -211,7 +232,7 @@ export default function PlannerView({
         return
       }
       const addedDays = new Set(added.map(s => s.day_of_week))
-      setSlots(prev => [...prev.filter(s => !addedDays.has(s.day_of_week)), ...added])
+      updateSlots(prev => [...prev.filter(s => !addedDays.has(s.day_of_week)), ...added])
       setAutoFillUndo(added)
       invalidate.planChanged()
       toast.success(`Filled ${added.length} ${added.length === 1 ? 'day' : 'days'}`)
@@ -225,14 +246,19 @@ export default function PlannerView({
   const undoAutoFill = async () => {
     if (!autoFillUndo) return
     const ids = autoFillUndo.map(s => s.id)
-    setSlots(prev => prev.filter(s => !ids.includes(s.id)))
+    const rollback = updateSlots(prev => prev.filter(s => !ids.includes(s.id)))
     setAutoFillUndo(null)
-    await fetch('/api/planner/slots', {
+    const res = await fetch('/api/planner/slots', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ slotIds: ids }),
-    })
+    }).catch(() => null)
     invalidate.planChanged()
+    if (!res?.ok) {
+      rollback()
+      toast.error('Could not undo auto-fill')
+      return
+    }
     toast.success('Auto-fill undone')
   }
 
@@ -256,6 +282,8 @@ export default function PlannerView({
         <h1 className="font-heading text-4xl font-bold tracking-tight text-foreground">Planner</h1>
         <Link
           href={`/planner/grocery?week_start=${weekStart}`}
+          onPointerDown={() => void queryClient.prefetchQuery(queries.grocery(weekStart))}
+          onPointerEnter={() => void queryClient.prefetchQuery(queries.grocery(weekStart))}
           className="inline-flex items-center gap-1.5 rounded-xl bg-sage-subtle px-4 py-2 text-sm font-bold text-sage shadow-sm ring-1 ring-sage/15 transition-all hover:bg-sage-subtle/80 active:scale-[0.97]"
         >
           <ShoppingCart className="w-4 h-4" />

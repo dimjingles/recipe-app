@@ -1,7 +1,7 @@
 import { anthropic, HAIKU, SONNET, extractJsonObject, LONG_CALL } from '@/lib/anthropic'
 import type { AdaptationType, AdaptedRecipeDraft } from '@/types/database'
 
-/** The subset of a recipe the adapter needs. Matches columns selected via getRecipe. */
+/** The subset of a recipe the adapter needs. Matches columns selected via getRecipeForAI. */
 export interface AdaptRecipeInput {
   id: string
   name: string

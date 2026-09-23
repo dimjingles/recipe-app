@@ -15,7 +15,8 @@ import { RecipeCard } from '@/components/recipe-card'
 import { AddRecipeSheet } from '@/components/add-recipe-sheet'
 import { EmptyState, RecipeBookIllustration } from '@/components/ui/empty-state'
 import { Shimmer } from '@/components/ui/shimmer'
-import { useCacheInvalidation } from '@/lib/queries/hooks'
+import { queries, queryKeys, useCacheInvalidation } from '@/lib/queries/hooks'
+import { useQueryClient } from '@tanstack/react-query'
 import { RECIPE_CATEGORIES } from '@/lib/recipe-categories'
 
 // The "Course" filter. Mirrors the values `recipe_type` can actually hold
@@ -77,12 +78,14 @@ const LibraryCard = memo(function LibraryCard({
   score: number | null
   index: number
 }) {
+  const queryClient = useQueryClient()
   return (
     <RecipeCard
       recipe={recipe}
       variant="grid"
       score={score}
       href={`/recipes/${recipe.id}`}
+      onIntent={() => void queryClient.prefetchQuery(queries.recipe(recipe.id))}
       showCookTime={false}
       className="animate-fade-in-up"
       style={{ animationDelay: `${Math.min(index, 8) * 40}ms` }}
@@ -229,7 +232,12 @@ export default function RecipeLibrary({
   // Cooked-tab preference, so switching tabs doesn't clobber the other's choice.
   const [wantToTrySort, setWantToTrySort] = useState<WantToTrySortPreference>('recently_added')
   const [wantToTryDirection, setWantToTryDirection] = useState<RecipeSortDirection>('default')
-  const [cookbooks, setCookbooks] = useState<CookbookWithCount[]>(initialCookbooks)
+  const queryClient = useQueryClient()
+  // Render straight from the cached query (the prop is useCookbooks().data), and
+  // write edits into that cache — a local copy would ignore background refetches.
+  const cookbooks = initialCookbooks
+  const setCookbooks = (fn: (prev: CookbookWithCount[]) => CookbookWithCount[]) =>
+    queryClient.setQueryData<CookbookWithCount[]>(queryKeys.cookbooks, old => fn(old ?? []))
   const [onlineResults, setOnlineResults] = useState<OnlineResult[]>([])
   const [loadingOnline, setLoadingOnline] = useState(false)
   const [pendingSearch, setPendingSearch] = useState(false)

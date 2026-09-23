@@ -1,7 +1,6 @@
 import { createClient, getUser } from '@/lib/supabase/server'
-import type { RecipeListItem, RecipeWithDetails, RecipeWithIngredients } from '@/types/database'
+import type { RecipeListItem, RecipeWithIngredients } from '@/types/database'
 import { RECIPE_SUMMARY_COLUMNS } from '@/lib/recipe-columns'
-import { computeScores, type RankedInput } from '@/lib/scoring'
 
 export async function getRecipes(): Promise<RecipeListItem[]> {
   const supabase = await createClient()
@@ -32,57 +31,6 @@ export async function getRecipes(): Promise<RecipeListItem[]> {
     return b.created_at.localeCompare(a.created_at)
   })
   return recipes
-}
-
-/** Map of recipe id → 0.0–10.0 score for the current user's ranked recipes,
- *  grouped and spread within each (recipe type, feedback tier) pool. Rank is
- *  per-user (recipe_rankings); the tier and type are properties of the recipe. */
-export async function getRankedScores(): Promise<Record<string, number>> {
-  const supabase = await createClient()
-  const user = await getUser()
-  if (!user) return {}
-
-  const { data, error } = await supabase
-    .from('recipe_rankings')
-    .select('recipe_id, rank, recipe:recipes(feedback, recipe_type)')
-    .eq('user_id', user.id)
-
-  if (error) { console.error(error); return {} }
-  const input: RankedInput[] = (data ?? []).map((r: any) => ({
-    id: r.recipe_id,
-    rank: r.rank,
-    feedback: r.recipe?.feedback ?? null,
-    recipeType: r.recipe?.recipe_type ?? null,
-  }))
-  return computeScores(input)
-}
-
-export async function getRecipe(id: string) {
-  const supabase = await createClient()
-  const user = await getUser()
-
-  // rank shown on the detail page is the current user's personal rank.
-  const [{ data, error }, ranking] = await Promise.all([
-    supabase
-      .from('recipes')
-      .select('*, ingredients(*), cooking_log(*)')
-      .eq('id', id)
-      .single(),
-    user
-      ? supabase
-          .from('recipe_rankings')
-          .select('rank')
-          .eq('user_id', user.id)
-          .eq('recipe_id', id)
-          .maybeSingle()
-      : Promise.resolve({ data: null }),
-  ])
-
-  if (error) { console.error(error); return null }
-
-  const recipe = data as RecipeWithDetails
-  recipe.rank = ranking.data?.rank ?? null
-  return recipe
 }
 
 /**

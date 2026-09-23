@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ChefHat, CalendarDays, Plus, ShoppingCart, Sparkles, Users } from 'lucide-react'
 import { format, addDays } from 'date-fns'
-import { useFeed, useMe, usePlan, useRecipes } from '@/lib/queries/hooks'
+import { queries, useFeed, useMe, usePlan, useRecipes } from '@/lib/queries/hooks'
+import { useQueryClient } from '@tanstack/react-query'
 import { PageSkeleton, useAuthRedirect } from '@/components/cached-page'
 import { getWeekStart } from '@/lib/week'
 import { getCuisineEmoji } from '@/lib/cuisine-emoji'
@@ -20,6 +21,7 @@ const HOME_FEED_PREVIEW = 3
 
 export default function HomeClient() {
   const router = useRouter()
+  const queryClient = useQueryClient()
   const weekStart = getWeekStart()
   const me = useMe()
   const recipes = useRecipes()
@@ -195,6 +197,7 @@ export default function HomeClient() {
                 recipe={recipe}
                 variant="grid"
                 href={`/recipes/${recipe.id}`}
+                onIntent={() => void queryClient.prefetchQuery(queries.recipe(recipe.id))}
                 style={{ animationDelay: `${Math.min(i, 8) * 40}ms` }}
               />
             ))}

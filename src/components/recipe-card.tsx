@@ -28,6 +28,9 @@ interface RecipeCardProps {
   /** Render the card as a link (prefetchable, open-in-new-tab) instead of a
    *  click handler. Don't combine with an interactive `action`. */
   href?: string
+  /** Called when the user shows intent to open the card (pointer down / hover)
+   *  — e.g. to prefetch the recipe before the tap completes. */
+  onIntent?: () => void
   action?: ReactNode
   style?: CSSProperties
   className?: string
@@ -43,6 +46,7 @@ export const RecipeCard = memo(function RecipeCard({
   score,
   onClick,
   href,
+  onIntent,
   action,
   style,
   className,
@@ -56,7 +60,8 @@ export const RecipeCard = memo(function RecipeCard({
   const [imageBroken, setImageBroken] = useState(false)
   // Stable element types (Link or div), so switching never remounts the card.
   const Root = (href ? Link : 'div') as 'div'
-  const rootProps = href ? ({ href, style } as object) : { onClick, style }
+  const intentProps = onIntent ? { onPointerDown: onIntent, onPointerEnter: onIntent } : {}
+  const rootProps = href ? ({ href, style, ...intentProps } as object) : { onClick, style, ...intentProps }
 
   if (variant === 'list') {
     return (
