@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { CATEGORY_PROMPT_GUIDE, RECIPE_CATEGORY_VALUES } from '@/lib/recipe-categories'
 import Anthropic from '@anthropic-ai/sdk'
-import { anthropic, OPUS, SONNET_5, LONG_CALL } from '@/lib/anthropic'
+import { anthropic, OPUS, SONNET, LONG_CALL } from '@/lib/anthropic'
 import { getUser } from '@/lib/supabase/server'
 import { fetchFirstImageAsBase64, type FetchedImage } from '@/lib/images/fetch-base64'
 
@@ -29,6 +30,7 @@ const RECIPE_SCHEMA = {
     },
     cuisine: { type: 'string' },
     recipe_type: { type: 'string', enum: ['appetizer', 'main', 'dessert', 'drink'] },
+    categories: { type: 'array', items: { type: 'string', enum: [...RECIPE_CATEGORY_VALUES] } },
     cook_time_minutes: { type: 'integer' },
     servings: { type: 'integer' },
     calories: { type: 'integer' },
@@ -40,6 +42,7 @@ const RECIPE_SCHEMA = {
     'ingredients',
     'cuisine',
     'recipe_type',
+    'categories',
     'cook_time_minutes',
     'servings',
     'calories',
@@ -85,7 +88,9 @@ Estimate calories PER SERVING — a whole number derived from the ingredients an
 Difficulty rating, based on the complexity of the instructions you write:
 - 1 = Easy — simple techniques, few steps, beginner-friendly
 - 2 = Medium — requires some skill, multiple components, moderate timing
-- 3 = Hard — advanced techniques, precise timing, complex preparations`
+- 3 = Hard — advanced techniques, precise timing, complex preparations
+
+${CATEGORY_PROMPT_GUIDE}`
 }
 
 // Ask the model for a recipe, optionally letting it "see" the photo the user
@@ -105,7 +110,7 @@ function generateRecipe(name: string, image?: FetchedImage) {
   return anthropic.messages.create({
     // Opus only earns its price reading a dish off a photo; a name-only recipe is
     // plain recipe writing, which Sonnet 5 handles at well under half the cost.
-    model: image ? OPUS : SONNET_5,
+    model: image ? OPUS : SONNET,
     // Opus 5 / Sonnet 5 think by default, and thinking shares this budget with the response —
     // 4096 (fine on Haiku) can truncate a long recipe mid-instructions. `low` effort
     // suits a scoped extraction task like this and keeps latency down; the user is

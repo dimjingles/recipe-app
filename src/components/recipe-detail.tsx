@@ -58,17 +58,13 @@ function CookDialog({ recipeId, initialFeedback, onClose, onSaved }: CookDialogP
       const res = await fetch(`/api/recipes/${recipeId}/log`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ notes: notes || undefined }),
+        // The taste verdict, if the user changed it, is saved in the same call.
+        body: JSON.stringify({
+          notes: notes || undefined,
+          ...(feedback !== initialFeedback ? { feedback } : {}),
+        }),
       })
       if (!res.ok) throw new Error('Failed')
-      // Persist the taste verdict alongside the cook, if the user set one.
-      if (feedback !== initialFeedback) {
-        await fetch(`/api/recipes/${recipeId}/feedback`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ feedback }),
-        })
-      }
       toast.success('Cooking logged! 🎉')
       onSaved(feedback!)
       onClose()

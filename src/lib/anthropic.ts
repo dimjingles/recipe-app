@@ -4,14 +4,14 @@ import Anthropic from '@anthropic-ai/sdk'
 export const anthropic = new Anthropic()
 
 export const HAIKU = 'claude-haiku-4-5-20251001'
-export const SONNET = 'claude-sonnet-4-6'
 // High-resolution vision (2576px long edge, vs 1568px on Haiku) — worth the cost
 // where the model has to read a dish off a plate. Note thinking is on by default
 // on Opus 5 and shares the `max_tokens` budget with the response.
 export const OPUS = 'claude-opus-5'
-// Text-only recipe writing: strong enough for a home-cook recipe at a fraction of
-// Opus's price. Thinks adaptively by default (shares `max_tokens`), like Opus 5.
-export const SONNET_5 = 'claude-sonnet-5'
+// Chat, adaptation and text-only recipe writing: cheaper than Sonnet 4.6 and a
+// fraction of Opus. Thinks adaptively by default, and thinking shares
+// `max_tokens` with the response — budget for it or turn it off per call.
+export const SONNET = 'claude-sonnet-5'
 
 // Per-request options. The SDK default is a 10-minute timeout with 2 retries,
 // so one hung call could stall a request for half an hour.

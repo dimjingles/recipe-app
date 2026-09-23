@@ -443,6 +443,16 @@ export interface Database {
         Args: { other_id: string }
         Returns: undefined
       }
+      log_cook: {
+        Args: {
+          p_recipe_id: string
+          p_cooked_at?: string
+          p_notes?: string | null
+          p_set_feedback?: boolean
+          p_feedback?: string | null
+        }
+        Returns: undefined
+      }
     }
   }
 }

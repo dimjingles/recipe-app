@@ -221,15 +221,11 @@ export default function PlannerView({
     const ids = autoFillUndo.map(s => s.id)
     setSlots(prev => prev.filter(s => !ids.includes(s.id)))
     setAutoFillUndo(null)
-    await Promise.all(
-      ids.map(id =>
-        fetch('/api/planner/slots', {
-          method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ slotId: id }),
-        })
-      )
-    )
+    await fetch('/api/planner/slots', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slotIds: ids }),
+    })
     invalidate.planChanged()
     toast.success('Auto-fill undone')
   }

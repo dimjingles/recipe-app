@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { anthropic, extractJsonObject, HAIKU, QUICK_CALL } from '@/lib/anthropic'
-import { classifyTechniques, getTechniqueKeys } from '@/lib/ai/classify-techniques'
+import { NextRequest, NextResponse, after } from 'next/server'
+import { anthropic, extractJsonObject, HAIKU, LONG_CALL } from '@/lib/anthropic'
+import { enrichRecipe } from '@/lib/ai/enrich-recipe'
 import { structureInstructions } from '@/lib/ai/structure-instructions'
 import { getRecipeForAI } from '@/lib/db/recipes'
 import { createClient, getUser } from '@/lib/supabase/server'
@@ -61,7 +61,7 @@ Current instructions:
 ${currentInstructions}`,
         },
       ],
-    }, QUICK_CALL)
+    }, LONG_CALL)
 
     const text = result.content.find(part => part.type === 'text')?.text || ''
     const parsed = extractJsonObject(text) as { instructions?: unknown }
@@ -71,16 +71,15 @@ ${currentInstructions}`,
       return NextResponse.json({ error: 'Could not revise instructions' }, { status: 502 })
     }
 
-    const [techniques, instruction_steps] = await Promise.all([
-      getTechniqueKeys().then(keys => classifyTechniques(recipe.name, instructions, keys)),
-      structureInstructions(recipe.name, instructions),
-    ])
+    // The revision comes back numbered, so structuring is deterministic and
+    // instant; re-classifying techniques is an AI call, so it runs after the
+    // response.
+    const instruction_steps = await structureInstructions(recipe.name, instructions)
 
     const { data: updatedRecipe, error } = await supabase
       .from('recipes')
       .update({
         instructions,
-        techniques,
         instruction_steps: instruction_steps.length ? instruction_steps : null,
       })
       .eq('id', id)
@@ -89,6 +88,8 @@ ${currentInstructions}`,
       .single()
 
     if (error) throw error
+
+    after(() => enrichRecipe(id, user.id, recipe.name, instructions))
 
     return NextResponse.json({ recipe: updatedRecipe, instructions })
   } catch (error: any) {

@@ -224,16 +224,3 @@ export async function getFriendCookbooks(userId: string): Promise<CookbookWithCo
   return (data ?? []) as CookbookWithCount[]
 }
 
-/** Public profile + counts of what the current user can see. */
-export async function getFriendProfile(username: string): Promise<
-  { profile: PublicProfile; recipeCount: number; cookbookCount: number } | null
-> {
-  const profile = await getPublicProfile(username)
-  if (!profile) return null
-  const supabase = await createClient()
-  const [{ count: rc }, { count: cc }] = await Promise.all([
-    supabase.from('recipes').select('id', { count: 'exact', head: true }).eq('user_id', profile.id),
-    supabase.from('cookbooks').select('id', { count: 'exact', head: true }).eq('user_id', profile.id),
-  ])
-  return { profile, recipeCount: rc ?? 0, cookbookCount: cc ?? 0 }
-}

@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse, after } from 'next/server'
+import type Anthropic from '@anthropic-ai/sdk'
 import { anthropic, SONNET } from '@/lib/anthropic'
 import { getUser } from '@/lib/supabase/server'
 import { getRecipeForAI } from '@/lib/db/recipes'
@@ -8,33 +9,54 @@ import { findReadyTechnique, isRecipeTechnique, normalizeSkillProfile } from '@/
 import { buildChefStyleDirectives, chefPreferencesFromProfile } from '@/lib/cook/chef-preferences'
 import type { Technique } from '@/types/database'
 
+// Turns of conversation sent to the model (user + assistant messages).
+const MAX_HISTORY = 40
+
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const user = await getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const body = await request.json()
-  const recipe = await getRecipeForAI(id)
+  const [body, recipe, profile, catalogue] = await Promise.all([
+    request.json(),
+    getRecipeForAI(id),
+    getProfile(),
+    getTechniques().catch(() => [] as Technique[]),
+  ])
   if (!recipe || recipe.user_id !== user.id) return NextResponse.json({ error: 'Recipe not found' }, { status: 404 })
 
   const ingredients = (recipe.ingredients || [])
     .map(i => `- ${[i.quantity, i.unit, i.name].filter(Boolean).join(' ')}${i.category ? ` (${i.category})` : ''}`)
     .join('\n')
 
-  const [profile, catalogue] = await Promise.all([getProfile(), getTechniques()])
+  // Only the most recent turns — the recipe itself is in the system prompt.
+  const history: Anthropic.MessageParam[] = Array.isArray(body.messages) ? body.messages.slice(-MAX_HISTORY) : []
+  // Drop leading assistant turns left over from the slice; the API needs a user turn first.
+  while (history.length && history[0].role !== 'user') history.shift()
+
   const skillProfile = normalizeSkillProfile(profile?.skill_profile, profile?.skill_level)
   const recipeTechniqueKeys = recipe.techniques || []
-  const catalogueItems = (catalogue || []) as Technique[]
-  const recipeSpecificCatalogue = catalogueItems.filter(isRecipeTechnique)
+  const recipeSpecificCatalogue = catalogue.filter(isRecipeTechnique)
   const recipeTechniques = recipeSpecificCatalogue.filter(t => recipeTechniqueKeys.includes(t.key))
-  const stretchTechnique = findReadyTechnique(recipeTechniques, skillProfile)
-    || findReadyTechnique(recipeSpecificCatalogue, skillProfile)
 
-  if (stretchTechnique) {
-    await updateSkillProfile(user.id, {
-      newSeenKeys: [stretchTechnique.key],
-      lastStretchTechnique: stretchTechnique.key,
-    })
+  // Pick the stretch technique once, at the start of a cooking session, and
+  // record it; later turns reuse the recorded one. Re-picking every turn made the
+  // coaching target drift mid-session and changed the system prompt each time,
+  // which also defeated prompt caching.
+  const isFirstTurn = !history.some(m => m.role === 'assistant')
+  const stretchTechnique = isFirstTurn
+    ? findReadyTechnique(recipeTechniques, skillProfile)
+      || findReadyTechnique(recipeSpecificCatalogue, skillProfile)
+    : catalogue.find(t => t.key === skillProfile.last_stretch_technique) ?? null
+
+  if (isFirstTurn && stretchTechnique) {
+    // Doesn't affect this reply — don't make the first token wait on it.
+    after(() =>
+      updateSkillProfile(user.id, {
+        newSeenKeys: [stretchTechnique.key],
+        lastStretchTechnique: stretchTechnique.key,
+      }).catch(err => console.error('updateSkillProfile error:', err))
+    )
   }
 
   const techniqueContext = recipeTechniques.length
@@ -74,7 +96,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     ``,
     `USER SKILL STATE:`,
     `Mastered: ${skillProfile.techniques_mastered.join(', ') || 'none'}`,
-    `Seen: ${skillProfile.techniques_seen.join(', ') || 'none'}`,
+    `Seen: ${skillProfile.techniques_seen.filter(k => k !== stretchTechnique?.key).join(', ') || 'none'}`,
     stretchContext,
     ``,
     `COACHING RULES:`,
@@ -97,20 +119,26 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     ...buildChefStyleDirectives(chefPreferencesFromProfile(profile)),
   ].join('\n')
 
-  const messages = Array.isArray(body.messages) && body.messages.length
-    ? body.messages
+  const messages: Anthropic.MessageParam[] = history.length
+    ? history
     : [{ role: 'user', content: 'Start cooking this recipe with me. Give me the first step only.' }]
 
   const encoder = new TextEncoder()
   const readable = new ReadableStream({
     async start(controller) {
       try {
-        const stream = await anthropic.messages.stream({
+        const stream = anthropic.messages.stream({
           model: SONNET,
           max_tokens: 1024,
+          // Short, read-aloud coaching replies: no thinking, so the first word
+          // streams as soon as possible.
+          thinking: { type: 'disabled' },
+          // The system prompt is stable for the whole session, so each turn
+          // re-reads the recipe + earlier conversation from cache.
+          cache_control: { type: 'ephemeral' },
           system,
           messages,
-        })
+        }, { timeout: 60_000, maxRetries: 1 })
         for await (const event of stream) {
           if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: event.delta.text })}\n\n`))

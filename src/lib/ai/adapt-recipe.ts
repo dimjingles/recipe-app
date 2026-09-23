@@ -118,7 +118,10 @@ export async function adaptRecipe(recipe: AdaptRecipeInput, opts: AdaptOptions):
 
   const message = await anthropic.messages.create({
     model: pickModel(opts.adaptation_type),
-    max_tokens: 3072,
+    // Sonnet 5 thinks by default and thinking shares this budget; low effort
+    // keeps it brief for a scoped rewrite like this.
+    max_tokens: 8192,
+    ...(pickModel(opts.adaptation_type) === SONNET ? { output_config: { effort: 'low' as const } } : {}),
     messages: [{ role: 'user', content: prompt }],
   }, LONG_CALL)
 

@@ -22,23 +22,27 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: 'Invalid position' }, { status: 400 })
     }
 
-    // This recipe's pool (feedback + type live on the recipe; RLS gates readability).
-    const { data: self, error: selfErr } = await supabase
-      .from('recipes')
-      .select('feedback, recipe_type')
-      .eq('id', id)
-      .maybeSingle()
+    const [
+      // This recipe's pool (feedback + type live on the recipe; RLS gates readability).
+      { data: self, error: selfErr },
+      // The current user's existing rankings, with each recipe's tier and type.
+      { data: rankings, error },
+    ] = await Promise.all([
+      supabase
+        .from('recipes')
+        .select('feedback, recipe_type')
+        .eq('id', id)
+        .maybeSingle(),
+      supabase
+        .from('recipe_rankings')
+        .select('recipe_id, rank, recipe:recipes(feedback, recipe_type)')
+        .eq('user_id', user.id)
+        .order('rank', { ascending: true }),
+    ])
     if (selfErr) throw selfErr
+    if (error) throw error
     const selfTier: Feedback | null = (self?.feedback as Feedback | null) ?? null
     const selfGroup = rankGroup(self?.recipe_type as string | null | undefined)
-
-    // The current user's existing rankings, with each recipe's tier and type.
-    const { data: rankings, error } = await supabase
-      .from('recipe_rankings')
-      .select('recipe_id, rank, recipe:recipes(feedback, recipe_type)')
-      .eq('user_id', user.id)
-      .order('rank', { ascending: true })
-    if (error) throw error
 
     const others: Row[] = (rankings ?? [])
       .filter((r: any) => r.recipe_id !== id)
@@ -66,7 +70,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     // DEFERRED, so intermediate collisions within the statement are fine.
     const ordered = tiers.flatMap(t => buckets.get(t)!)
     const now = new Date().toISOString()
-    const rows = ordered.map((r, i) => ({ user_id: user.id, recipe_id: r.recipe_id, rank: i + 1, updated_at: now }))
+    // Only rows whose rank actually moved (plus this recipe) — a comparison
+    // usually shifts a handful of neighbours, not the whole list.
+    const oldRank = new Map((rankings ?? []).map((r: any) => [r.recipe_id as string, r.rank as number]))
+    const rows = ordered
+      .map((r, i) => ({ user_id: user.id, recipe_id: r.recipe_id, rank: i + 1, updated_at: now }))
+      .filter(r => r.recipe_id === id || oldRank.get(r.recipe_id) !== r.rank)
     const { error: upErr } = await supabase
       .from('recipe_rankings')
       .upsert(rows, { onConflict: 'user_id,recipe_id' })
