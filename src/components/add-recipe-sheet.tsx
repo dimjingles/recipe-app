@@ -752,27 +752,3 @@ export function AddRecipeSheet({ open, onClose }: AddRecipeSheetProps) {
   )
 }
 
-/**
- * Drop-in trigger: renders its children as a button that opens the
- * Add-a-recipe sheet. Lets server components (e.g. the Home page) offer the
- * sheet without managing state.
- */
-export function AddRecipeLauncher({
-  className,
-  children,
-  ariaLabel = 'Add recipe',
-}: {
-  className?: string
-  children: ReactNode
-  ariaLabel?: string
-}) {
-  const [open, setOpen] = useState(false)
-  return (
-    <>
-      <button onClick={() => setOpen(true)} className={className} aria-label={ariaLabel}>
-        {children}
-      </button>
-      <AddRecipeSheet open={open} onClose={() => setOpen(false)} />
-    </>
-  )
-}

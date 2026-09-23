@@ -238,6 +238,11 @@ const YT_GENERIC_DESCRIPTION = /^enjoy the videos and music/i
 async function fetchYouTubeContext(videoId: string): Promise<VideoContext> {
   const canonical = `https://www.youtube.com/watch?v=${videoId}`
 
+  // Start the (small) InnerTube request alongside the ~3 MB watch page rather
+  // than after it: web captions are often empty, so it's usually needed, and
+  // waiting for the page first added a full round-trip.
+  const innertubePromise = fetchInnerTubePlayer(videoId)
+
   let html = ''
   try {
     html = await fetchPage(`${canonical}&hl=en`, { maxBytes: 3_000_000, headers: YT_HEADERS })
@@ -250,11 +255,7 @@ async function fetchYouTubeContext(videoId: string): Promise<VideoContext> {
       ]) as YtPlayerResponse | null)
     : null
 
-  let innertube: YtPlayerResponse | null | undefined // undefined = not yet fetched
-  const getInnertube = async () => {
-    if (innertube === undefined) innertube = await fetchInnerTubePlayer(videoId)
-    return innertube
-  }
+  const getInnertube = () => innertubePromise
 
   // ── Transcript: web player captions first, then InnerTube ANDROID ──
   let transcript: string | undefined

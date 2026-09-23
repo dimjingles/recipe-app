@@ -7,8 +7,11 @@ import { toast } from 'sonner'
 import { useCacheInvalidation } from '@/lib/queries/hooks'
 import { Input } from '@/components/ui/input'
 import { UserAvatar } from '@/components/user-avatar'
-import { QRCode } from '@/components/qr-code'
+import dynamic from 'next/dynamic'
 import { PublicProfile } from '@/types/database'
+
+// Only drawn when the user asks for their QR invite.
+const QRCode = dynamic(() => import('@/components/qr-code').then(m => m.QRCode), { ssr: false })
 
 type Tab = 'friends' | 'requests' | 'find'
 

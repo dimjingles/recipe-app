@@ -28,6 +28,9 @@ function extractedToEditorValues(r: ExtractedRecipe): RecipeEditorValues {
     name: r.name,
     description: r.description,
     cuisine: r.cuisine,
+    // Course + categories from the extractor mean the save skips its classifier.
+    recipeType: r.recipe_type,
+    categories: r.categories,
     cookTime: r.cook_time_minutes != null ? String(r.cook_time_minutes) : '',
     servings: r.servings != null ? String(r.servings) : '4',
     calories: r.calories != null ? String(r.calories) : '',

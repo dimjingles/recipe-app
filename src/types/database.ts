@@ -570,6 +570,10 @@ export interface ExtractedRecipe {
   calories?: number
   instructions?: string
   difficulty?: number
+  /** Course (appetizer/main/dessert/drink), when the extractor supplied one */
+  recipe_type?: string
+  /** Descriptive categories (RECIPE_CATEGORIES), when the extractor supplied them */
+  categories?: string[]
   ingredients: ExtractedIngredient[]
   /** og:image or JSON-LD image — stored in recipes.image_url when saving */
   image_url?: string

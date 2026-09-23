@@ -34,6 +34,36 @@ export async function downscaleToDataUrl(file: File): Promise<string> {
   }
 }
 
+/**
+ * Downscale an image File for upload, returning a JPEG File no larger than
+ * `maxEdge` on its long side. Phone photos (3–12 MB) would otherwise exceed the
+ * serverless request-body limit (~4.5 MB on Vercel) and waste upload time; the
+ * server re-encodes to WebP anyway. GIFs and undecodable files pass through.
+ */
+export async function downscaleForUpload(file: File, maxEdge = 1600): Promise<File> {
+  if (file.type === 'image/gif') return file
+  const bitmapUrl = URL.createObjectURL(file)
+  try {
+    const img = await loadImage(bitmapUrl)
+    const scale = Math.min(1, maxEdge / Math.max(img.width, img.height))
+    // Already small and compact: keep the original bytes.
+    if (scale === 1 && file.size < 1024 * 1024) return file
+    const canvas = document.createElement('canvas')
+    canvas.width = Math.max(1, Math.round(img.width * scale))
+    canvas.height = Math.max(1, Math.round(img.height * scale))
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return file
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+    const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/jpeg', JPEG_QUALITY))
+    if (!blob) return file
+    return new File([blob], file.name.replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' })
+  } catch {
+    return file
+  } finally {
+    URL.revokeObjectURL(bitmapUrl)
+  }
+}
+
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image()

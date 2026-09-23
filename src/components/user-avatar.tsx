@@ -21,6 +21,8 @@ export function UserAvatar({
         src={src}
         alt={name ?? 'avatar'}
         style={dimensions}
+        loading="lazy"
+        decoding="async"
         className={cn('shrink-0 rounded-full bg-muted object-cover', className)}
       />
     )

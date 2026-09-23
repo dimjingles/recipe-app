@@ -10,9 +10,8 @@ import { toast } from 'sonner'
 import { format } from 'date-fns'
 import { RecipeWithDetails, Cookbook, SkillProfile, Technique, InstructionStep } from '@/types/database'
 import type { RecipeVariantLink } from '@/types/database'
-import AdaptRecipeDialog from '@/components/adapt-recipe-dialog'
+import dynamic from 'next/dynamic'
 import RecipeGallery from '@/components/recipe-gallery'
-import ChefAiChat from '@/components/chef-ai-chat'
 import InstructionSteps from '@/components/instruction-steps'
 import { isRecipeTechnique, resolveTechniqueState } from '@/lib/skills'
 import { getCuisineEmoji } from '@/lib/cuisine-emoji'
@@ -20,6 +19,10 @@ import { useCacheInvalidation } from '@/lib/queries/hooks'
 import { formatScore, FEEDBACK_ADJECTIVE, type Feedback } from '@/lib/scoring'
 import { scaleQuantity } from '@/lib/servings'
 import { FeedbackButtons, ComparisonDialog, RankFeedbackDialog } from '@/components/ranking-flow'
+
+// Opened on demand — loaded then, not with the page.
+const AdaptRecipeDialog = dynamic(() => import('@/components/adapt-recipe-dialog'), { ssr: false })
+const ChefAiChat = dynamic(() => import('@/components/chef-ai-chat'), { ssr: false })
 
 const CATEGORY_EMOJI: Record<string, string> = {
   produce: '🥦', dairy: '🧀', meat: '🥩', seafood: '🐟',
@@ -331,7 +334,12 @@ export default function RecipeDetail({
   const [showRerankFeedback, setShowRerankFeedback] = useState(false)
   const [showRank, setShowRank] = useState(false)
   const [showCookbook, setShowCookbook] = useState(false)
-  const [showChefAi, setShowChefAi] = useState(false)
+  const [showChefAi, setShowChefAiState] = useState(false)
+  const [chefAiEverOpened, setChefAiEverOpened] = useState(false)
+  const setShowChefAi = useCallback((open: boolean) => {
+    if (open) setChefAiEverOpened(true)
+    setShowChefAiState(open)
+  }, [])
   const [showAdapt, setShowAdapt] = useState(false)
   const [chefInitialPrompt, setChefInitialPrompt] = useState<string | undefined>(undefined)
   // Stable so the memoized InstructionSteps doesn't re-render with the page.
@@ -521,6 +529,8 @@ export default function RecipeDetail({
             <img
               src={heroUrl}
               alt={recipe.name}
+              // The page's largest paint — fetch it ahead of everything else.
+              fetchPriority="high"
               className="w-full h-[45vh] object-cover"
               onError={() => setBrokenUrls(prev => new Set(prev).add(heroUrl))}
             />
@@ -880,12 +890,15 @@ export default function RecipeDetail({
         />
       )}
 
-      <ChefAiChat
-        recipeId={recipe.id}
-        open={showChefAi}
-        onClose={() => setShowChefAi(false)}
-        initialPrompt={chefInitialPrompt}
-      />
+      {/* Loaded and mounted on first open (it resets itself when closed). */}
+      {chefAiEverOpened && (
+        <ChefAiChat
+          recipeId={recipe.id}
+          open={showChefAi}
+          onClose={() => setShowChefAi(false)}
+          initialPrompt={chefInitialPrompt}
+        />
+      )}
 
       {showAdapt && (
         <AdaptRecipeDialog
@@ -954,7 +967,7 @@ export default function RecipeDetail({
                       onClick={() => { setAsDisplay(url); setShowChooser(false) }}
                       className={`relative aspect-square rounded-xl overflow-hidden border-2 active:scale-[0.97] transition-all ${active ? 'border-brand' : 'border-border'}`}
                     >
-                      <img src={url} alt="" className="w-full h-full object-cover" />
+                      <img src={url} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                       {active && (
                         <span className="absolute inset-0 bg-brand/20 flex items-center justify-center">
                           <span className="bg-brand text-brand-foreground rounded-full p-1"><Check className="w-4 h-4" /></span>

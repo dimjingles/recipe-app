@@ -12,7 +12,7 @@ import { toast } from 'sonner'
 import { getCuisineEmoji } from '@/lib/cuisine-emoji'
 import { computeScores } from '@/lib/scoring'
 import { RecipeCard } from '@/components/recipe-card'
-import { AddRecipeSheet } from '@/components/add-recipe-sheet'
+import dynamic from 'next/dynamic'
 import { EmptyState, RecipeBookIllustration } from '@/components/ui/empty-state'
 import { Shimmer } from '@/components/ui/shimmer'
 import { queries, queryKeys, useCacheInvalidation } from '@/lib/queries/hooks'
@@ -65,6 +65,9 @@ const WANT_TO_TRY_SORT_OPTIONS = [
   { value: 'alphabetical', label: 'Alphabetical' },
   { value: 'recently_added', label: 'Recently added' },
 ] as const
+
+// Large and rarely opened: loaded on first use, not with the library.
+const AddRecipeSheet = dynamic(() => import('@/components/add-recipe-sheet').then(m => m.AddRecipeSheet), { ssr: false })
 
 /** A library grid card. Memoized with primitive/stable props (the recipe object
  *  is structurally shared by the query cache), so filtering or typing only
@@ -254,7 +257,13 @@ export default function RecipeLibrary({
 
   // Create cookbook sheet
   const [showCreateCookbook, setShowCreateCookbook] = useState(false)
-  const [showAddRecipe, setShowAddRecipe] = useState(false)
+  const [showAddRecipe, setShowAddRecipeState] = useState(false)
+  // The (lazily loaded) sheet mounts on first open and stays mounted after.
+  const [addRecipeEverOpened, setAddRecipeEverOpened] = useState(false)
+  const setShowAddRecipe = (open: boolean) => {
+    if (open) setAddRecipeEverOpened(true)
+    setShowAddRecipeState(open)
+  }
   const [newCookbookName, setNewCookbookName] = useState('')
   const [newCookbookRecipes, setNewCookbookRecipes] = useState<string[]>([])
   const [creatingCookbook, setCreatingCookbook] = useState(false)
@@ -1064,7 +1073,7 @@ export default function RecipeLibrary({
         <span>Add Recipe</span>
       </button>
 
-      <AddRecipeSheet open={showAddRecipe} onClose={() => setShowAddRecipe(false)} />
+      {addRecipeEverOpened && <AddRecipeSheet open={showAddRecipe} onClose={() => setShowAddRecipe(false)} />}
 
       {/* Recipe list */}
       {sortedRecipes.length === 0 && !search ? (

@@ -1,5 +1,6 @@
 import type { createClient } from '@/lib/supabase/server'
 import { isFetchableUrl, readBodyCapped } from '@/lib/net'
+import { compressImage } from '@/lib/images/compress'
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>
 
@@ -61,12 +62,17 @@ export async function rehostImage(
     const buffer = await readBodyCapped(res, MAX_BYTES)
     if (!buffer || buffer.byteLength === 0) return null
 
-    const ext = EXT_BY_TYPE[contentType] ?? 'jpg'
+    const compressed = await compressImage(buffer, contentType)
+    const ext = compressed?.ext ?? EXT_BY_TYPE[contentType] ?? 'jpg'
     const path = `${userId}/${crypto.randomUUID()}.${ext}`
 
     const { error } = await supabase.storage
       .from('recipe-images')
-      .upload(path, buffer, { contentType, upsert: false })
+      .upload(path, compressed?.data ?? buffer, {
+        contentType: compressed?.contentType ?? contentType,
+        upsert: false,
+        cacheControl: '31536000', // paths are unique per upload, so cache for a year
+      })
     if (error) return null
 
     const { data } = supabase.storage.from('recipe-images').getPublicUrl(path)

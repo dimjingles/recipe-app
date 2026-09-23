@@ -109,12 +109,26 @@ export function getMeta(html: string, prop: string): string {
   return ''
 }
 
-/** Strip scripts, styles and tags, collapse whitespace, decode entities. */
+/**
+ * The page's main content — the first <article> or <main> with real text in
+ * it — so the AI fallback's limited context window isn't spent on navigation.
+ * Falls back to the whole document.
+ */
+export function mainContent(html: string): string {
+  for (const tag of ['article', 'main']) {
+    const m = new RegExp(`<${tag}\\b[^>]*>([\\s\\S]*?)<\\/${tag}>`, 'i').exec(html)
+    if (m && stripTags(m[1]).length > 500) return m[1]
+  }
+  return html
+}
+
+/** Strip scripts, styles, page chrome and tags, collapse whitespace, decode entities. */
 export function stripTags(html: string): string {
   return decodeEntities(
     html
       .replace(/<script[\s\S]*?<\/script>/gi, '')
       .replace(/<style[\s\S]*?<\/style>/gi, '')
+      .replace(/<(nav|header|footer|svg|noscript)\b[\s\S]*?<\/\1>/gi, '')
       .replace(/<[^>]+>/g, ' '),
   )
     .replace(/\s+/g, ' ')
