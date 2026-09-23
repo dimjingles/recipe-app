@@ -1,18 +1,14 @@
 import { NextResponse } from 'next/server'
-import { createClient, getUser } from '@/lib/supabase/server'
+import { getUser } from '@/lib/supabase/server'
 import { getProfile } from '@/lib/db/profile'
+import { getTechniques } from '@/lib/db/techniques'
 import { computeSkillBadges, normalizeSkillProfile } from '@/lib/skills'
 
 export async function GET() {
-  const supabase = await createClient()
   const user = await getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const [{ data: techniques, error }, profile] = await Promise.all([
-    supabase.from('techniques').select('*').order('category').order('label'),
-    getProfile(),
-  ])
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  const [techniques, profile] = await Promise.all([getTechniques(), getProfile()])
 
   const skillProfile = normalizeSkillProfile(profile?.skill_profile, profile?.skill_level)
   const badges = computeSkillBadges(techniques || [], skillProfile.techniques_mastered)

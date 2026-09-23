@@ -1,20 +1,15 @@
 import { anthropic, HAIKU, extractJsonArray, QUICK_CALL } from '@/lib/anthropic'
 import { isRecipeTechnique } from '@/lib/skills'
+import { getTechniques } from '@/lib/db/techniques'
 
-let cachedKeys: string[] | null = null
-
-export async function getTechniqueKeys(supabase: any): Promise<string[]> {
-  if (cachedKeys) return cachedKeys
-  const { data, error } = await supabase.from('techniques').select('key, category').order('key')
-  if (error) {
+/** Keys of the recipe-level techniques the classifier may choose from. */
+export async function getTechniqueKeys(): Promise<string[]> {
+  try {
+    return (await getTechniques()).filter(isRecipeTechnique).map(t => t.key)
+  } catch (error) {
     console.error('getTechniqueKeys error:', error)
     return []
   }
-  const keys = (data || [])
-    .filter((t: { key: string; category: string }) => isRecipeTechnique(t))
-    .map((t: { key: string }) => t.key)
-  cachedKeys = keys
-  return keys
 }
 
 export async function classifyTechniques(

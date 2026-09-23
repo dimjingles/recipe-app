@@ -1,9 +1,9 @@
-import type { Profile, Recipe, Ingredient, SkillProfile } from '@/types/database'
+import type { Profile, RecipeSummary, Ingredient, SkillProfile } from '@/types/database'
 
 // ── Recipe shape used for scoring ─────────────────────────────────────────────
 // The planner receives recipes with their ingredients + cookbook memberships
 // (see getRecipes()), so we can inspect ingredient names for allergen/diet checks.
-export type ScorableRecipe = Recipe & {
+export type ScorableRecipe = RecipeSummary & {
   ingredients?: Pick<Ingredient, 'name'>[]
   cookbook_recipes?: { cookbook_id: string }[]
 }

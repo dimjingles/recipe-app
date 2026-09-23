@@ -1,37 +1,38 @@
 import { createClient, getUser } from '@/lib/supabase/server'
-import { RecipeWithIngredients, RecipeWithDetails } from '@/types/database'
+import type { RecipeListItem, RecipeWithDetails, RecipeWithIngredients } from '@/types/database'
+import { RECIPE_SUMMARY_COLUMNS } from '@/lib/recipe-columns'
 import { emitActivity } from '@/lib/db/activity'
 import { computeScores, type RankedInput } from '@/lib/scoring'
 
-export async function getRecipes() {
+export async function getRecipes(): Promise<RecipeListItem[]> {
   const supabase = await createClient()
   const user = await getUser()
   if (!user) return []
 
   // Library = the user's own recipes. We filter explicitly (not just via RLS)
-  // so friend-visible recipes never leak in here.
-  const { data: rankRows } = await supabase
-    .from('recipe_rankings').select('recipe_id, rank').eq('user_id', user.id)
-
-  // List views only render name/cuisine/image/time — never ingredients — so we
-  // skip the ingredients(*) join here (~80ms/query). The detail page (getRecipe)
-  // still fetches them.
+  // so friend-visible recipes never leak in here. One round-trip: the caller's
+  // ranking row (RLS limits recipe_rankings to their own) and ingredient names
+  // (for planner allergy matching) ride along as embeds. List views never
+  // render instructions/steps, so RECIPE_SUMMARY_COLUMNS leaves them out.
   const { data, error } = await supabase
     .from('recipes')
-    .select('*, cookbook_recipes(cookbook_id)')
+    .select(`${RECIPE_SUMMARY_COLUMNS}, ingredients(name), cookbook_recipes(cookbook_id), recipe_rankings(rank, user_id)`)
     .eq('user_id', user.id)
   if (error) { console.error(error); return [] }
 
   // Order by the CURRENT user's personal ranking, then newest-first.
-  const ranks = new Map((rankRows ?? []).map(r => [r.recipe_id, r.rank]))
-  const recipes = (data ?? []).map(r => ({ ...r, rank: ranks.get(r.id) ?? null }))
+  const recipes = ((data ?? []) as any[]).map(({ recipe_rankings, ...r }) => ({
+    ...r,
+    rank: (recipe_rankings as { rank: number; user_id: string }[] | null)
+      ?.find(x => x.user_id === user.id)?.rank ?? null,
+  })) as RecipeListItem[]
   recipes.sort((a, b) => {
     if (a.rank != null && b.rank != null) return a.rank - b.rank
     if (a.rank != null) return -1
     if (b.rank != null) return 1
-    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    return b.created_at.localeCompare(a.created_at)
   })
-  return recipes as unknown as RecipeWithIngredients[]
+  return recipes
 }
 
 /** Map of recipe id → 0.0–10.0 score for the current user's ranked recipes,
@@ -61,28 +62,43 @@ export async function getRecipe(id: string) {
   const supabase = await createClient()
   const user = await getUser()
 
-  const { data, error } = await supabase
-    .from('recipes')
-    .select('*, ingredients(*), cooking_log(*)')
-    .eq('id', id)
-    .single()
+  // rank shown on the detail page is the current user's personal rank.
+  const [{ data, error }, ranking] = await Promise.all([
+    supabase
+      .from('recipes')
+      .select('*, ingredients(*), cooking_log(*)')
+      .eq('id', id)
+      .single(),
+    user
+      ? supabase
+          .from('recipe_rankings')
+          .select('rank')
+          .eq('user_id', user.id)
+          .eq('recipe_id', id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+  ])
 
   if (error) { console.error(error); return null }
 
   const recipe = data as RecipeWithDetails
-  // rank shown on the detail page is the current user's personal rank.
-  if (user) {
-    const { data: ranking } = await supabase
-      .from('recipe_rankings')
-      .select('rank')
-      .eq('user_id', user.id)
-      .eq('recipe_id', id)
-      .maybeSingle()
-    recipe.rank = ranking?.rank ?? null
-  } else {
-    recipe.rank = null
-  }
+  recipe.rank = ranking.data?.rank ?? null
   return recipe
+}
+
+/**
+ * A recipe with its ingredients, for the AI routes (chat, adapt, instructions,
+ * cook mode) — skips the cooking log and the personal-rank lookup they never use.
+ */
+export async function getRecipeForAI(id: string) {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('recipes')
+    .select('*, ingredients(*)')
+    .eq('id', id)
+    .single()
+  if (error) { console.error(error); return null }
+  return data as RecipeWithIngredients
 }
 
 export async function createRecipe(recipe: {

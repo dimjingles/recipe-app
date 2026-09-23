@@ -463,6 +463,22 @@ export type Cookbook = Database['public']['Tables']['cookbooks']['Row']
 export type CookbookRecipe = Database['public']['Tables']['cookbook_recipes']['Row']
 export type RecipeRanking = Database['public']['Tables']['recipe_rankings']['Row']
 
+/** Detail-only recipe columns that list views never render. */
+type RecipeDetailColumns =
+  | 'description' | 'instructions' | 'instruction_steps' | 'techniques'
+  | 'adaptation_metadata' | 'share_token'
+
+/** A recipe as list views (cards, planner slots, cookbooks) see it — see
+ *  RECIPE_SUMMARY_COLUMNS in src/lib/recipe-columns.ts. */
+export type RecipeSummary = Omit<Recipe, RecipeDetailColumns>
+
+/** A row of the user's library (GET /api/recipes). Ingredient names only, for
+ *  the planner's allergy/diet matching. */
+export type RecipeListItem = RecipeSummary & {
+  ingredients: { name: string }[]
+  cookbook_recipes?: { cookbook_id: string }[]
+}
+
 export type RecipeWithIngredients = Recipe & {
   ingredients: Ingredient[]
   cookbook_recipes?: { cookbook_id: string }[]
@@ -479,11 +495,11 @@ export type CookbookWithCount = Cookbook & {
 }
 
 export type CookbookWithRecipes = Cookbook & {
-  cookbook_recipes: { recipe: Recipe }[]
+  cookbook_recipes: { recipe: RecipeSummary }[]
 }
 
 export type SlotWithRecipe = WeeklyPlanSlot & {
-  recipe: Recipe
+  recipe: RecipeSummary
 }
 
 export type PlanWithSlots = WeeklyPlan & {

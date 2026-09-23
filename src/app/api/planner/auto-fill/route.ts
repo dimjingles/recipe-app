@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, getUser } from '@/lib/supabase/server'
+import { RECIPE_SUMMARY_COLUMNS } from '@/lib/recipe-columns'
 import { getProfile, buildPrefLines } from '@/lib/db/profile'
 import { normalizeSkillProfile } from '@/lib/skills'
 import { anthropic, HAIKU, extractJsonObject, QUICK_CALL } from '@/lib/anthropic'
@@ -179,7 +180,7 @@ Return ONLY valid JSON (no markdown): {"slots":[{"day_of_week":0,"recipe_id":"..
         day_of_week: s.day_of_week,
         meal_type: 'dinner',
       })))
-      .select('*, recipe:recipes(*)')
+      .select(`*, recipe:recipes(${RECIPE_SUMMARY_COLUMNS})`)
     if (insertError) throw insertError
 
     return NextResponse.json({ slots: inserted })

@@ -19,7 +19,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       const [techniques, instruction_steps] = await Promise.all([
         recipeData.techniques?.length
           ? Promise.resolve(recipeData.techniques as string[])
-          : getTechniqueKeys(supabase).then(keys =>
+          : getTechniqueKeys().then(keys =>
               classifyTechniques(recipeData.name || 'Recipe', recipeData.instructions, keys)
             ),
         structureInstructions(recipeData.name || 'Recipe', recipeData.instructions),

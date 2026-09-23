@@ -1,6 +1,7 @@
 import { createClient, getUser } from '@/lib/supabase/server'
 import { SupabaseClient } from '@supabase/supabase-js'
-import { Database, PublicProfile, Recipe, CookbookWithCount } from '@/types/database'
+import { Database, PublicProfile, RecipeSummary, CookbookWithCount } from '@/types/database'
+import { RECIPE_SUMMARY_COLUMNS } from '@/lib/recipe-columns'
 import { normalizeUsername, sanitizeUsernameQuery, validateUsername } from '@/lib/username'
 
 type Client = SupabaseClient<Database>
@@ -200,15 +201,15 @@ export async function unfriend(otherId: string): Promise<void> {
  * by user_id (whose profile we're viewing) and let RLS drop anything private —
  * we never bypass RLS or assume visibility in app code.
  */
-export async function getFriendRecipes(userId: string): Promise<Recipe[]> {
+export async function getFriendRecipes(userId: string): Promise<RecipeSummary[]> {
   const supabase = await createClient()
   const { data, error } = await supabase
     .from('recipes')
-    .select('*')
+    .select(RECIPE_SUMMARY_COLUMNS)
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
   if (error) { console.error('getFriendRecipes error:', error); return [] }
-  return (data ?? []) as Recipe[]
+  return (data ?? []) as unknown as RecipeSummary[]
 }
 
 /** Cookbooks owned by `userId` the current user can see (RLS-filtered). */

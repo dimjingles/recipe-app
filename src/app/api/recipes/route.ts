@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
       const [techniques, instruction_steps, recipe_type, categories] = await Promise.all([
         recipeData.techniques?.length
           ? Promise.resolve(recipeData.techniques as string[])
-          : getTechniqueKeys(supabase).then(keys =>
+          : getTechniqueKeys().then(keys =>
               classifyTechniques(recipeData.name, recipeData.instructions, keys)
             ),
         structureInstructions(recipeData.name, recipeData.instructions),

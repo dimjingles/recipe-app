@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { anthropic, extractJsonObject, HAIKU, QUICK_CALL } from '@/lib/anthropic'
 import { classifyTechniques, getTechniqueKeys } from '@/lib/ai/classify-techniques'
 import { structureInstructions } from '@/lib/ai/structure-instructions'
-import { getRecipe } from '@/lib/db/recipes'
+import { getRecipeForAI } from '@/lib/db/recipes'
 import { createClient, getUser } from '@/lib/supabase/server'
 
-function formatInstructionSource(recipe: Awaited<ReturnType<typeof getRecipe>>): string {
+function formatInstructionSource(recipe: Awaited<ReturnType<typeof getRecipeForAI>>): string {
   if (!recipe) return ''
   const structured = (recipe as { instruction_steps?: { n: number; text: string }[] | null }).instruction_steps
   if (structured && structured.length > 0) {
@@ -30,7 +30,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: 'Missing instruction update details' }, { status: 400 })
     }
 
-    const recipe = await getRecipe(id)
+    const recipe = await getRecipeForAI(id)
     if (!recipe || recipe.user_id !== user.id) return NextResponse.json({ error: 'Recipe not found' }, { status: 404 })
 
     const currentInstructions = formatInstructionSource(recipe)
@@ -72,7 +72,7 @@ ${currentInstructions}`,
     }
 
     const [techniques, instruction_steps] = await Promise.all([
-      getTechniqueKeys(supabase).then(keys => classifyTechniques(recipe.name, instructions, keys)),
+      getTechniqueKeys().then(keys => classifyTechniques(recipe.name, instructions, keys)),
       structureInstructions(recipe.name, instructions),
     ])
 

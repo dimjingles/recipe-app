@@ -7,7 +7,7 @@ import { ArrowLeft, PenLine, Trash2, X, Users, Lock } from 'lucide-react'
 import { toast } from 'sonner'
 import { Input } from '@/components/ui/input'
 import { RecipeCard } from '@/components/recipe-card'
-import { CookbookWithRecipes, Recipe } from '@/types/database'
+import { CookbookWithRecipes, RecipeSummary } from '@/types/database'
 
 interface CookbookDetailViewProps {
   cookbook: CookbookWithRecipes
@@ -19,7 +19,7 @@ interface CookbookDetailViewProps {
 export default function CookbookDetailView({ cookbook, canManage = true, scores }: CookbookDetailViewProps) {
   const router = useRouter()
   const [name, setName] = useState(cookbook.name)
-  const [recipes, setRecipes] = useState<Recipe[]>(
+  const [recipes, setRecipes] = useState<RecipeSummary[]>(
     cookbook.cookbook_recipes.map(cr => cr.recipe)
   )
   const [editing, setEditing] = useState(false)

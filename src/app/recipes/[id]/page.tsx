@@ -2,6 +2,7 @@ import { createClient, getUser } from '@/lib/supabase/server'
 import { getCookbooks } from '@/lib/db/cookbooks'
 import { getRankedScores } from '@/lib/db/recipes'
 import { getProfile } from '@/lib/db/profile'
+import { getTechniques } from '@/lib/db/techniques'
 import { notFound } from 'next/navigation'
 import { after } from 'next/server'
 import RecipeDetail from '@/components/recipe-detail'
@@ -12,7 +13,7 @@ export default async function RecipePage({ params }: { params: Promise<{ id: str
   const supabase = await createClient()
   const user = await getUser()
 
-  const [{ data: recipe }, cookbooks, profile, { data: techniques }, { data: ranking }, { data: variantRows }, scores] = await Promise.all([
+  const [{ data: recipe }, cookbooks, profile, techniques, { data: ranking }, { data: variantRows }, scores] = await Promise.all([
     supabase
       .from('recipes')
       .select('*, ingredients(*), cooking_log(*), cookbook_recipes(cookbook_id)')
@@ -20,7 +21,7 @@ export default async function RecipePage({ params }: { params: Promise<{ id: str
       .single(),
     getCookbooks(),
     getProfile(),
-    supabase.from('techniques').select('*').order('category').order('label'),
+    getTechniques(),
     user
       ? supabase.from('recipe_rankings').select('rank').eq('user_id', user.id).eq('recipe_id', id).maybeSingle()
       : Promise.resolve({ data: null }),
@@ -59,7 +60,7 @@ export default async function RecipePage({ params }: { params: Promise<{ id: str
     const instructions = r.instructions as string
     after(async () => {
       try {
-        const keys = await getTechniqueKeys(supabase)
+        const keys = await getTechniqueKeys()
         const classified = await classifyTechniques(name, instructions, keys)
         if (classified.length) {
           await supabase.from('recipes').update({ techniques: classified }).eq('id', id)

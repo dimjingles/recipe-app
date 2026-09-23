@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { anthropic, SONNET } from '@/lib/anthropic'
-import { createClient, getUser } from '@/lib/supabase/server'
-import { getRecipe } from '@/lib/db/recipes'
+import { getUser } from '@/lib/supabase/server'
+import { getRecipeForAI } from '@/lib/db/recipes'
+import { getTechniques } from '@/lib/db/techniques'
 import { getProfile, updateSkillProfile } from '@/lib/db/profile'
 import { findReadyTechnique, isRecipeTechnique, normalizeSkillProfile } from '@/lib/skills'
 import { buildChefStyleDirectives, chefPreferencesFromProfile } from '@/lib/cook/chef-preferences'
@@ -9,22 +10,18 @@ import type { Technique } from '@/types/database'
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const supabase = await createClient()
   const user = await getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json()
-  const recipe = await getRecipe(id)
+  const recipe = await getRecipeForAI(id)
   if (!recipe || recipe.user_id !== user.id) return NextResponse.json({ error: 'Recipe not found' }, { status: 404 })
 
   const ingredients = (recipe.ingredients || [])
     .map(i => `- ${[i.quantity, i.unit, i.name].filter(Boolean).join(' ')}${i.category ? ` (${i.category})` : ''}`)
     .join('\n')
 
-  const [profile, { data: catalogue }] = await Promise.all([
-    getProfile(),
-    supabase.from('techniques').select('*').order('category').order('label'),
-  ])
+  const [profile, catalogue] = await Promise.all([getProfile(), getTechniques()])
   const skillProfile = normalizeSkillProfile(profile?.skill_profile, profile?.skill_level)
   const recipeTechniqueKeys = recipe.techniques || []
   const catalogueItems = (catalogue || []) as Technique[]

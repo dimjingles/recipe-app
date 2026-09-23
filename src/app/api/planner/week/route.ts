@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, getUser } from '@/lib/supabase/server'
+import { RECIPE_SUMMARY_COLUMNS } from '@/lib/recipe-columns'
 
 export async function GET(request: NextRequest) {
   try {
@@ -12,7 +13,7 @@ export async function GET(request: NextRequest) {
 
     const { data: plan } = await supabase
       .from('weekly_plans')
-      .select('*, weekly_plan_slots(*, recipe:recipes(*))')
+      .select(`*, weekly_plan_slots(*, recipe:recipes(${RECIPE_SUMMARY_COLUMNS}))`)
       .eq('user_id', user.id)
       .eq('week_start', weekStart)
       .maybeSingle()

@@ -7,14 +7,14 @@ import { ArrowLeft, UserPlus, Check, Clock, BookOpen } from 'lucide-react'
 import { toast } from 'sonner'
 import { UserAvatar } from '@/components/user-avatar'
 import { RecipeCard } from '@/components/recipe-card'
-import { PublicProfile, Recipe, CookbookWithCount } from '@/types/database'
+import { PublicProfile, RecipeSummary, CookbookWithCount } from '@/types/database'
 import type { FriendshipStatus } from '@/lib/db/social'
 
 interface Props {
   profile: PublicProfile
   isSelf: boolean
   initialStatus: FriendshipStatus
-  recipes: Recipe[]
+  recipes: RecipeSummary[]
   cookbooks: CookbookWithCount[]
 }
 

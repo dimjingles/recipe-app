@@ -19,7 +19,7 @@ import { useVoiceControl, type VoiceCommand } from '@/lib/cook/use-voice-control
 import { useCookTimers } from '@/lib/cook/use-cook-timers'
 import { FeedbackButtons, ComparisonDialog } from '@/components/ranking-flow'
 import type { Feedback } from '@/lib/scoring'
-import type { RecipeWithDetails, InstructionStep, ChefPacing } from '@/types/database'
+import type { RecipeWithIngredients, InstructionStep, ChefPacing } from '@/types/database'
 
 const MANUAL_PRESETS = [1, 2, 3, 5, 10, 15, 20, 30, 45, 60] // minutes
 
@@ -42,7 +42,7 @@ export default function CookMode({
   voiceURI = null,
   pacing = 'step_by_step',
 }: {
-  recipe: RecipeWithDetails
+  recipe: RecipeWithIngredients
   /** SpeechSynthesis voiceURI the user picked in settings (device-specific). */
   voiceURI?: string | null
   /** Chef AI pacing preference — 'hands_free' auto-reads each reply aloud. */

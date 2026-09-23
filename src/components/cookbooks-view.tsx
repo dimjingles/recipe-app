@@ -8,12 +8,12 @@ import { toast } from 'sonner'
 import { BottomSheet } from '@/components/ui/bottom-sheet'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { CookbookWithCount, RecipeWithIngredients } from '@/types/database'
+import { CookbookWithCount, RecipeListItem } from '@/types/database'
 import { useCacheInvalidation } from '@/lib/queries/hooks'
 
 interface CookbooksViewProps {
   initialCookbooks: CookbookWithCount[]
-  initialRecipes: RecipeWithIngredients[]
+  initialRecipes: RecipeListItem[]
 }
 
 export default function CookbooksView({ initialCookbooks, initialRecipes }: CookbooksViewProps) {

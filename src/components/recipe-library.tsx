@@ -3,7 +3,7 @@
 import { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import type { RecipeWithIngredients, CookbookWithCount, RecipeSortPreference, RecipeSortDirection, RecipeTypeFilter } from '@/types/database'
+import type { RecipeListItem, CookbookWithCount, RecipeSortPreference, RecipeSortDirection, RecipeTypeFilter } from '@/types/database'
 import { Plus, Search, Clock, X, Globe, ChevronDown, BookOpen, Loader2, Sparkles, ArrowDownUp, ArrowDown, ArrowUp } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -101,8 +101,8 @@ function compareCookTimeAsc(a: number | null, b: number | null) {
 }
 
 function compareRecipes(
-  a: RecipeWithIngredients,
-  b: RecipeWithIngredients,
+  a: RecipeListItem,
+  b: RecipeListItem,
   sort: RecipeSortPreference,
   scores: Record<string, number>
 ) {
@@ -129,7 +129,7 @@ function compareRecipes(
     || a.name.localeCompare(b.name)
 }
 
-function compareWantToTry(a: RecipeWithIngredients, b: RecipeWithIngredients, sort: WantToTrySortPreference) {
+function compareWantToTry(a: RecipeListItem, b: RecipeListItem, sort: WantToTrySortPreference) {
   if (sort === 'recently_added') {
     return compareDateDesc(a.created_at, b.created_at)
       || a.name.localeCompare(b.name)
@@ -162,7 +162,7 @@ export default function RecipeLibrary({
   initialSortDirection = 'default',
   initialTypeFilter = 'main',
 }: {
-  initialRecipes: RecipeWithIngredients[]
+  initialRecipes: RecipeListItem[]
   initialCookbooks: CookbookWithCount[]
   initialCategory?: 'cooked' | 'bookmarked'
   initialSortPreference?: RecipeSortPreference

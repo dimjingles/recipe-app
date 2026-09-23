@@ -34,6 +34,8 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'No preferences supplied' }, { status: 400 })
     }
 
+    // Validate everything first, then write both fields together.
+    const writes: Promise<unknown>[] = []
     if (hasSort) {
       if (!isRecipeSortPreference(body.recipe_sort_preference)) {
         return NextResponse.json({ error: 'Invalid recipe sort preference' }, { status: 400 })
@@ -43,15 +45,16 @@ export async function PATCH(request: NextRequest) {
       if (!isRecipeSortDirection(direction)) {
         return NextResponse.json({ error: 'Invalid recipe sort direction' }, { status: 400 })
       }
-      await updateRecipeSortPreference(user.id, body.recipe_sort_preference, direction)
+      writes.push(updateRecipeSortPreference(user.id, body.recipe_sort_preference, direction))
     }
 
     if (hasTypeFilter) {
       if (!isRecipeTypeFilter(body.recipe_type_filter)) {
         return NextResponse.json({ error: 'Invalid recipe type filter' }, { status: 400 })
       }
-      await updateRecipeTypeFilter(user.id, body.recipe_type_filter)
+      writes.push(updateRecipeTypeFilter(user.id, body.recipe_type_filter))
     }
+    await Promise.all(writes)
 
     return NextResponse.json({ ok: true })
   } catch (error: any) {

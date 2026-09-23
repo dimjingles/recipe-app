@@ -22,13 +22,14 @@ export async function PATCH(
 
     if (updateError) throw updateError
 
-    // Recalculate last_cooked_at from all logs for this recipe
+    // Recalculate last_cooked_at from the most recent log for this recipe
     const { data: allLogs } = await supabase
       .from('cooking_log')
       .select('cooked_at')
       .eq('recipe_id', id)
       .eq('user_id', user.id)
       .order('cooked_at', { ascending: false })
+      .limit(1)
 
     await supabase
       .from('recipes')
@@ -60,18 +61,20 @@ export async function DELETE(
 
     if (deleteError) throw deleteError
 
-    // Recalculate cooked_count and last_cooked_at from remaining logs
-    const { data: remaining } = await supabase
+    // Recalculate cooked_count and last_cooked_at from remaining logs — the
+    // newest row plus an exact count, rather than pulling every log row.
+    const { data: remaining, count } = await supabase
       .from('cooking_log')
-      .select('cooked_at')
+      .select('cooked_at', { count: 'exact' })
       .eq('recipe_id', id)
       .eq('user_id', user.id)
       .order('cooked_at', { ascending: false })
+      .limit(1)
 
     await supabase
       .from('recipes')
       .update({
-        cooked_count: remaining?.length ?? 0,
+        cooked_count: count ?? 0,
         last_cooked_at: remaining?.[0]?.cooked_at ?? null,
       })
       .eq('id', id)

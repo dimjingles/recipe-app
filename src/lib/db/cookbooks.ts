@@ -1,6 +1,7 @@
 import { createClient, getUser } from '@/lib/supabase/server'
 import { Cookbook, CookbookWithCount, CookbookWithRecipes } from '@/types/database'
 import { emitActivity } from '@/lib/db/activity'
+import { RECIPE_SUMMARY_COLUMNS } from '@/lib/recipe-columns'
 
 export async function getCookbooks(): Promise<CookbookWithCount[]> {
   const supabase = await createClient()
@@ -23,12 +24,12 @@ export async function getCookbook(id: string): Promise<CookbookWithRecipes | nul
 
   const { data, error } = await supabase
     .from('cookbooks')
-    .select('*, cookbook_recipes(recipe:recipes(*))')
+    .select(`*, cookbook_recipes(recipe:recipes(${RECIPE_SUMMARY_COLUMNS}))`)
     .eq('id', id)
     .eq('user_id', user.id)
     .single()
   if (error) { console.error(error); return null }
-  return data as CookbookWithRecipes
+  return data as unknown as CookbookWithRecipes
 }
 
 export async function createCookbook(name: string, recipeIds: string[] = []): Promise<Cookbook> {

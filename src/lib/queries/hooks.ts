@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react'
 import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
-import type { Profile, RecipeWithIngredients, PlanWithSlots, CookbookWithCount } from '@/types/database'
+import type { Profile, RecipeListItem, PlanWithSlots, CookbookWithCount } from '@/types/database'
 import type { Feed } from '@/lib/db/activity'
 import type { DayCuisinePattern } from '@/lib/db/planner'
 import { getWeekStart } from '@/lib/week'
@@ -45,7 +45,7 @@ export const queries = {
   },
   recipes: {
     queryKey: queryKeys.recipes,
-    queryFn: () => getJson<RecipeWithIngredients[]>('/api/recipes'),
+    queryFn: () => getJson<RecipeListItem[]>('/api/recipes'),
   },
   plan: (weekStart: string) => ({
     queryKey: queryKeys.plan(weekStart),
