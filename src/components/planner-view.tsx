@@ -17,7 +17,7 @@ import {
   detectConflicts,
   isWeekend,
 } from '@/lib/planner-scoring'
-import { DayCuisinePattern } from '@/lib/db/planner'
+import type { DayCuisinePattern } from '@/lib/db/planner'
 import PlanDiversityBar from '@/components/plan-diversity-bar'
 import RescueRecipeCard from '@/components/rescue-recipe-card'
 import TopCookedCard from '@/components/top-cooked-card'
@@ -81,8 +81,9 @@ export default function PlannerView({
     return { weekday, weekend }
   }, [cookbooks])
 
-  // Relevance-scored + searched recipes for the currently open day slot
-  const scored = useMemo(() => {
+  // Relevance-scored recipes for the currently open day slot — scored once per
+  // open picker, then narrowed by the search text without re-scoring.
+  const allScored = useMemo(() => {
     if (pickingDay === null) return []
     const ctx = {
       profile,
@@ -92,12 +93,17 @@ export default function PlannerView({
       weekdayCookbookIds: cookbookDayTypes.weekday,
       weekendCookbookIds: cookbookDayTypes.weekend,
     }
-    const q = search.trim().toLowerCase()
     return recipes
-      .filter(r => !q || r.name.toLowerCase().includes(q) || r.cuisine?.toLowerCase().includes(q))
       .map(r => ({ recipe: r, ...scoreRecipe(r, ctx) }))
       .sort((a, b) => b.score - a.score)
-  }, [pickingDay, search, recipes, slots, profile, skill, cookbookDayTypes])
+  }, [pickingDay, recipes, slots, profile, skill, cookbookDayTypes])
+  const scored = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return allScored
+    return allScored.filter(({ recipe: r }) =>
+      r.name.toLowerCase().includes(q) || r.cuisine?.toLowerCase().includes(q)
+    )
+  }, [allScored, search])
 
   const plannedRecipeIds = useMemo(() => new Set(slots.map(s => s.recipe_id)), [slots])
   const firstEmptyDay = (): number | null =>

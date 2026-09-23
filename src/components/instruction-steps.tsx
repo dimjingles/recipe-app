@@ -12,12 +12,15 @@
  *
  * Fallback chain (most → least structured):
  *   1. `steps` prop (AI-structured from DB)
- *   2. `splitStepsFromText(rawInstructions)` (deterministic split, no highlights)
+ *   2. `splitStepsFromText(rawInstructions)` + `tokenizeStep` (deterministic
+ *      split and highlights — e.g. while a new recipe's steps are still being
+ *      stored in the background)
  *   3. plain <p> blob (original rendering, identical to before this feature)
  */
 
+import { memo, useMemo } from 'react'
 import { ChefHat } from 'lucide-react'
-import { splitStepsFromText, overlayIngredients } from '@/lib/instructions'
+import { splitStepsFromText, overlayIngredients, tokenizeStep } from '@/lib/instructions'
 import { renderStepTokens } from '@/components/step-tokens'
 import type { InstructionStep, Ingredient } from '@/types/database'
 
@@ -29,15 +32,23 @@ interface Props {
   onAskChef?: (step: InstructionStep) => void
 }
 
-export default function InstructionSteps({ steps, rawInstructions, ingredients = [], onAskChef }: Props) {
-  const ingredientNames = ingredients.map(i => i.name).filter(Boolean)
-  // Resolve which steps to display
-  const displaySteps: InstructionStep[] | null =
-    steps && steps.length > 0
-      ? steps
-      : rawInstructions
-        ? splitStepsFromText(rawInstructions)
-        : null
+const NO_INGREDIENTS: Ingredient[] = []
+
+// Memoized (with the token overlay below) so parent re-renders — the servings
+// stepper, dialogs opening — don't re-tokenise every step.
+function InstructionSteps({ steps, rawInstructions, ingredients = NO_INGREDIENTS, onAskChef }: Props) {
+  // Resolve which steps to display, with ingredient names highlighted.
+  const displaySteps = useMemo((): InstructionStep[] | null => {
+    const resolved =
+      steps && steps.length > 0
+        ? steps
+        : rawInstructions
+          ? splitStepsFromText(rawInstructions).map(s => ({ ...s, tokens: tokenizeStep(s.text) }))
+          : null
+    if (!resolved) return null
+    const ingredientNames = ingredients.map(i => i.name).filter(Boolean)
+    return resolved.map(s => ({ ...s, tokens: overlayIngredients(s.tokens, ingredientNames) }))
+  }, [steps, rawInstructions, ingredients])
 
   // Fallback: no steps could be derived — render original blob
   if (!displaySteps || displaySteps.length === 0) {
@@ -61,7 +72,7 @@ export default function InstructionSteps({ steps, rawInstructions, ingredients =
           {/* Step content */}
           <div className="flex-1 bg-card rounded-xl border border-border shadow-sm px-4 py-3">
             <p className="text-foreground text-sm leading-relaxed">
-              {renderStepTokens(overlayIngredients(step.tokens, ingredientNames))}
+              {renderStepTokens(step.tokens)}
             </p>
 
             {/* Per-step Ask Chef AI button — hidden when no handler (read-only) */}
@@ -81,3 +92,5 @@ export default function InstructionSteps({ steps, rawInstructions, ingredients =
     </ol>
   )
 }
+
+export default memo(InstructionSteps)

@@ -81,7 +81,6 @@ export default function ProfileEditor({
       }
       toast.success('Profile saved')
       invalidate.meChanged()
-      router.refresh()
     } catch (e: any) {
       toast.error(e.message || 'Could not save profile')
     } finally {

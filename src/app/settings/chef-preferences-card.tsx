@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Check, ChefHat, Loader2, Volume2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { useCacheInvalidation } from '@/lib/queries/hooks'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import {
@@ -66,6 +67,7 @@ function OptionGroup<K extends string>({
 }
 
 export default function ChefPreferencesCard({ initial }: { initial: ChefPreferences }) {
+  const invalidate = useCacheInvalidation()
   const [persona, setPersona] = useState(initial.persona)
   const [skillPref, setSkillPref] = useState(initial.skillPref)
   const [pacing, setPacing] = useState(initial.pacing)
@@ -127,6 +129,7 @@ export default function ChefPreferencesCard({ initial }: { initial: ChefPreferen
       if (!res.ok) throw new Error(data.error || 'Failed to save')
       setSaved({ persona, skillPref, pacing, voiceURI })
       toast.success('Chef AI preferences saved')
+      invalidate.meChanged()
     } catch (e: any) {
       toast.error(e.message || 'Could not save preferences')
     } finally {

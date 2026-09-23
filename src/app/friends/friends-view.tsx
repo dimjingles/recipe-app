@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, Search, UserPlus, Check, X, Clock, Copy, QrCode, Mail } from 'lucide-react'
 import { toast } from 'sonner'
+import { useCacheInvalidation } from '@/lib/queries/hooks'
 import { Input } from '@/components/ui/input'
 import { UserAvatar } from '@/components/user-avatar'
 import { QRCode } from '@/components/qr-code'
@@ -39,6 +40,7 @@ function Row({ user, right }: { user: PublicProfile; right?: React.ReactNode }) 
 }
 
 export default function FriendsView({ myUsername, initialFriends, initialIncoming, initialSent }: Props) {
+  const invalidate = useCacheInvalidation()
   const [tab, setTab] = useState<Tab>('friends')
   const [friends, setFriends] = useState(initialFriends)
   const [incoming, setIncoming] = useState(initialIncoming)
@@ -67,14 +69,21 @@ export default function FriendsView({ myUsername, initialFriends, initialIncomin
     const q = query.trim()
     if (q.length < 2) { setResults([]); setSearching(false); return }
     setSearching(true)
+    // A newer query aborts the older request so a slow response can't
+    // overwrite fresher results.
+    const controller = new AbortController()
     const t = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/users/search?q=${encodeURIComponent(q)}`)
+        const res = await fetch(`/api/users/search?q=${encodeURIComponent(q)}`, { signal: controller.signal })
         const data = await res.json()
         setResults(data.results ?? [])
-      } catch { setResults([]) } finally { setSearching(false) }
+      } catch {
+        if (!controller.signal.aborted) setResults([])
+      } finally {
+        if (!controller.signal.aborted) setSearching(false)
+      }
     }, 300)
-    return () => clearTimeout(t)
+    return () => { clearTimeout(t); controller.abort() }
   }, [query])
 
   const addFriend = async (user: PublicProfile) => {
@@ -87,6 +96,7 @@ export default function FriendsView({ myUsername, initialFriends, initialIncomin
       })
       if (!res.ok) throw new Error((await res.json()).error || 'Failed')
       toast.success(`Request sent to @${user.username}`)
+      invalidate.socialChanged()
     } catch (e: any) {
       setSent(prev => prev.filter(u => u.id !== user.id))
       toast.error(e.message || 'Could not send request')
@@ -104,6 +114,7 @@ export default function FriendsView({ myUsername, initialFriends, initialIncomin
       })
       if (!res.ok) throw new Error((await res.json()).error || 'Failed')
       toast.success(accept ? `You're now friends with @${user.username}` : 'Request declined')
+      invalidate.socialChanged()
     } catch (e: any) {
       setIncoming(prev => [...prev, user])
       if (accept) setFriends(prev => prev.filter(u => u.id !== user.id))
@@ -121,6 +132,7 @@ export default function FriendsView({ myUsername, initialFriends, initialIncomin
       })
       if (!res.ok) throw new Error((await res.json()).error || 'Failed')
       toast.success(`Unfriended @${user.username}`)
+      invalidate.socialChanged()
     } catch (e: any) {
       setFriends(prev => [...prev, user])
       toast.error(e.message || 'Could not unfriend')

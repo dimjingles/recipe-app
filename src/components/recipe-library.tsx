@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useLayoutEffect, useMemo, useRef, useDeferredValue, memo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import type { RecipeListItem, CookbookWithCount, RecipeSortPreference, RecipeSortDirection, RecipeTypeFilter } from '@/types/database'
@@ -64,6 +64,46 @@ const WANT_TO_TRY_SORT_OPTIONS = [
   { value: 'alphabetical', label: 'Alphabetical' },
   { value: 'recently_added', label: 'Recently added' },
 ] as const
+
+/** A library grid card. Memoized with primitive/stable props (the recipe object
+ *  is structurally shared by the query cache), so filtering or typing only
+ *  re-renders the cards that actually changed. */
+const LibraryCard = memo(function LibraryCard({
+  recipe,
+  score,
+  index,
+}: {
+  recipe: RecipeListItem
+  score: number | null
+  index: number
+}) {
+  return (
+    <RecipeCard
+      recipe={recipe}
+      variant="grid"
+      score={score}
+      href={`/recipes/${recipe.id}`}
+      showCookTime={false}
+      className="animate-fade-in-up"
+      style={{ animationDelay: `${Math.min(index, 8) * 40}ms` }}
+      action={
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          {recipe.cook_time_minutes ? (
+            <span className="flex items-center gap-0.5 shrink-0">
+              <Clock className="w-3 h-3" /> {recipe.cook_time_minutes}m
+            </span>
+          ) : null}
+          {recipe.cooked_count > 0 ? (
+            <span className="shrink-0">🍳×{recipe.cooked_count}</span>
+          ) : null}
+        </div>
+      }
+    />
+  )
+})
+
+/** Shortest query that triggers the (AI-backed) online recipe search. */
+const MIN_ONLINE_QUERY = 3
 
 function compareDateDesc(a: string | null, b: string | null) {
   if (!a && !b) return 0
@@ -211,37 +251,46 @@ export default function RecipeLibrary({
   const [newCookbookRecipes, setNewCookbookRecipes] = useState<string[]>([])
   const [creatingCookbook, setCreatingCookbook] = useState(false)
 
-  const searchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null)
   const saveSortSeq = useRef(0)
   const saveTypeSeq = useRef(0)
 
+  // Online suggestions are an AI call, so only for real queries (3+ chars),
+  // debounced, and a newer query aborts the older request — a slow stale
+  // response can never overwrite fresher results.
+  const onlineQuery = search.trim().length >= MIN_ONLINE_QUERY ? search.trim() : ''
   useEffect(() => {
-    if (searchDebounce.current) clearTimeout(searchDebounce.current)
-    if (!search.trim()) {
+    if (!onlineQuery) {
       setOnlineResults([])
       setPendingSearch(false)
+      setLoadingOnline(false)
       return
     }
     setPendingSearch(true)
-    searchDebounce.current = setTimeout(async () => {
+    const controller = new AbortController()
+    const timer = setTimeout(async () => {
       setPendingSearch(false)
       setLoadingOnline(true)
       try {
         const res = await fetch('/api/recipes/search', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query: search }),
+          body: JSON.stringify({ query: onlineQuery }),
+          signal: controller.signal,
         })
         const data = await res.json()
         setOnlineResults(data.results || [])
       } catch {
+        if (controller.signal.aborted) return
         setOnlineResults([])
       } finally {
-        setLoadingOnline(false)
+        if (!controller.signal.aborted) setLoadingOnline(false)
       }
     }, 600)
-    return () => { if (searchDebounce.current) clearTimeout(searchDebounce.current) }
-  }, [search])
+    return () => {
+      clearTimeout(timer)
+      controller.abort()
+    }
+  }, [onlineQuery])
 
   const fetchRecommendations = async () => {
     setShowRecommendations(true)
@@ -441,17 +490,12 @@ export default function RecipeLibrary({
       setCookbooks(prev => [...prev, newCookbook])
       setSelectedCookbook(data.id)
       closeCreateCookbook()
-      router.refresh()
     } catch (e: any) {
       toast.error(e.message || 'Could not create cookbook')
     } finally {
       setCreatingCookbook(false)
     }
   }
-
-  const uniqueTags = Array.from(
-    new Set(initialRecipes.flatMap(r => r.tags || []))
-  ).sort()
 
   // 0–10 scores keyed by recipe id, normalised within each (type, tier) pool.
   const scores = useMemo(
@@ -464,63 +508,86 @@ export default function RecipeLibrary({
     [initialRecipes]
   )
 
-  const scopedRecipes = initialRecipes.filter(r =>
-    !selectedCookbook ||
-    (r.cookbook_recipes || []).some(cr => cr.cookbook_id === selectedCookbook)
-  )
-  const cookedCount = scopedRecipes.filter(r => r.cooked_count > 0).length
-  const bookmarkedCount = scopedRecipes.filter(r => r.cooked_count === 0).length
+  // Typing stays responsive: the list filters against a deferred copy of the
+  // search text, so React can render keystrokes first.
+  const deferredSearch = useDeferredValue(search)
 
-  // Recipes in the current cookbook + tab — the scope both the cuisine options and the
-  // filtered list are drawn from.
-  const categoryRecipes = scopedRecipes.filter(r =>
-    selectedCategory === 'cooked' ? r.cooked_count > 0 : r.cooked_count === 0
-  )
+  // The whole filter chain, recomputed only when an input changes — not on
+  // every unrelated re-render (dropdowns, sheets, online-search state).
+  const {
+    uniqueTags, cookedCount, bookmarkedCount, cuisines, activeCuisines, categoryOptions,
+    activeCategories, hasCookTimes, difficultyOptions, activeDifficulties, activeCookTime, filtered,
+  } = useMemo(() => {
+    const uniqueTags = Array.from(new Set(initialRecipes.flatMap(r => r.tags || []))).sort()
 
-  // Cuisine options only offer what actually exists in the current view.
-  const cuisines = Array.from(
-    new Set(categoryRecipes.map(r => r.cuisine?.toLowerCase()).filter(Boolean) as string[])
-  ).sort()
+    const scopedRecipes = initialRecipes.filter(r =>
+      !selectedCookbook ||
+      (r.cookbook_recipes || []).some(cr => cr.cookbook_id === selectedCookbook)
+    )
+    const cookedCount = scopedRecipes.filter(r => r.cooked_count > 0).length
+    const bookmarkedCount = scopedRecipes.length - cookedCount
 
-  // A selection can fall out of scope when the cookbook or tab changes; ignore those
-  // rather than clearing state, so the selection returns when the user switches back.
-  const activeCuisines = selectedCuisines.filter(c => cuisines.includes(c))
+    // Recipes in the current cookbook + tab — the scope both the cuisine options
+    // and the filtered list are drawn from.
+    const categoryRecipes = scopedRecipes.filter(r =>
+      selectedCategory === 'cooked' ? r.cooked_count > 0 : r.cooked_count === 0
+    )
 
-  // Same idea for the "Type" filter: offer only categories present in view,
-  // in the fixed RECIPE_CATEGORIES order.
-  const presentCategories = new Set(categoryRecipes.flatMap(r => r.categories ?? []))
-  const categoryOptions = RECIPE_CATEGORIES.filter(c => presentCategories.has(c.value))
-  const activeCategories = selectedCategories.filter(c => presentCategories.has(c))
+    // Cuisine options only offer what actually exists in the current view.
+    const cuisines = Array.from(
+      new Set(categoryRecipes.map(r => r.cuisine?.toLowerCase()).filter(Boolean) as string[])
+    ).sort()
 
-  // Time and Difficulty follow suit: hidden when nothing in view has the field.
-  const hasCookTimes = categoryRecipes.some(r => r.cook_time_minutes != null)
-  const presentDifficulties = new Set(categoryRecipes.map(r => r.difficulty).filter((d): d is number => d != null))
-  const difficultyOptions = DIFFICULTIES.filter(d => presentDifficulties.has(d.value))
-  const activeDifficulties = selectedDifficulties.filter(d => presentDifficulties.has(d))
-  const activeCookTime = hasCookTimes ? COOK_TIME_OPTIONS.find(o => o.value === selectedCookTime) ?? null : null
+    // A selection can fall out of scope when the cookbook or tab changes; ignore
+    // those rather than clearing state, so the selection returns when the user
+    // switches back.
+    const activeCuisines = selectedCuisines.filter(c => cuisines.includes(c))
 
-  const filtered = categoryRecipes.filter(r => {
-    const matchesSearch =
-      r.name.toLowerCase().includes(search.toLowerCase()) ||
-      r.cuisine?.toLowerCase().includes(search.toLowerCase()) ||
-      r.tags?.some(t => t.toLowerCase().includes(search.toLowerCase()))
-    const matchesCuisine =
-      activeCuisines.length === 0 ||
-      (!!r.cuisine && activeCuisines.includes(r.cuisine.toLowerCase()))
-    const matchesCourse = !selectedType || r.recipe_type?.toLowerCase() === selectedType
-    const matchesCategory =
-      activeCategories.length === 0 ||
-      (r.categories ?? []).some(c => activeCategories.includes(c))
-    const matchesTime =
-      activeCookTime == null ||
-      (r.cook_time_minutes != null && activeCookTime.matches(r.cook_time_minutes))
-    const matchesDifficulty =
-      activeDifficulties.length === 0 ||
-      (r.difficulty != null && activeDifficulties.includes(r.difficulty))
-    const matchesTag = !selectedTag || (r.tags || []).includes(selectedTag)
-    return matchesSearch && matchesCuisine && matchesCourse && matchesCategory
-      && matchesTime && matchesDifficulty && matchesTag
-  })
+    // Same idea for the "Type" filter: offer only categories present in view,
+    // in the fixed RECIPE_CATEGORIES order.
+    const presentCategories = new Set(categoryRecipes.flatMap(r => r.categories ?? []))
+    const categoryOptions = RECIPE_CATEGORIES.filter(c => presentCategories.has(c.value))
+    const activeCategories = selectedCategories.filter(c => presentCategories.has(c))
+
+    // Time and Difficulty follow suit: hidden when nothing in view has the field.
+    const hasCookTimes = categoryRecipes.some(r => r.cook_time_minutes != null)
+    const presentDifficulties = new Set(categoryRecipes.map(r => r.difficulty).filter((d): d is number => d != null))
+    const difficultyOptions = DIFFICULTIES.filter(d => presentDifficulties.has(d.value))
+    const activeDifficulties = selectedDifficulties.filter(d => presentDifficulties.has(d))
+    const activeCookTime = hasCookTimes ? COOK_TIME_OPTIONS.find(o => o.value === selectedCookTime) ?? null : null
+
+    const q = deferredSearch.toLowerCase()
+    const filtered = categoryRecipes.filter(r => {
+      const matchesSearch =
+        r.name.toLowerCase().includes(q) ||
+        r.cuisine?.toLowerCase().includes(q) ||
+        r.tags?.some(t => t.toLowerCase().includes(q))
+      const matchesCuisine =
+        activeCuisines.length === 0 ||
+        (!!r.cuisine && activeCuisines.includes(r.cuisine.toLowerCase()))
+      const matchesCourse = !selectedType || r.recipe_type?.toLowerCase() === selectedType
+      const matchesCategory =
+        activeCategories.length === 0 ||
+        (r.categories ?? []).some(c => activeCategories.includes(c))
+      const matchesTime =
+        activeCookTime == null ||
+        (r.cook_time_minutes != null && activeCookTime.matches(r.cook_time_minutes))
+      const matchesDifficulty =
+        activeDifficulties.length === 0 ||
+        (r.difficulty != null && activeDifficulties.includes(r.difficulty))
+      const matchesTag = !selectedTag || (r.tags || []).includes(selectedTag)
+      return matchesSearch && matchesCuisine && matchesCourse && matchesCategory
+        && matchesTime && matchesDifficulty && matchesTag
+    })
+
+    return {
+      uniqueTags, cookedCount, bookmarkedCount, cuisines, activeCuisines, categoryOptions,
+      activeCategories, hasCookTimes, difficultyOptions, activeDifficulties, activeCookTime, filtered,
+    }
+  }, [
+    initialRecipes, selectedCookbook, selectedCategory, selectedCuisines, selectedCategories,
+    selectedDifficulties, selectedCookTime, selectedType, selectedTag, deferredSearch,
+  ])
 
   const isWantToTry = selectedCategory === 'bookmarked'
   const activeSortOptions = isWantToTry ? WANT_TO_TRY_SORT_OPTIONS : COOKED_SORT_OPTIONS
@@ -1011,34 +1078,18 @@ export default function RecipeLibrary({
           {sortedRecipes.length > 0 && (
             <div className="grid grid-cols-2 gap-3">
               {sortedRecipes.map((recipe, i) => (
-                <RecipeCard
+                <LibraryCard
                   key={recipe.id}
                   recipe={recipe}
-                  variant="grid"
                   score={scores[recipe.id] ?? null}
-                  onClick={() => router.push(`/recipes/${recipe.id}`)}
-                  showCookTime={false}
-                  className="animate-fade-in-up"
-                  style={{ animationDelay: `${i * 40}ms` }}
-                  action={
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      {recipe.cook_time_minutes ? (
-                        <span className="flex items-center gap-0.5 shrink-0">
-                          <Clock className="w-3 h-3" /> {recipe.cook_time_minutes}m
-                        </span>
-                      ) : null}
-                      {recipe.cooked_count > 0 ? (
-                        <span className="shrink-0">🍳×{recipe.cooked_count}</span>
-                      ) : null}
-                    </div>
-                  }
+                  index={i}
                 />
               ))}
             </div>
           )}
 
           {/* Online search results */}
-            {search && (
+            {onlineQuery && (
               <div>
                 <div className="flex items-center gap-3 mb-3">
                   <div className="h-px flex-1 bg-border" />

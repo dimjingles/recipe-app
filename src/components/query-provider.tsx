@@ -43,11 +43,11 @@ function makeQueryClient() {
   return new QueryClient({
     defaultOptions: {
       queries: {
-        // Short staleness window: navigation paints instantly from cache while
-        // anything older than 30s refetches in the background, so data touched
-        // by a mutation self-heals within one navigation even without an
-        // explicit invalidation.
-        staleTime: 30 * 1000,
+        // Navigation paints instantly from cache; data older than 5 minutes
+        // refetches in the background (on mount, focus or reconnect). Every
+        // mutation invalidates what it touches (useCacheInvalidation), so this
+        // window only bounds staleness from changes made on other devices.
+        staleTime: 5 * 60 * 1000,
         gcTime: DAY_MS, // must be >= persister maxAge or restores get dropped
         retry: (failureCount, error) =>
           error instanceof UnauthorizedError ? false : failureCount < 2,

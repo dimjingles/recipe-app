@@ -36,6 +36,7 @@ export const queryKeys = {
   cookbooks: ['cookbooks'] as const,
   feed: ['feed'] as const,
   plannerPatterns: ['planner-patterns'] as const,
+  friends: ['friends'] as const,
 }
 
 export const queries = {
@@ -119,6 +120,11 @@ export function useCacheInvalidation() {
       /** Own profile changed. */
       meChanged: () => {
         void queryClient.invalidateQueries({ queryKey: queryKeys.me })
+      },
+      /** Friendship added/removed/requested — changes who's in the feed. */
+      socialChanged: () => {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.friends })
+        void queryClient.invalidateQueries({ queryKey: queryKeys.feed })
       },
     }),
     [queryClient]

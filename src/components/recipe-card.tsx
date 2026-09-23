@@ -1,6 +1,7 @@
 'use client'
 
-import { ReactNode, CSSProperties, useState } from 'react'
+import { ReactNode, CSSProperties, memo, useState } from 'react'
+import Link from 'next/link'
 import { Clock, Flame } from 'lucide-react'
 import { formatScore } from '@/lib/scoring'
 import { getCuisineEmoji } from '@/lib/cuisine-emoji'
@@ -24,6 +25,9 @@ interface RecipeCardProps {
   /** 0.0–10.0 score badge shown on the list variant. Omit for no badge. */
   score?: number | null
   onClick?: () => void
+  /** Render the card as a link (prefetchable, open-in-new-tab) instead of a
+   *  click handler. Don't combine with an interactive `action`. */
+  href?: string
   action?: ReactNode
   style?: CSSProperties
   className?: string
@@ -31,11 +35,14 @@ interface RecipeCardProps {
   showCookTime?: boolean
 }
 
-export function RecipeCard({
+// Memoized: library grids re-render on every filter/search change, and cards
+// whose props didn't change can skip it.
+export const RecipeCard = memo(function RecipeCard({
   recipe,
   variant,
   score,
   onClick,
+  href,
   action,
   style,
   className,
@@ -47,17 +54,19 @@ export function RecipeCard({
   // Scraped OG/JSON-LD image URLs often 404 or hotlink-block; fall back to the
   // placeholder instead of a broken-image icon when the load fails.
   const [imageBroken, setImageBroken] = useState(false)
+  // Stable element types (Link or div), so switching never remounts the card.
+  const Root = (href ? Link : 'div') as 'div'
+  const rootProps = href ? ({ href, style } as object) : { onClick, style }
 
   if (variant === 'list') {
     return (
-      <div
+      <Root
+        {...rootProps}
         className={cn(
           'group flex cursor-pointer items-center gap-3 rounded-2xl border border-border bg-card px-4 py-2.5 shadow-card',
           'transition-all hover:-translate-y-0.5 hover:shadow-card-hover active:scale-[0.98]',
           className,
         )}
-        onClick={onClick}
-        style={style}
       >
         {score != null && (
           <span className="grid h-8 min-w-8 shrink-0 place-items-center rounded-xl bg-brand-subtle px-1.5 text-xs font-bold tabular-nums text-brand ring-1 ring-brand/15">
@@ -85,19 +94,18 @@ export function RecipeCard({
         </div>
 
         {action && <div className="shrink-0">{action}</div>}
-      </div>
+      </Root>
     )
   }
 
   return (
-    <div
+    <Root
+      {...rootProps}
       className={cn(
         'group flex cursor-pointer flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-card',
         'transition-all hover:-translate-y-0.5 hover:shadow-card-hover active:scale-[0.97]',
         className,
       )}
-      onClick={onClick}
-      style={style}
     >
       <div className="relative aspect-[4/3] w-full shrink-0 overflow-hidden bg-muted">
         {heroUrl && !imageBroken ? (
@@ -116,7 +124,7 @@ export function RecipeCard({
           </div>
         )}
         {score != null && (
-          <span className="absolute right-2 top-2 grid h-7 min-w-7 place-items-center rounded-lg bg-card/90 px-1.5 text-xs font-bold tabular-nums text-brand shadow-sm ring-1 ring-brand/15 backdrop-blur">
+          <span className="absolute right-2 top-2 grid h-7 min-w-7 place-items-center rounded-lg bg-card/90 px-1.5 text-xs font-bold tabular-nums text-brand shadow-sm ring-1 ring-brand/15">
             {formatScore(score)}
           </span>
         )}
@@ -154,6 +162,6 @@ export function RecipeCard({
       </div>
 
       {action && <div className="px-3 pb-3 -mt-1">{action}</div>}
-    </div>
+    </Root>
   )
-}
+})

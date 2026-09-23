@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Clock, Users, Edit, ChefHat, Trophy, X, BookOpen, Plus, Minus, Play, Sparkles, GitBranch, Maximize2, Images, Check, Share2, ImagePlus, ImageOff, Flame } from 'lucide-react'
@@ -344,6 +344,13 @@ export default function RecipeDetail({
   const [showChefAi, setShowChefAi] = useState(false)
   const [showAdapt, setShowAdapt] = useState(false)
   const [chefInitialPrompt, setChefInitialPrompt] = useState<string | undefined>(undefined)
+  // Stable so the memoized InstructionSteps doesn't re-render with the page.
+  const askChefAboutStep = useCallback((step: InstructionStep) => {
+    setChefInitialPrompt(
+      `I'm on step ${step.n} and I need help understanding it. Can you explain it clearly?\n\nStep ${step.n}: ${step.text}`
+    )
+    setShowChefAi(true)
+  }, [])
   const [cookedCount, setCookedCount] = useState(recipe.cooked_count)
   // Live servings adjuster — rescales displayed ingredient amounts only.
   const baseServings = recipe.servings || 4
@@ -410,6 +417,7 @@ export default function RecipeDetail({
       })
       if (!res.ok) throw new Error((await res.json()).error || 'Failed')
       toast.success('Display image updated')
+      invalidate.recipesChanged()
     } catch (e: any) {
       setDisplayUrl(prev) // revert
       toast.error(e.message || 'Could not update display image')
@@ -421,7 +429,7 @@ export default function RecipeDetail({
     (recipe.cookbook_recipes || []).map(cr => cr.cookbook_id)
   )
   const [logs, setLogs] = useState(
-    (recipe.cooking_log || [])
+    [...(recipe.cooking_log || [])]
       .sort((a, b) => new Date(b.cooked_at).getTime() - new Date(a.cooked_at).getTime())
       .slice(0, 5)
   )
@@ -434,6 +442,7 @@ export default function RecipeDetail({
   // After logging a cook, always rank it against the other recipes — same as the
   // re-rank flow. The taste verdict was just chosen in the cook dialog.
   const handleCookSaved = (feedback: Feedback) => {
+    invalidate.recipesChanged()
     setCookedCount(c => c + 1)
     setCurrentFeedback(feedback)
     setShowRank(true)
@@ -754,12 +763,7 @@ export default function RecipeDetail({
               steps={recipe.instruction_steps as InstructionStep[] | null}
               rawInstructions={recipe.instructions}
               ingredients={recipe.ingredients}
-              onAskChef={(step) => {
-                setChefInitialPrompt(
-                  `I'm on step ${step.n} and I need help understanding it. Can you explain it clearly?\n\nStep ${step.n}: ${step.text}`
-                )
-                setShowChefAi(true)
-              }}
+              onAskChef={askChefAboutStep}
             />
           </div>
         )}
@@ -809,7 +813,7 @@ export default function RecipeDetail({
           recipeId={recipe.id}
           recipeName={recipe.name}
           images={galleryImages}
-          onImagesChange={setGalleryImages}
+          onImagesChange={images => { setGalleryImages(images); invalidate.recipesChanged() }}
           heroUrl={heroUrl}
           onSetHero={setAsDisplay}
           openRequest={addPhotoSignal}

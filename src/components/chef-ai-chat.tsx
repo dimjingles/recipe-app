@@ -30,8 +30,9 @@ export default function ChefAiChat({ recipeId, open, onClose, initialPrompt }: C
   const sessionKeyRef = useRef<string | undefined>(undefined)
   const scrollRef = useRef<HTMLDivElement>(null)
 
+  // Instant while text streams in, smooth once the reply is complete.
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: streaming ? 'auto' : 'smooth' })
   }, [messages, streaming])
 
   useEffect(() => {
@@ -58,6 +59,8 @@ export default function ChefAiChat({ recipeId, open, onClose, initialPrompt }: C
   }, [open, initialPrompt])
 
   async function streamReply(nextMessages: ChatMessage[]) {
+    let raf = 0
+    let flushPending = () => {}
     setStreaming(true)
     setWaitingFirstChunk(true)
     setMessages([...nextMessages, { role: 'assistant', content: '' }])
@@ -71,6 +74,15 @@ export default function ChefAiChat({ recipeId, open, onClose, initialPrompt }: C
       const reader = res.body.getReader()
       const decoder = new TextDecoder()
       let buffer = ''
+      // Apply streamed text at most once per animation frame.
+      let pending = ''
+      const flush = () => {
+        raf = 0
+        const text = pending
+        pending = ''
+        if (text) setMessages(prev => prev.map((m, i) => i === prev.length - 1 ? { ...m, content: m.content + text } : m))
+      }
+      flushPending = () => { if (raf) cancelAnimationFrame(raf); flush() }
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
@@ -84,12 +96,17 @@ export default function ChefAiChat({ recipeId, open, onClose, initialPrompt }: C
           if (data === '[DONE]') return
           const parsed = JSON.parse(data)
           setWaitingFirstChunk(false)
-          setMessages(prev => prev.map((m, i) => i === prev.length - 1 ? { ...m, content: m.content + parsed.text } : m))
+          if (typeof parsed.text === 'string') {
+            pending += parsed.text
+            if (!raf) raf = requestAnimationFrame(flush)
+          }
         }
       }
     } catch {
+      flushPending()
       setMessages(prev => prev.map((m, i) => i === prev.length - 1 ? { ...m, content: m.content || 'Chef AI is unavailable right now.' } : m))
     } finally {
+      flushPending()
       setStreaming(false)
       setWaitingFirstChunk(false)
     }

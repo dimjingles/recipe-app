@@ -8,6 +8,7 @@ import { toast } from 'sonner'
 import { Input } from '@/components/ui/input'
 import { RecipeCard } from '@/components/recipe-card'
 import { CookbookWithRecipes, RecipeSummary } from '@/types/database'
+import { useCacheInvalidation } from '@/lib/queries/hooks'
 
 interface CookbookDetailViewProps {
   cookbook: CookbookWithRecipes
@@ -18,6 +19,7 @@ interface CookbookDetailViewProps {
 
 export default function CookbookDetailView({ cookbook, canManage = true, scores }: CookbookDetailViewProps) {
   const router = useRouter()
+  const invalidate = useCacheInvalidation()
   const [name, setName] = useState(cookbook.name)
   const [recipes, setRecipes] = useState<RecipeSummary[]>(
     cookbook.cookbook_recipes.map(cr => cr.recipe)
@@ -42,7 +44,7 @@ export default function CookbookDetailView({ cookbook, canManage = true, scores 
       if (!res.ok) throw new Error((await res.json()).error || 'Failed')
       setVisibility(next)
       toast.success(next === 'friends' ? 'Visible to friends' : 'Now private')
-      router.refresh()
+      invalidate.cookbooksChanged()
     } catch (e: any) {
       toast.error(e.message || 'Could not update visibility')
     } finally {
@@ -63,6 +65,7 @@ export default function CookbookDetailView({ cookbook, canManage = true, scores 
       if (data.error) throw new Error(data.error)
       setName(renameValue.trim())
       toast.success('Renamed!')
+      invalidate.cookbooksChanged()
     } catch (e: any) {
       toast.error(e.message || 'Could not rename')
       setRenameValue(name)
@@ -78,6 +81,7 @@ export default function CookbookDetailView({ cookbook, canManage = true, scores 
       const data = await res.json()
       if (data.error) throw new Error(data.error)
       toast.success('Cookbook deleted')
+      invalidate.cookbooksChanged()
       router.push('/cookbooks')
     } catch (e: any) {
       toast.error(e.message || 'Could not delete')
@@ -96,6 +100,7 @@ export default function CookbookDetailView({ cookbook, canManage = true, scores 
       })
       const data = await res.json()
       if (data.error) throw new Error(data.error)
+      invalidate.cookbooksChanged()
     } catch (e: any) {
       // Revert
       setRecipes(cookbook.cookbook_recipes.map(cr => cr.recipe))
