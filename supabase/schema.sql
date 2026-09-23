@@ -298,7 +298,7 @@ begin
     select p.id, p.username, p.display_name, p.avatar_url
     from auth.users u
     join profiles p on p.id = u.id
-    where lower(u.email) = lower(lookup_email)
+    where u.email = lower(lookup_email)  -- GoTrue stores emails lowercased; keeps the index usable
       and p.username is not null
     limit 1;
 end;
@@ -408,7 +408,7 @@ alter table recipes   add column if not exists visibility text not null default 
   check (visibility in ('private', 'friends'));
 alter table cookbooks add column if not exists visibility text not null default 'friends'
   check (visibility in ('private', 'friends'));
-create index if not exists recipes_user_id_idx   on recipes   (user_id);
+create index if not exists recipes_user_created_idx on recipes (user_id, created_at desc);
 create index if not exists cookbooks_user_id_idx on cookbooks (user_id);
 
 drop policy if exists "Friends can view friend recipes" on recipes;
@@ -459,3 +459,19 @@ create policy "Insert own activity"
 -- client scoped to the token (see src/lib/supabase/admin.ts), so no anon RLS
 -- policy is granted — the anon role still cannot read recipes directly.
 alter table recipes add column if not exists share_token uuid unique;
+
+-- ── Performance indexes (030_perf_indexes.sql) ──────────────
+-- Postgres doesn't index FK columns automatically; these back the ingredient /
+-- slot / cooking-log embeds, friend-request lookups and ON DELETE CASCADEs.
+create index if not exists ingredients_recipe_id_idx       on ingredients (recipe_id);
+create index if not exists cooking_log_user_cooked_idx     on cooking_log (user_id, cooked_at desc);
+create index if not exists cooking_log_recipe_cooked_idx   on cooking_log (recipe_id, cooked_at desc);
+create index if not exists weekly_plan_slots_recipe_id_idx on weekly_plan_slots (recipe_id);
+create index if not exists cookbook_recipes_recipe_id_idx  on cookbook_recipes (recipe_id);
+create index if not exists recipe_rankings_recipe_id_idx   on recipe_rankings (recipe_id);
+create index if not exists friendships_b_idx               on friendships (user_id_b);
+create index if not exists activity_recipe_id_idx   on activity (recipe_id)   where recipe_id is not null;
+create index if not exists activity_cookbook_id_idx on activity (cookbook_id) where cookbook_id is not null;
+-- One recipe per (plan, day, meal) — the slots route upserts on this.
+create unique index if not exists weekly_plan_slots_plan_day_meal_uidx
+  on weekly_plan_slots (plan_id, day_of_week, meal_type);

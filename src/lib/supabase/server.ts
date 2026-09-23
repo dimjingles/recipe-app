@@ -37,8 +37,9 @@ export type SessionUser = { id: string; email: string | null }
  * The authenticated user for the current request, or null.
  *
  * `supabase.auth.getUser()` makes a ~90ms network round-trip to the Supabase
- * Auth server to validate the JWT. The proxy (middleware) already does exactly
- * that on every request and forwards the validated id/email as request headers,
+ * Auth server to validate the JWT. The proxy (middleware) already verifies the
+ * JWT on every request (locally, via getClaims) and forwards the id/email as
+ * request headers,
  * so on the fast path we read those instead of re-validating — saving a
  * full round-trip on every page render and API route. Data access stays safe:
  * Postgres RLS validates the JWT cookie on every query, and the proxy strips
