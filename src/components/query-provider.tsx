@@ -24,6 +24,8 @@ const PERSISTED_ROOTS = new Set<unknown>([
   queryKeys.feed[0],
   queryKeys.plannerPatterns[0],
   queryKeys.friends[0],
+  queryKeys.forYou[0],
+  queryKeys.searchRecents[0],
 ])
 function shouldPersist(query: Query) {
   return defaultShouldDehydrateQuery(query) && PERSISTED_ROOTS.has(query.queryKey[0])
