@@ -107,7 +107,7 @@ export async function updateProfile(fields: {
 // ── Friend graph ──────────────────────────────────────────────────────────────
 
 /** Fetch public profiles for a set of ids (skips any without a handle). */
-async function profilesByIds(supabase: Client, ids: string[]): Promise<PublicProfile[]> {
+export async function profilesByIds(supabase: Client, ids: string[]): Promise<PublicProfile[]> {
   if (ids.length === 0) return []
   const { data, error } = await supabase.from('public_profiles').select('*').in('id', ids)
   if (error) { console.error('profilesByIds error:', error); return [] }

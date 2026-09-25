@@ -12,7 +12,7 @@ import { toast } from 'sonner'
 import { getCuisineEmoji } from '@/lib/cuisine-emoji'
 import { computeScores } from '@/lib/scoring'
 import { RecipeCard } from '@/components/recipe-card'
-import dynamic from 'next/dynamic'
+import { matchRecipe } from '@/lib/recipe-search'
 import { EmptyState, RecipeBookIllustration } from '@/components/ui/empty-state'
 import { Shimmer } from '@/components/ui/shimmer'
 import { queries, queryKeys, useCacheInvalidation } from '@/lib/queries/hooks'
@@ -65,9 +65,6 @@ const WANT_TO_TRY_SORT_OPTIONS = [
   { value: 'alphabetical', label: 'Alphabetical' },
   { value: 'recently_added', label: 'Recently added' },
 ] as const
-
-// Large and rarely opened: loaded on first use, not with the library.
-const AddRecipeSheet = dynamic(() => import('@/components/add-recipe-sheet').then(m => m.AddRecipeSheet), { ssr: false })
 
 /** A library grid card. Memoized with primitive/stable props (the recipe object
  *  is structurally shared by the query cache), so filtering or typing only
@@ -260,13 +257,6 @@ export default function RecipeLibrary({
 
   // Create cookbook sheet
   const [showCreateCookbook, setShowCreateCookbook] = useState(false)
-  const [showAddRecipe, setShowAddRecipeState] = useState(false)
-  // The (lazily loaded) sheet mounts on first open and stays mounted after.
-  const [addRecipeEverOpened, setAddRecipeEverOpened] = useState(false)
-  const setShowAddRecipe = (open: boolean) => {
-    if (open) setAddRecipeEverOpened(true)
-    setShowAddRecipeState(open)
-  }
   const [newCookbookName, setNewCookbookName] = useState('')
   const [newCookbookRecipes, setNewCookbookRecipes] = useState<string[]>([])
   const [creatingCookbook, setCreatingCookbook] = useState(false)
@@ -576,12 +566,8 @@ export default function RecipeLibrary({
     const activeDifficulties = selectedDifficulties.filter(d => presentDifficulties.has(d))
     const activeCookTime = hasCookTimes ? COOK_TIME_OPTIONS.find(o => o.value === selectedCookTime) ?? null : null
 
-    const q = deferredSearch.toLowerCase()
     const filtered = categoryRecipes.filter(r => {
-      const matchesSearch =
-        r.name.toLowerCase().includes(q) ||
-        r.cuisine?.toLowerCase().includes(q) ||
-        r.tags?.some(t => t.toLowerCase().includes(q))
+      const matchesSearch = matchRecipe(r, deferredSearch) !== null
       const matchesCuisine =
         activeCuisines.length === 0 ||
         (!!r.cuisine && activeCuisines.includes(r.cuisine.toLowerCase()))
@@ -1068,18 +1054,6 @@ export default function RecipeLibrary({
         )}
       </div>
 
-      <button
-        onClick={() => setShowAddRecipe(true)}
-        className="fixed bottom-28 right-5 z-30 inline-flex h-10 items-center justify-center gap-1.5 rounded-full bg-sage px-3.5 text-xs font-bold text-sage-foreground shadow-float transition-all hover:bg-sage/90 active:scale-[0.95] md:bottom-8 md:right-8"
-        aria-label="Add recipe"
-        title="Add recipe"
-      >
-        <Plus className="h-3.5 w-3.5" />
-        <span>Add Recipe</span>
-      </button>
-
-      {addRecipeEverOpened && <AddRecipeSheet open={showAddRecipe} onClose={() => setShowAddRecipe(false)} />}
-
       {/* Recipe list */}
       {sortedRecipes.length === 0 && !search ? (
         <EmptyState
@@ -1096,7 +1070,7 @@ export default function RecipeLibrary({
           }
         />
       ) : (
-        <div className="pb-24 space-y-6">
+        <div className="pb-4 space-y-6">
           {sortedRecipes.length > 0 && (
             <div className="grid grid-cols-2 gap-3">
               {sortedRecipes.map((recipe, i) => (

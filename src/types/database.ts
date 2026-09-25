@@ -405,6 +405,28 @@ export interface Database {
           },
         ]
       }
+      recipe_search_recents: {
+        Row: {
+          user_id: string
+          recipe_id: string
+          searched_at: string
+        }
+        Insert: {
+          user_id: string
+          recipe_id: string
+          searched_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['recipe_search_recents']['Insert']>
+        Relationships: [
+          {
+            foreignKeyName: 'recipe_search_recents_recipe_id_fkey'
+            columns: ['recipe_id']
+            isOneToOne: false
+            referencedRelation: 'recipes'
+            referencedColumns: ['id']
+          },
+        ]
+      }
     }
     Views: {
       public_profiles: {
@@ -474,6 +496,27 @@ export interface Database {
           p_feedback?: string | null
         }
         Returns: undefined
+      }
+      friend_recipes: {
+        Args: { p_query?: string | null; p_limit?: number }
+        Returns: {
+          id: string
+          user_id: string
+          name: string
+          cuisine: string | null
+          image_url: string | null
+          cook_time_minutes: number | null
+          categories: string[]
+          tags: string[] | null
+          feedback: string | null
+          cooked_count: number | null
+          original_recipe_id: string | null
+          created_at: string
+          username: string | null
+          display_name: string | null
+          avatar_url: string | null
+          ingredient_names: string[]
+        }[]
       }
     }
   }
