@@ -192,6 +192,9 @@ interface OnlineResult {
   description: string
 }
 
+// Chef AI "Suggest" is hidden for now; flip to true to bring it back.
+const SHOW_SUGGEST = false
+
 interface Recommendation {
   name: string
   cuisine: string
@@ -725,9 +728,11 @@ export default function RecipeLibrary({
             </>
           )}
           </div>
-          <Button onClick={fetchRecommendations} variant="outline" className="h-8 shrink-0 rounded-full border-brand/30 px-3 text-xs text-brand hover:bg-brand-subtle">
-            <Sparkles className="mr-1 h-3.5 w-3.5" /> Suggest
-          </Button>
+          {SHOW_SUGGEST && (
+            <Button onClick={fetchRecommendations} variant="outline" className="h-8 shrink-0 rounded-full border-brand/30 px-3 text-xs text-brand hover:bg-brand-subtle">
+              <Sparkles className="mr-1 h-3.5 w-3.5" /> Suggest
+            </Button>
+          )}
         </div>
 
         {/* Category tabs */}
