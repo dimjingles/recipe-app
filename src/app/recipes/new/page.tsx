@@ -19,7 +19,7 @@ export default function NewRecipePage({
     cookTime: params.cook_time_minutes,
   }
   // "Write from scratch" is a blank manual form — no AI Fill. The AI-fill flow
-  // is now its own "Generate with AI" option in the Add-a-recipe sheet. The
+  // is now the Add-a-recipe sheet's main flow (enter a dish name). The
   // lookup button is only offered when the page is pre-populated with a name
   // (e.g. arriving from a recommendation), where auto-completing makes sense.
   const showLookup = !!params.name

@@ -6,6 +6,7 @@ import {
   ArrowLeft,
   Bookmark,
   Camera,
+  ChevronDown,
   ChevronRight,
   ExternalLink,
   Heart,
@@ -16,7 +17,6 @@ import {
   PenLine,
   Search,
   Send,
-  Sparkles,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { BottomSheet } from '@/components/ui/bottom-sheet'
@@ -27,7 +27,9 @@ import { useCacheInvalidation } from '@/lib/queries/hooks'
 import { downscaleToDataUrl } from '@/lib/images/downscale'
 
 type Platform = 'youtube' | 'tiktok' | 'instagram'
-type View = 'options' | 'platforms' | 'ai' | 'photo' | Platform
+// 'ai' is the sheet's home: the dish-name box, with the other ways to add a
+// recipe tucked behind "More options".
+type View = 'ai' | 'platforms' | 'photo' | Platform
 // The AI generator runs in two steps: name the dish, then pick the photo that
 // looks right. The recipe is generated last, from the name + chosen image.
 type AiStep = 'name' | 'image'
@@ -102,7 +104,8 @@ interface AddRecipeSheetProps {
 export function AddRecipeSheet({ open, onClose }: AddRecipeSheetProps) {
   const router = useRouter()
   const invalidate = useCacheInvalidation()
-  const [view, setView] = useState<View>('options')
+  const [view, setView] = useState<View>('ai')
+  const [showMore, setShowMore] = useState(false)
   const [link, setLink] = useState('')
   const [navigating, setNavigating] = useState(false)
   const [aiName, setAiName] = useState('')
@@ -123,7 +126,8 @@ export function AddRecipeSheet({ open, onClose }: AddRecipeSheetProps) {
   const close = () => {
     onClose()
     // Reset after the sheet unmounts so the next open starts fresh.
-    setView('options')
+    setView('ai')
+    setShowMore(false)
     setLink('')
     setNavigating(false)
     setAiName('')
@@ -357,94 +361,21 @@ export function AddRecipeSheet({ open, onClose }: AddRecipeSheetProps) {
     </div>
   )
 
+  const iconCircle = (Icon: typeof Camera) => (
+    <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-brand-subtle text-brand">
+      <Icon className="h-5 w-5" />
+    </span>
+  )
+
   const platform = PLATFORMS.find(p => p.key === view)
 
   return (
     <BottomSheet open={open} onClose={close} maxHeight="90vh">
       <div className="px-5 pb-8 pt-1">
-        {/* ── View 1: Add a recipe ── */}
-        {view === 'options' && (
-          <>
-            {header('Add a recipe')}
-
-            <button
-              onClick={() => setView('ai')}
-              className="mb-3 flex w-full items-center gap-4 rounded-2xl border border-brand/40 bg-brand-subtle p-4 text-left shadow-card transition-all hover:border-brand active:scale-[0.98]"
-            >
-              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-brand text-brand-foreground">
-                <Sparkles className="h-5 w-5" />
-              </span>
-              <span>
-                <span className="block font-heading text-base font-bold text-foreground">
-                  Generate with AI
-                </span>
-                <span className="block text-sm text-muted-foreground">
-                  Enter a dish name — we&apos;ll write the whole recipe
-                </span>
-              </span>
-            </button>
-
-            <button
-              onClick={() => setView('photo')}
-              className="mb-3 flex w-full items-center gap-4 rounded-2xl border border-brand/40 bg-brand-subtle p-4 text-left shadow-card transition-all hover:border-brand active:scale-[0.98]"
-            >
-              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-brand text-brand-foreground">
-                <Camera className="h-5 w-5" />
-              </span>
-              <span>
-                <span className="block font-heading text-base font-bold text-foreground">
-                  Add from photo
-                </span>
-                <span className="block text-sm text-muted-foreground">
-                  Snap or upload a dish — we&apos;ll write the recipe for it
-                </span>
-              </span>
-            </button>
-
-            <button
-              onClick={() => setView('platforms')}
-              className="mb-3 flex w-full items-center gap-4 rounded-2xl border border-border bg-card p-4 text-left shadow-card transition-all hover:border-brand/40 active:scale-[0.98]"
-            >
-              <span className="flex shrink-0 -space-x-1.5">
-                <InstagramIcon className="h-7 w-7 drop-shadow-sm" />
-                <TikTokIcon className="h-7 w-7 drop-shadow-sm" />
-                <YouTubeIcon className="h-7 w-7 drop-shadow-sm" />
-              </span>
-              <span>
-                <span className="block font-heading text-base font-bold text-foreground">
-                  Import from social media
-                </span>
-                <span className="block text-sm text-muted-foreground">
-                  YouTube, TikTok or Instagram videos
-                </span>
-              </span>
-            </button>
-
-            <div className="grid grid-cols-2 gap-3">
-              {[
-                { icon: Link2, label: 'Import from web', onClick: () => go('/import') },
-                { icon: PenLine, label: 'Write from scratch', onClick: () => go('/recipes/new') },
-              ].map(({ icon: Icon, label, onClick }) => (
-                <button
-                  key={label}
-                  onClick={onClick}
-                  disabled={navigating}
-                  className="flex flex-col items-start gap-3 rounded-2xl border border-border bg-card p-4 text-left shadow-card transition-all hover:border-brand/40 active:scale-[0.98]"
-                >
-                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand-subtle text-brand">
-                    <Icon className="h-5 w-5" />
-                  </span>
-                  <span className="text-sm font-semibold text-foreground">{label}</span>
-                </button>
-              ))}
-            </div>
-          </>
-        )}
-
-        {/* ── View 2: platform picker ── */}
+        {/* ── View: platform picker ── */}
         {view === 'platforms' && (
           <>
-            {header('Import from social media', () => setView('options'))}
+            {header('Import from social media', () => setView('ai'))}
             <div className="space-y-3">
               {PLATFORMS.map(({ key, label }) => {
                 const Icon = PLATFORM_ICON[key]
@@ -464,16 +395,12 @@ export function AddRecipeSheet({ open, onClose }: AddRecipeSheetProps) {
           </>
         )}
 
-        {/* ── View: generate with AI ── */}
+        {/* ── Home view: Add a recipe (generate from a dish name) ── */}
         {view === 'ai' && (
           <>
             {header(
-              'Generate with AI',
-              generating
-                ? undefined
-                : aiStep === 'image'
-                  ? () => setAiStep('name')
-                  : () => setView('options'),
+              aiStep === 'image' && !generating ? 'Pick a photo' : 'Add a recipe',
+              !generating && aiStep === 'image' ? () => setAiStep('name') : undefined,
             )}
 
             {generating ? (
@@ -493,10 +420,9 @@ export function AddRecipeSheet({ open, onClose }: AddRecipeSheetProps) {
             ) : aiStep === 'name' ? (
               <>
                 <p className="mb-4 text-sm text-muted-foreground">
-                  Tell us what you want to make. Next you&apos;ll pick the photo that
-                  looks right, and we&apos;ll write a recipe to match it.
+                  Enter a dish name — we&apos;ll find the recipe
                 </p>
-                <div className="mb-3 flex gap-2">
+                <div className="flex gap-2">
                   <Input
                     value={aiName}
                     onChange={e => setAiName(e.target.value)}
@@ -514,6 +440,72 @@ export function AddRecipeSheet({ open, onClose }: AddRecipeSheetProps) {
                     <ChevronRight className="h-4 w-4 ml-1" />
                   </Button>
                 </div>
+
+                {/* The other ways to add a recipe, kept quiet so the name box leads. */}
+                <button
+                  onClick={() => setShowMore(v => !v)}
+                  aria-expanded={showMore}
+                  className="mx-auto mt-6 flex items-center gap-1 text-sm text-muted-foreground/70 transition-colors hover:text-muted-foreground"
+                >
+                  More options
+                  <ChevronDown className={`h-4 w-4 transition-transform ${showMore ? 'rotate-180' : ''}`} />
+                </button>
+
+                {showMore && (
+                  <div className="mt-4 space-y-3">
+                    {[
+                      {
+                        // Brand marks fit the same 44px slot as the icon circles so labels line up.
+                        icon: (
+                          <span className="flex w-11 shrink-0 justify-center -space-x-2">
+                            <InstagramIcon className="h-5 w-5 drop-shadow-sm" />
+                            <TikTokIcon className="h-5 w-5 drop-shadow-sm" />
+                            <YouTubeIcon className="h-5 w-5 drop-shadow-sm" />
+                          </span>
+                        ),
+                        label: 'Import from social media',
+                        detail: 'YouTube, TikTok or Instagram videos',
+                        onClick: () => setView('platforms'),
+                      },
+                      {
+                        icon: iconCircle(Camera),
+                        label: 'Add from photo',
+                        detail: "Snap or upload a dish — we'll write the recipe for it",
+                        onClick: () => setView('photo'),
+                      },
+                      {
+                        icon: iconCircle(Link2),
+                        label: 'Import from web',
+                        detail: 'Paste a link to any recipe site',
+                        onClick: () => go('/import'),
+                        navigates: true,
+                      },
+                      {
+                        icon: iconCircle(PenLine),
+                        label: 'Write from scratch',
+                        detail: 'Type in your own recipe',
+                        onClick: () => go('/recipes/new'),
+                        navigates: true,
+                      },
+                    ].map(({ icon, label, detail, onClick, navigates }) => (
+                      <button
+                        key={label}
+                        onClick={onClick}
+                        disabled={navigates && navigating}
+                        className="flex w-full items-center gap-4 rounded-2xl border border-border bg-card p-4 text-left shadow-card transition-all hover:border-brand/40 active:scale-[0.98]"
+                      >
+                        {icon}
+                        <span className="flex-1">
+                          <span className="block font-heading text-base font-bold text-foreground">
+                            {label}
+                          </span>
+                          <span className="block text-sm text-muted-foreground">{detail}</span>
+                        </span>
+                        <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      </button>
+                    ))}
+                  </div>
+                )}
               </>
             ) : (
               <>
@@ -601,7 +593,7 @@ export function AddRecipeSheet({ open, onClose }: AddRecipeSheetProps) {
         {/* ── View: add from photo ── */}
         {view === 'photo' && (
           <>
-            {header('Add from photo', generating ? undefined : () => setView('options'))}
+            {header('Add from photo', generating ? undefined : () => setView('ai'))}
 
             {/* Hidden inputs: one opens the camera on mobile, one the library. */}
             <input
