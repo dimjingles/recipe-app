@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { ChefHat } from 'lucide-react'
+import EmailCodeForm, { OrDivider } from '@/components/auth/email-code-form'
 
 export default function LoginPage() {
   const [loading, setLoading] = useState(false)
@@ -41,6 +42,8 @@ export default function LoginPage() {
           <GoogleIcon />
           {loading ? 'Redirecting…' : 'Continue with Google'}
         </button>
+        <OrDivider />
+        <EmailCodeForm onSignedIn={() => window.location.assign('/')} />
       </div>
     </div>
   )
