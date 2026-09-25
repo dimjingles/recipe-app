@@ -25,7 +25,6 @@ import { Button } from '@/components/ui/button'
 import { Shimmer } from '@/components/ui/shimmer'
 import { useCacheInvalidation } from '@/lib/queries/hooks'
 import { downscaleToDataUrl } from '@/lib/images/downscale'
-import { InstagramIcon, TikTokIcon, YouTubeIcon } from '@/components/brand-icons'
 
 type Platform = 'youtube' | 'tiktok' | 'instagram'
 // 'ai' is the sheet's home: the dish-name box, with the other ways to add a
@@ -48,6 +47,47 @@ const PLATFORMS: Array<{ key: Platform; label: string; appUrl: string; shareVerb
   { key: 'instagram', label: 'Instagram', appUrl: 'https://www.instagram.com', shareVerb: 'Send' },
 ]
 
+// ── Brand icons (lucide has no TikTok / brand-colored marks) ─────────────────
+
+function YouTubeIcon({ className = 'h-6 w-6' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden>
+      <rect x="1" y="4.5" width="22" height="15" rx="4" fill="#FF0000" />
+      <path d="M10 8.75v6.5L15.8 12 10 8.75z" fill="white" />
+    </svg>
+  )
+}
+
+function TikTokIcon({ className = 'h-6 w-6' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden>
+      <rect x="1" y="1" width="22" height="22" rx="6" fill="#010101" />
+      <path
+        d="M16.6 6.33a3.87 3.87 0 0 1-.9-2.53h-2.6v10.53a2.19 2.19 0 1 1-2.19-2.28c.23 0 .45.04.66.1V9.5a4.85 4.85 0 0 0-.66-.05 4.83 4.83 0 1 0 4.83 4.83V9.4a6.37 6.37 0 0 0 3.72 1.19V8a3.85 3.85 0 0 1-2.86-1.67z"
+        fill="white"
+      />
+    </svg>
+  )
+}
+
+function InstagramIcon({ className = 'h-6 w-6' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden>
+      <defs>
+        <linearGradient id="ig-grad" x1="0%" y1="100%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#FD5949" />
+          <stop offset="35%" stopColor="#D6249F" />
+          <stop offset="100%" stopColor="#285AEB" />
+        </linearGradient>
+      </defs>
+      <rect x="1" y="1" width="22" height="22" rx="6" fill="url(#ig-grad)" />
+      <rect x="6" y="6" width="12" height="12" rx="3.5" fill="none" stroke="white" strokeWidth="1.6" />
+      <circle cx="12" cy="12" r="2.7" fill="none" stroke="white" strokeWidth="1.6" />
+      <circle cx="15.6" cy="8.4" r="0.9" fill="white" />
+    </svg>
+  )
+}
+
 const PLATFORM_ICON: Record<Platform, (props: { className?: string }) => ReactNode> = {
   youtube: YouTubeIcon,
   tiktok: TikTokIcon,
@@ -67,22 +107,20 @@ export interface CreatedRecipe {
 interface AddRecipeSheetProps {
   open: boolean
   onClose: () => void
-  /** Open straight on one of the other ways to add (default: the dish-name box). */
-  initialView?: 'ai' | 'platforms' | 'photo'
   /** Skip the name box: open on "Pick a photo" for this dish, search already running. */
   initialName?: string
   /** Called with the saved recipe just before the sheet navigates to it. */
   onCreated?: (recipe: CreatedRecipe) => void
 }
 
-// The initial* props are read once, on mount — a caller that changes them
-// between launches remounts the sheet (`key`) so it opens on the right step
-// without flashing the name box or popping its keyboard.
-export function AddRecipeSheet({ open, onClose, initialView = 'ai', initialName, onCreated }: AddRecipeSheetProps) {
+// `initialName` is read once, on mount — a caller that changes it between
+// launches remounts the sheet (`key`) so it opens on the photo step without
+// flashing the name box or popping its keyboard.
+export function AddRecipeSheet({ open, onClose, initialName, onCreated }: AddRecipeSheetProps) {
   const router = useRouter()
   const invalidate = useCacheInvalidation()
   const startName = initialName?.trim() ?? ''
-  const [view, setView] = useState<View>(initialView)
+  const [view, setView] = useState<View>('ai')
   const [showMore, setShowMore] = useState(false)
   const [link, setLink] = useState('')
   const [navigating, setNavigating] = useState(false)
@@ -155,10 +193,6 @@ export function AddRecipeSheet({ open, onClose, initialView = 'ai', initialName,
   useEffect(() => {
     if (startName) runImageSearch(startName)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps -- mount-only
-
-  // Back arrows step toward the dish-name box — except on the screen the sheet
-  // opened on, where there's nothing behind it and back closes the sheet.
-  const backUnlessEntry = (entry: boolean, back: () => void) => (entry ? undefined : back)
 
   // Step 1 → 2: move from the name input to the photo picker, seeding the search
   // with the dish name.
@@ -364,7 +398,7 @@ export function AddRecipeSheet({ open, onClose, initialView = 'ai', initialName,
         {/* ── View: platform picker ── */}
         {view === 'platforms' && (
           <>
-            {header('Import from social media', backUnlessEntry(initialView === 'platforms', () => setView('ai')))}
+            {header('Import from social media', () => setView('ai'))}
             <div className="space-y-3">
               {PLATFORMS.map(({ key, label }) => {
                 const Icon = PLATFORM_ICON[key]
@@ -389,7 +423,7 @@ export function AddRecipeSheet({ open, onClose, initialView = 'ai', initialName,
           <>
             {header(
               aiStep === 'image' && !generating ? 'Pick a photo' : 'Add a recipe',
-              !generating && aiStep === 'image' ? backUnlessEntry(!!startName, () => setAiStep('name')) : undefined,
+              !generating && aiStep === 'image' && !startName ? () => setAiStep('name') : undefined,
             )}
 
             {generating ? (
@@ -582,7 +616,7 @@ export function AddRecipeSheet({ open, onClose, initialView = 'ai', initialName,
         {/* ── View: add from photo ── */}
         {view === 'photo' && (
           <>
-            {header('Add from photo', generating ? undefined : backUnlessEntry(initialView === 'photo', () => setView('ai')))}
+            {header('Add from photo', generating ? undefined : () => setView('ai'))}
 
             {/* Hidden inputs: one opens the camera on mobile, one the library. */}
             <input

@@ -4,7 +4,7 @@ import { useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
-import { Camera, ChevronRight, Clock, Link2, PenLine, Plus, Search, Sparkles, Users, X } from 'lucide-react'
+import { ChevronRight, Clock, Plus, Search, Sparkles, Users, X } from 'lucide-react'
 import {
   queries,
   useForYou,
@@ -19,7 +19,6 @@ import {
 import type { FriendRecipe, RecentSearch, RecipeOwner } from '@/lib/db/search'
 import { useAuthRedirect } from '@/components/cached-page'
 import { LazyAddRecipeSheet, loadAddRecipeSheet } from '@/components/add-recipe-launcher'
-import { InstagramIcon, TikTokIcon, YouTubeIcon } from '@/components/brand-icons'
 import { Shimmer } from '@/components/ui/shimmer'
 import { UserAvatar } from '@/components/user-avatar'
 import { getCuisineEmoji } from '@/lib/cuisine-emoji'
@@ -33,7 +32,7 @@ const RECENTS_SHOWN = 8
 const FRIEND_SEARCH_DEBOUNCE_MS = 250
 const MIN_QUERY = 2
 
-type SheetLaunch = { key: number; open: boolean; view?: 'platforms' | 'photo'; name?: string }
+type SheetLaunch = { key: number; open: boolean; name?: string }
 
 function useDebouncedValue<T>(value: T, ms: number): T {
   const [debounced, setDebounced] = useState(value)
@@ -138,7 +137,7 @@ export default function SearchClient() {
     <div className="mx-auto max-w-2xl px-5 pt-8 pb-4 md:px-8">
       <h1 className="mb-5 font-heading text-3xl font-bold tracking-tight text-foreground">Search</h1>
 
-      <div className="relative mb-6">
+      <div className={cn('relative', trimmed ? 'mb-6' : 'mb-3')}>
         <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
         <input
           ref={inputRef}
@@ -165,6 +164,19 @@ export default function SearchClient() {
           </button>
         )}
       </div>
+
+      {!trimmed && (
+        // Same size as the search bar. Opens the add-recipe sheet: the dish-name
+        // box, with the other ways to add behind "More options".
+        <button
+          onPointerDown={() => void loadAddRecipeSheet()}
+          onClick={() => launchSheet({})}
+          className="mb-8 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-brand text-base font-bold text-brand-foreground shadow-card transition-all hover:bg-brand/90 active:scale-[0.98]"
+        >
+          <Plus className="h-5 w-5 stroke-[2.6px]" />
+          Add a recipe
+        </button>
+      )}
 
       {trimmed ? (
         // ── Typing: your recipes, create, friends' recipes ──
@@ -233,50 +245,8 @@ export default function SearchClient() {
           )}
         </div>
       ) : (
-        // ── Idle: ways to add, recents, recommendations ──
+        // ── Idle: add a recipe, recents, recommendations ──
         <div className="space-y-8">
-          <section>
-            <SectionTitle>Add a recipe</SectionTitle>
-            <div className="grid grid-cols-2 gap-3">
-              <AddTile
-                label="Social media"
-                detail="TikTok, Reels, YouTube"
-                className="bg-brand-subtle"
-                art={
-                  <span className="flex -space-x-2">
-                    <InstagramIcon className="h-6 w-6 drop-shadow-sm" />
-                    <TikTokIcon className="h-6 w-6 drop-shadow-sm" />
-                    <YouTubeIcon className="h-6 w-6 drop-shadow-sm" />
-                  </span>
-                }
-                onPointerDown={() => void loadAddRecipeSheet()}
-                onClick={() => launchSheet({ view: 'platforms' })}
-              />
-              <AddTile
-                label="From a photo"
-                detail="Snap or upload a dish"
-                className="bg-sage-subtle"
-                art={<TileIcon className="text-sage"><Camera className="h-5 w-5" /></TileIcon>}
-                onPointerDown={() => void loadAddRecipeSheet()}
-                onClick={() => launchSheet({ view: 'photo' })}
-              />
-              <AddTile
-                label="From the web"
-                detail="Paste any recipe link"
-                className="bg-info-subtle"
-                art={<TileIcon className="text-info"><Link2 className="h-5 w-5" /></TileIcon>}
-                href="/import"
-              />
-              <AddTile
-                label="Write from scratch"
-                detail="Type in your own"
-                className="bg-lavender-subtle"
-                art={<TileIcon className="text-foreground/70"><PenLine className="h-5 w-5" /></TileIcon>}
-                href="/recipes/new"
-              />
-            </div>
-          </section>
-
           {recents.isPending ? (
             <section>
               <SectionTitle>Recents</SectionTitle>
@@ -350,7 +320,6 @@ export default function SearchClient() {
         <LazyAddRecipeSheet
           key={sheet.key}
           open={sheet.open}
-          initialView={sheet.view}
           initialName={sheet.name}
           onClose={() => setSheet(s => (s ? { ...s, open: false } : s))}
           onCreated={r => recordRecent.mutate({ ...r, mine: true, owner: null })}
@@ -512,50 +481,5 @@ function ForYouCard({ recipe, onOpen, onIntent }: { recipe: FriendRecipe; onOpen
         </span>
       )}
     </button>
-  )
-}
-
-function TileIcon({ children, className }: { children: ReactNode; className?: string }) {
-  return (
-    <span className={cn('grid h-10 w-10 place-items-center rounded-full bg-card/80 shadow-sm', className)}>
-      {children}
-    </span>
-  )
-}
-
-function AddTile({
-  label,
-  detail,
-  art,
-  className,
-  href,
-  onClick,
-  onPointerDown,
-}: {
-  label: string
-  detail: string
-  art: ReactNode
-  className: string
-  href?: string
-  onClick?: () => void
-  onPointerDown?: () => void
-}) {
-  const body = (
-    <>
-      <span className="min-w-0">
-        <span className="block font-heading text-[15px] font-bold leading-tight text-foreground">{label}</span>
-        <span className="mt-0.5 block text-xs text-muted-foreground">{detail}</span>
-      </span>
-      <span className="self-end">{art}</span>
-    </>
-  )
-  const tileClass = cn(
-    'flex h-[104px] flex-col justify-between rounded-2xl p-3.5 text-left ring-1 ring-black/[0.03] transition-all active:scale-[0.97]',
-    className,
-  )
-  return href ? (
-    <Link href={href} className={tileClass}>{body}</Link>
-  ) : (
-    <button onClick={onClick} onPointerDown={onPointerDown} className={tileClass}>{body}</button>
   )
 }
