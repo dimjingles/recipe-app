@@ -997,17 +997,27 @@ export default function RecipeLibrary({
               </>
             )}
           </div>
-          <button
-            onClick={() => setSearchOpen(open => !open)}
-            className={`grid h-8 w-8 shrink-0 place-items-center rounded-full transition-colors active:scale-[0.95] ${
-              searchOpen || search ? 'text-brand' : 'text-foreground hover:text-brand'
-            }`}
-            aria-label="Search recipes"
-            aria-pressed={searchOpen || !!search}
-            title="Search recipes"
-          >
-            <Search className="h-5 w-5" />
-          </button>
+          <div className="flex items-center gap-1">
+            <Link
+              href="/search"
+              className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-foreground transition-colors hover:text-brand active:scale-[0.95]"
+              aria-label="Search or add a recipe"
+              title="Search or add a recipe"
+            >
+              <Plus className="h-5 w-5" />
+            </Link>
+            <button
+              onClick={() => setSearchOpen(open => !open)}
+              className={`grid h-8 w-8 shrink-0 place-items-center rounded-full transition-colors active:scale-[0.95] ${
+                searchOpen || search ? 'text-brand' : 'text-foreground hover:text-brand'
+              }`}
+              aria-label="Search recipes"
+              aria-pressed={searchOpen || !!search}
+              title="Search recipes"
+            >
+              <Search className="h-5 w-5" />
+            </button>
+          </div>
         </div>
 
         {/* Search input, revealed by the search icon */}
