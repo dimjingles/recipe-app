@@ -14,9 +14,15 @@ import { clearPersistedCache } from '@/components/query-provider'
 import OnboardingShell from '@/components/onboarding/shell'
 import OptionCard from '@/components/onboarding/option-card'
 import OptionGrid from '@/components/onboarding/option-grid'
+import EmailCodeForm, { OrDivider } from '@/components/auth/email-code-form'
 
 // Steps 0–13 use the shell; 14 = commit, 15 = loading (auto), 16 = create account, 17 = finishing
 const TOTAL_SHELL_STEPS = 14
+
+// The questionnaire (steps 0–15) is switched off for now: "Get started" goes
+// straight to the handle + sign-in step. Set to false to bring the questions back.
+const SKIP_QUESTIONNAIRE = true
+const FIRST_STEP = SKIP_QUESTIONNAIRE ? 16 : 0
 
 // ── localStorage persistence ──────────────────────────────────────────────────
 
@@ -250,13 +256,13 @@ export default function OnboardingWizard({ isAuthenticated }: { isAuthenticated:
       // OAuth wasn't completed (user closed the Google popup / cancelled) → show account step
       setAnswers(stored.answers)
       setStep(16)
-    } else if (stored !== null && stored !== undefined && stored.step >= 0 && stored.step <= 13) {
+    } else if (!SKIP_QUESTIONNAIRE && stored !== null && stored !== undefined && stored.step >= 0 && stored.step <= 13) {
       // Mid-flow page refresh → restore progress
       setAnswers(stored.answers)
       setStep(stored.step)
     } else if (isAuthenticated) {
       // Already signed in, no saved progress → skip welcome screen
-      setStep(0)
+      setStep(FIRST_STEP)
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -348,9 +354,13 @@ export default function OnboardingWizard({ isAuthenticated }: { isAuthenticated:
     return () => clearTimeout(timer)
   }, [step])
 
-  // Step 16: Google OAuth → kick off sign-up, buffer answers + flag
+  // Step 16: buffer answers + flag so they survive the sign-in round trip.
+  // Step 17 reads the stored copy first, so this must run before any jump there.
+  const bufferForSubmit = () => saveToStorage({ answers, step: 13, pendingSubmit: true })
+
+  // Step 16: Google OAuth → kick off sign-up
   const handleCreateAccount = async () => {
-    saveToStorage({ answers, step: 13, pendingSubmit: true })
+    bufferForSubmit()
     const supabase = createClient()
     await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -360,16 +370,10 @@ export default function OnboardingWizard({ isAuthenticated }: { isAuthenticated:
     })
   }
 
-  // Welcome step sign-in (returning users, skips onboarding)
-  const handleSignIn = async () => {
+  // Welcome step sign-in (returning users, skips onboarding) → /login offers Google + email
+  const handleSignIn = () => {
     clearStorage()  // discard any stale pendingSubmit from a previous partial run
-    const supabase = createClient()
-    await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=/`,
-      },
-    })
+    window.location.assign('/login')
   }
 
   // Step 17: flush buffered answers to DB, then navigate to app
@@ -422,7 +426,7 @@ export default function OnboardingWizard({ isAuthenticated }: { isAuthenticated:
           </div>
           <div className="flex flex-col gap-3">
             <button
-              onClick={() => setStep(0)}
+              onClick={() => setStep(FIRST_STEP)}
               className="w-full h-14 rounded-full bg-brand hover:bg-brand/90 text-white text-base font-semibold transition-colors active:scale-[0.98]"
             >
               Get started
@@ -574,7 +578,17 @@ export default function OnboardingWizard({ isAuthenticated }: { isAuthenticated:
     const usernameError = answers.username ? validateUsername(answers.username) : null
     const usernameReady = !!answers.username && !usernameError
     return (
-      <div className="min-h-screen bg-gradient-to-br from-brand-subtle to-cooking-subtle flex items-center justify-center p-4">
+      <div className="relative min-h-screen bg-gradient-to-br from-brand-subtle to-cooking-subtle flex items-center justify-center p-4">
+        {/* With the questionnaire off this is the first screen after welcome — let people back out */}
+        {SKIP_QUESTIONNAIRE && !isAuthenticated && (
+          <button
+            onClick={() => setStep(-1)}
+            aria-label="Back"
+            className="absolute left-4 top-12 w-9 h-9 rounded-full bg-white/70 flex items-center justify-center active:bg-white transition-colors"
+          >
+            <ChevronLeft className="w-5 h-5 text-gray-600" />
+          </button>
+        )}
         <div className="w-full max-w-sm">
           <div className="text-center mb-8">
             <div className="flex justify-center mb-4">
@@ -584,7 +598,9 @@ export default function OnboardingWizard({ isAuthenticated }: { isAuthenticated:
             </div>
             <h1 className="text-3xl font-bold text-gray-900">Claim your handle</h1>
             <p className="text-gray-500 mt-3">
-              Pick a username so friends can find you, then create your free account.
+              {isAuthenticated
+                ? 'Pick a username so friends can find you.'
+                : 'Pick a username so friends can find you, then create your free account.'}
             </p>
           </div>
 
@@ -607,17 +623,42 @@ export default function OnboardingWizard({ isAuthenticated }: { isAuthenticated:
             )}
           </div>
 
-          <button
-            onClick={handleCreateAccount}
-            disabled={!usernameReady}
-            className="w-full h-14 rounded-full bg-white border border-gray-200 shadow-sm flex items-center justify-center gap-3 text-gray-700 font-semibold text-base hover:bg-gray-50 active:scale-[0.98] transition-all disabled:opacity-50 disabled:active:scale-100"
-          >
-            <GoogleIcon />
-            Continue with Google
-          </button>
-          <p className="text-center text-xs text-gray-400 mt-4">
-            Your answers are saved. You won&apos;t lose your progress.
-          </p>
+          {isAuthenticated ? (
+            // Already signed in (e.g. a new user who came through Sign in) — just save the handle
+            <button
+              onClick={() => { bufferForSubmit(); setStep(17) }}
+              disabled={!usernameReady}
+              className="w-full h-14 rounded-full bg-brand hover:bg-brand/90 text-white text-base font-semibold transition-colors active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100"
+            >
+              Continue
+            </button>
+          ) : (
+            <>
+              <button
+                onClick={handleCreateAccount}
+                disabled={!usernameReady}
+                className="w-full h-14 rounded-full bg-white border border-gray-200 shadow-sm flex items-center justify-center gap-3 text-gray-700 font-semibold text-base hover:bg-gray-50 active:scale-[0.98] transition-all disabled:opacity-50 disabled:active:scale-100"
+              >
+                <GoogleIcon />
+                Continue with Google
+              </button>
+              <OrDivider />
+              <EmailCodeForm
+                disabled={!usernameReady}
+                sendLabel="Sign up with email"
+                onBeforeAuth={bufferForSubmit}
+                // Same landing as the Google round trip: /onboarding sends finished
+                // accounts home and hydrates new ones to step 17 to save the handle.
+                next="/onboarding"
+                onSignedIn={() => window.location.assign('/onboarding')}
+              />
+            </>
+          )}
+          {!SKIP_QUESTIONNAIRE && (
+            <p className="text-center text-xs text-gray-400 mt-4">
+              Your answers are saved. You won&apos;t lose your progress.
+            </p>
+          )}
         </div>
       </div>
     )
