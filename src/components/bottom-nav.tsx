@@ -44,32 +44,23 @@ export default function BottomNav() {
   }
 
   // The main call to action: a green bubble in the middle of the bar. Search is
-  // where recipes get found or added. On the mobile bar the bubble rises a little
-  // above its slot so its label lines up with the others and the bar keeps its
-  // height; on the desktop rail it sits in line.
+  // where recipes get found or added. It has no label and sits centered in its
+  // slot, a little shorter than the other tabs so the bar keeps its height.
   const searchActive = pathname.startsWith('/search')
   const searchLink = (
     <Link
       key="/search"
       href="/search"
       aria-label="Search or add a recipe"
-      className="group flex min-w-[58px] flex-col items-center gap-1 rounded-full px-3 py-2 transition-all active:scale-[0.92] md:py-1.5"
+      className="group flex min-w-[58px] items-center justify-center rounded-full px-3 py-1 transition-all active:scale-[0.92]"
     >
       <span
         className={cn(
-          '-mt-5 grid h-10 w-10 place-items-center rounded-full bg-sage text-sage-foreground shadow-float transition-colors group-hover:bg-sage/90 md:mt-0',
+          'grid h-10 w-10 place-items-center rounded-full bg-sage text-sage-foreground shadow-float transition-colors group-hover:bg-sage/90',
           searchActive && 'ring-2 ring-sage/30 ring-offset-2 ring-offset-transparent',
         )}
       >
         <Plus className="h-5 w-5 stroke-[2.6px]" />
-      </span>
-      <span
-        className={cn(
-          'text-[11px] font-semibold leading-none',
-          searchActive ? 'text-foreground' : 'text-muted-foreground group-hover:text-foreground',
-        )}
-      >
-        Search
       </span>
     </Link>
   )

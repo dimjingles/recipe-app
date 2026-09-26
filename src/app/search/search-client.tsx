@@ -135,8 +135,6 @@ export default function SearchClient() {
 
   return (
     <div className="mx-auto max-w-2xl px-5 pt-8 pb-4 md:px-8">
-      <h1 className="mb-5 font-heading text-3xl font-bold tracking-tight text-foreground">Search</h1>
-
       <div className={cn('relative', trimmed ? 'mb-6' : 'mb-3')}>
         <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
         <input
