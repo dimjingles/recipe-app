@@ -99,6 +99,8 @@ export interface Database {
           chef_skill_pref: ChefSkillPref
           chef_pacing: ChefPacing
           chef_voice_uri: string | null
+          /** Secret for the owner's /invite/<token> link. Never exposed to other users. */
+          invite_token: string
           created_at: string
           updated_at: string
         }
@@ -125,6 +127,7 @@ export interface Database {
           chef_skill_pref?: ChefSkillPref
           chef_pacing?: ChefPacing
           chef_voice_uri?: string | null
+          invite_token?: string
           created_at?: string
           updated_at?: string
         }
@@ -464,6 +467,21 @@ export interface Database {
       unfriend: {
         Args: { other_id: string }
         Returns: undefined
+      }
+      /** Public fields of an invite token's owner (callable signed out). */
+      invite_inviter: {
+        Args: { p_token: string }
+        Returns: {
+          id: string
+          username: string | null
+          display_name: string | null
+          avatar_url: string | null
+        }[]
+      }
+      /** New accounts only; returns the inviter's id if the pair are now friends. */
+      accept_friend_invite: {
+        Args: { p_token: string }
+        Returns: string | null
       }
       get_feed: {
         Args: { p_cursor?: string | null; p_limit?: number }

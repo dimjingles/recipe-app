@@ -15,6 +15,8 @@ import OnboardingShell from '@/components/onboarding/shell'
 import OptionCard from '@/components/onboarding/option-card'
 import OptionGrid from '@/components/onboarding/option-grid'
 import EmailCodeForm, { OrDivider } from '@/components/auth/email-code-form'
+import { UserAvatar } from '@/components/user-avatar'
+import { PublicProfile } from '@/types/database'
 
 // Steps 0–13 use the shell; 14 = commit, 15 = loading (auto), 16 = create account, 17 = finishing
 const TOTAL_SHELL_STEPS = 14
@@ -228,11 +230,49 @@ function GoogleIcon() {
   )
 }
 
+// ─── Invite banner ────────────────────────────────────────────────────────────
+
+type Inviter = Pick<PublicProfile, 'username' | 'display_name' | 'avatar_url'>
+
+// Shown when the visitor arrived through a friend's /invite link. Finishing
+// sign-up makes them friends; "Not now" forgets the invite.
+function InviteBanner({ inviter, onDismiss }: { inviter: Inviter; onDismiss: () => void }) {
+  return (
+    <div className="mb-6 flex items-center gap-3 rounded-2xl bg-white/80 p-3 text-left shadow-sm ring-1 ring-gray-200">
+      <UserAvatar name={inviter.display_name || inviter.username} src={inviter.avatar_url} size={44} />
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-semibold text-gray-900">@{inviter.username} invited you</p>
+        <p className="text-xs text-gray-500">Create your account and you&apos;ll be friends automatically.</p>
+      </div>
+      <button
+        onClick={onDismiss}
+        className="shrink-0 px-1 text-xs font-medium text-gray-400 hover:text-gray-600"
+      >
+        Not now
+      </button>
+    </div>
+  )
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function OnboardingWizard({ isAuthenticated }: { isAuthenticated: boolean }) {
+export default function OnboardingWizard({ isAuthenticated, inviter = null }: {
+  isAuthenticated: boolean
+  inviter?: Inviter | null
+}) {
   const [step, setStep] = useState(-1)
   const [answers, setAnswers] = useState<Answers>(INITIAL_ANSWERS)
+
+  // Invite from /invite/<token> — lives in an httpOnly cookie the server reads
+  // when onboarding completes, so dismissing has to go through the API.
+  const [inviteDismissed, setInviteDismissed] = useState(false)
+  const dismissInvite = () => {
+    setInviteDismissed(true)
+    fetch('/api/invite', { method: 'DELETE' }).catch(() => {})
+  }
+  const inviteBanner = inviter && !inviteDismissed
+    ? <InviteBanner inviter={inviter} onDismiss={dismissInvite} />
+    : null
 
   // Commit button state
   const [holdProgress, setHoldProgress] = useState(0)
@@ -424,6 +464,7 @@ export default function OnboardingWizard({ isAuthenticated }: { isAuthenticated:
             <h1 className="text-3xl font-bold text-gray-900">PrepTable</h1>
             <p className="text-gray-500 mt-2">Your personal recipe &amp; meal planner</p>
           </div>
+          {inviteBanner}
           <div className="flex flex-col gap-3">
             <button
               onClick={() => setStep(FIRST_STEP)}
@@ -603,6 +644,8 @@ export default function OnboardingWizard({ isAuthenticated }: { isAuthenticated:
                 : 'Pick a username so friends can find you, then create your free account.'}
             </p>
           </div>
+
+          {inviteBanner}
 
           <div className="mb-5">
             <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 focus-within:ring-2 focus-within:ring-brand/40">
