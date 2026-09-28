@@ -14,6 +14,7 @@ import { AddRecipeLauncher } from '@/components/add-recipe-launcher'
 import { EmptyState, RecipeBookIllustration } from '@/components/ui/empty-state'
 import { FeedItemRow } from '@/components/feed-item'
 import { RecipeCard } from '@/components/recipe-card'
+import { SHOW_PLANNER } from '@/lib/features'
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
@@ -22,12 +23,10 @@ const HOME_FEED_PREVIEW = 3
 export default function HomeClient() {
   const router = useRouter()
   const queryClient = useQueryClient()
-  const weekStart = getWeekStart()
   const me = useMe()
   const recipes = useRecipes()
-  const plan = usePlan(weekStart)
   const feed = useFeed()
-  useAuthRedirect(me.error, recipes.error, plan.error, feed.error)
+  useAuthRedirect(me.error, recipes.error, feed.error)
 
   // Same gate the server page had: no completed onboarding → onboarding flow.
   const needsOnboarding = !!me.data && !me.data.profile?.onboarding_completed
@@ -38,18 +37,8 @@ export default function HomeClient() {
   if (me.isPending || recipes.isPending || needsOnboarding) return <PageSkeleton />
 
   const recentRecipes = (recipes.data ?? []).slice(0, 6)
-  const slots = plan.data?.weekly_plan_slots ?? []
   // A preview — "See all" opens the full feed.
   const feedItems = (feed.data?.items ?? []).slice(0, HOME_FEED_PREVIEW)
-  const plannedCount = slots.length
-  const todayIndex = Math.max(0, Math.min(6, Math.floor((new Date().getDay() + 6) % 7)))
-  const tonightSlot = slots.find(s => s.day_of_week === todayIndex)
-
-  const weekDays = Array.from({ length: 7 }, (_, i) => {
-    const date = addDays(new Date(weekStart + 'T00:00:00'), i)
-    const slot = slots.find(s => s.day_of_week === i)
-    return { day: DAYS[i], date, slot }
-  })
 
   return (
     <div className="mx-auto max-w-6xl px-5 pt-8 pb-4 md:px-8">
@@ -63,7 +52,92 @@ export default function HomeClient() {
         </p>
       </div>
 
-      <div className="mb-8 grid gap-6 lg:grid-cols-[minmax(0,1.35fr)_360px] lg:items-start">
+      {SHOW_PLANNER && <HomePlanCards />}
+
+      {feedItems.length > 0 && (
+        <section className="mb-8">
+          <div className="mb-4 flex items-end justify-between gap-4">
+            <div>
+              <p className="mb-1 flex items-center gap-1 text-xs font-bold uppercase tracking-wide text-brand">
+                <Users className="h-3.5 w-3.5" /> Friends
+              </p>
+              <h2 className="font-heading text-2xl font-bold tracking-tight text-foreground">Activity</h2>
+            </div>
+            <Link href="/feed" className="text-sm font-bold uppercase tracking-wide text-brand">
+              See all →
+            </Link>
+          </div>
+          <div className="space-y-2">
+            {feedItems.map(item => <FeedItemRow key={item.id} item={item} />)}
+          </div>
+        </section>
+      )}
+
+      <section>
+        <div className="mb-4 flex items-end justify-between gap-4">
+          <div>
+            <p className="mb-1 flex items-center gap-1 text-xs font-bold uppercase tracking-wide text-brand">
+              <Sparkles className="h-3.5 w-3.5" /> Library
+            </p>
+            <h2 className="font-heading text-2xl font-bold tracking-tight text-foreground">My recipes</h2>
+          </div>
+          <Link href="/recipes" className="text-sm font-bold uppercase tracking-wide text-brand">
+            View all
+          </Link>
+        </div>
+        {recentRecipes.length === 0 ? (
+          <EmptyState
+            illustration={<RecipeBookIllustration />}
+            title="No recipes yet"
+            description="Add your first one and PrepTable will help fill in the details."
+            variant="dashed"
+            action={
+              <Link
+                href="/search"
+                className="inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-brand-foreground transition-colors hover:bg-brand/90"
+              >
+                <Plus className="h-4 w-4" /> Add recipe
+              </Link>
+            }
+          />
+        ) : (
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
+            {recentRecipes.map((recipe, i) => (
+              <RecipeCard
+                key={recipe.id}
+                recipe={recipe}
+                variant="grid"
+                href={`/recipes/${recipe.id}`}
+                onIntent={() => void queryClient.prefetchQuery(queries.recipe(recipe.id))}
+                style={{ animationDelay: `${Math.min(i, 8) * 40}ms` }}
+              />
+            ))}
+          </div>
+        )}
+      </section>
+    </div>
+  )
+}
+
+/** The Tonight + This week planner cards (hidden while SHOW_PLANNER is off). */
+function HomePlanCards() {
+  const weekStart = getWeekStart()
+  const plan = usePlan(weekStart)
+  useAuthRedirect(plan.error)
+
+  const slots = plan.data?.weekly_plan_slots ?? []
+  const plannedCount = slots.length
+  const todayIndex = Math.max(0, Math.min(6, Math.floor((new Date().getDay() + 6) % 7)))
+  const tonightSlot = slots.find(s => s.day_of_week === todayIndex)
+
+  const weekDays = Array.from({ length: 7 }, (_, i) => {
+    const date = addDays(new Date(weekStart + 'T00:00:00'), i)
+    const slot = slots.find(s => s.day_of_week === i)
+    return { day: DAYS[i], date, slot }
+  })
+
+  return (
+    <div className="mb-8 grid gap-6 lg:grid-cols-[minmax(0,1.35fr)_360px] lg:items-start">
       <section className="surface-gradient overflow-hidden rounded-2xl border border-white/70 p-5 shadow-card md:p-7">
         <div className="flex items-start justify-between gap-5">
           <div className="min-w-0 flex-1">
@@ -140,69 +214,6 @@ export default function HomeClient() {
             )
           })}
         </div>
-      </section>
-      </div>
-
-      {feedItems.length > 0 && (
-        <section className="mb-8">
-          <div className="mb-4 flex items-end justify-between gap-4">
-            <div>
-              <p className="mb-1 flex items-center gap-1 text-xs font-bold uppercase tracking-wide text-brand">
-                <Users className="h-3.5 w-3.5" /> Friends
-              </p>
-              <h2 className="font-heading text-2xl font-bold tracking-tight text-foreground">Activity</h2>
-            </div>
-            <Link href="/feed" className="text-sm font-bold uppercase tracking-wide text-brand">
-              See all →
-            </Link>
-          </div>
-          <div className="space-y-2">
-            {feedItems.map(item => <FeedItemRow key={item.id} item={item} />)}
-          </div>
-        </section>
-      )}
-
-      <section>
-        <div className="mb-4 flex items-end justify-between gap-4">
-          <div>
-            <p className="mb-1 flex items-center gap-1 text-xs font-bold uppercase tracking-wide text-brand">
-              <Sparkles className="h-3.5 w-3.5" /> Library
-            </p>
-            <h2 className="font-heading text-2xl font-bold tracking-tight text-foreground">My recipes</h2>
-          </div>
-          <Link href="/recipes" className="text-sm font-bold uppercase tracking-wide text-brand">
-            View all
-          </Link>
-        </div>
-        {recentRecipes.length === 0 ? (
-          <EmptyState
-            illustration={<RecipeBookIllustration />}
-            title="No recipes yet"
-            description="Add your first one and PrepTable will help fill in the details."
-            variant="dashed"
-            action={
-              <Link
-                href="/search"
-                className="inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-brand-foreground transition-colors hover:bg-brand/90"
-              >
-                <Plus className="h-4 w-4" /> Add recipe
-              </Link>
-            }
-          />
-        ) : (
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
-            {recentRecipes.map((recipe, i) => (
-              <RecipeCard
-                key={recipe.id}
-                recipe={recipe}
-                variant="grid"
-                href={`/recipes/${recipe.id}`}
-                onIntent={() => void queryClient.prefetchQuery(queries.recipe(recipe.id))}
-                style={{ animationDelay: `${Math.min(i, 8) * 40}ms` }}
-              />
-            ))}
-          </div>
-        )}
       </section>
     </div>
   )

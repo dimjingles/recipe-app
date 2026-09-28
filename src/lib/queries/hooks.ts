@@ -8,6 +8,7 @@ import type { FriendGraph } from '@/lib/db/social'
 import type { FriendRecipe, RecentSearch } from '@/lib/db/search'
 import type { DayCuisinePattern } from '@/lib/db/planner'
 import { getWeekStart } from '@/lib/week'
+import { SHOW_PLANNER } from '@/lib/features'
 
 export interface GroceryItem {
   name: string
@@ -314,10 +315,14 @@ export function useCacheInvalidation() {
 export function warmCache(queryClient: QueryClient) {
   return Promise.allSettled([
     queryClient.prefetchQuery(queries.recipes),
-    queryClient.prefetchQuery(queries.plan(getWeekStart())),
     queryClient.prefetchQuery(queries.cookbooks),
     queryClient.prefetchQuery(queries.feed),
-    queryClient.prefetchQuery(queries.plannerPatterns),
     queryClient.prefetchQuery(queries.friends),
+    ...(SHOW_PLANNER
+      ? [
+          queryClient.prefetchQuery(queries.plan(getWeekStart())),
+          queryClient.prefetchQuery(queries.plannerPatterns),
+        ]
+      : []),
   ])
 }
