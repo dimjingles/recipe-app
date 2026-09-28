@@ -182,7 +182,7 @@ export default function HomeClient() {
             variant="dashed"
             action={
               <Link
-                href="/recipes/new"
+                href="/search"
                 className="inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-brand-foreground transition-colors hover:bg-brand/90"
               >
                 <Plus className="h-4 w-4" /> Add recipe

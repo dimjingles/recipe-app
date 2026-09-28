@@ -1072,7 +1072,7 @@ export default function RecipeLibrary({
           description={selectedCategory === 'cooked' ? 'Cook and log a recipe to see it here.' : 'Add a recipe to save it for later.'}
           action={
             <Link
-              href="/recipes/new"
+              href="/search"
               className="inline-flex items-center gap-2 bg-brand text-brand-foreground rounded-xl px-4 py-2.5 text-sm font-medium hover:bg-brand/90 transition-colors"
             >
               <Plus className="w-4 h-4" /> Add recipe
