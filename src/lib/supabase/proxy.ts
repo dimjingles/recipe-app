@@ -58,7 +58,8 @@ export async function updateSession(request: NextRequest) {
   const isOnboarding    = pathname.startsWith('/onboarding')
   const isAuthCallback  = pathname.startsWith('/auth/callback')
   const isApiRoute      = pathname.startsWith('/api/')
-  const isPublicRoute   = isLoginPage || isOnboarding || isAuthCallback || isApiRoute
+  const isInvite        = pathname.startsWith('/invite/')
+  const isPublicRoute   = isLoginPage || isOnboarding || isAuthCallback || isApiRoute || isInvite
 
   // Authenticated users have no business on /login → send to app root
   if (user && isLoginPage) {

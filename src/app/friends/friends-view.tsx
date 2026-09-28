@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Search, UserPlus, Check, X, Clock, Copy, QrCode, Mail } from 'lucide-react'
+import { ArrowLeft, Search, UserPlus, Check, X, Clock, Copy, QrCode, Mail, Share2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useCacheInvalidation } from '@/lib/queries/hooks'
 import { Input } from '@/components/ui/input'
@@ -17,6 +17,7 @@ type Tab = 'friends' | 'requests' | 'find'
 
 interface Props {
   myUsername: string | null
+  inviteToken: string | null
   initialFriends: PublicProfile[]
   initialIncoming: PublicProfile[]
   initialSent: PublicProfile[]
@@ -42,7 +43,7 @@ function Row({ user, right }: { user: PublicProfile; right?: React.ReactNode }) 
   )
 }
 
-export default function FriendsView({ myUsername, initialFriends, initialIncoming, initialSent }: Props) {
+export default function FriendsView({ myUsername, inviteToken: initialInviteToken, initialFriends, initialIncoming, initialSent }: Props) {
   const invalidate = useCacheInvalidation()
   const [tab, setTab] = useState<Tab>('friends')
   const [friends, setFriends] = useState(initialFriends)
@@ -58,6 +59,8 @@ export default function FriendsView({ myUsername, initialFriends, initialIncomin
   const [emailLoading, setEmailLoading] = useState(false)
 
   const [showQr, setShowQr] = useState(false)
+  const [inviteToken, setInviteToken] = useState(initialInviteToken)
+  const [resettingInvite, setResettingInvite] = useState(false)
 
   const statusOf = useMemo(() => {
     const f = new Set(friends.map(u => u.id))
@@ -161,7 +164,39 @@ export default function FriendsView({ myUsername, initialFriends, initialIncomin
     }
   }
 
-  const inviteLink = typeof window !== 'undefined' && myUsername ? `${window.location.origin}/u/${myUsername}` : ''
+  // Personal invite link: whoever signs up through it starts out as your friend.
+  // Falls back to the profile link while a cached `me` predates invite tokens.
+  const inviteLink = typeof window === 'undefined' || !myUsername ? ''
+    : inviteToken ? `${window.location.origin}/invite/${inviteToken}`
+    : `${window.location.origin}/u/${myUsername}`
+  const canShare = typeof navigator !== 'undefined' && !!navigator.share
+
+  const copyInvite = () => { navigator.clipboard?.writeText(inviteLink); toast.success('Link copied') }
+
+  const shareInvite = async () => {
+    try {
+      await navigator.share({ title: 'Join me on PrepTable', text: `Add me on PrepTable — I'm @${myUsername}`, url: inviteLink })
+    } catch (e: any) {
+      if (e?.name !== 'AbortError') copyInvite() // AbortError = user dismissed the share sheet
+    }
+  }
+
+  const resetInvite = async () => {
+    if (!confirm('Reset your invite link? The old link will stop working. Anyone who already joined stays your friend.')) return
+    setResettingInvite(true)
+    try {
+      const res = await fetch('/api/friends/invite', { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed')
+      setInviteToken(data.token)
+      invalidate.meChanged()
+      toast.success('New invite link ready')
+    } catch (e: any) {
+      toast.error(e.message || 'Could not reset link')
+    } finally {
+      setResettingInvite(false)
+    }
+  }
 
   const addButton = (user: PublicProfile) => {
     const status = statusOf(user.id)
@@ -328,11 +363,24 @@ export default function FriendsView({ myUsername, initialFriends, initialIncomin
             <p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">Invite a friend</p>
             {myUsername ? (
               <>
-                <p className="mb-3 text-sm text-muted-foreground">Share your profile link — anyone can add you from it.</p>
+                <p className="mb-3 text-sm text-muted-foreground">
+                  {inviteToken
+                    ? 'Anyone who joins PrepTable with your link becomes your friend automatically — and can see your friends-only recipes.'
+                    : 'Share your profile link — anyone can add you from it.'}
+                </p>
                 <div className="flex items-center gap-2">
                   <code className="min-w-0 flex-1 truncate rounded-xl bg-muted px-3 py-2.5 text-xs text-foreground">{inviteLink || `/u/${myUsername}`}</code>
+                  {canShare && (
+                    <button
+                      onClick={shareInvite}
+                      className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand text-brand-foreground active:scale-[0.95]"
+                      aria-label="Share invite link"
+                    >
+                      <Share2 className="h-4 w-4" />
+                    </button>
+                  )}
                   <button
-                    onClick={() => { navigator.clipboard?.writeText(inviteLink); toast.success('Link copied') }}
+                    onClick={copyInvite}
                     className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-foreground text-background active:scale-[0.95]"
                     aria-label="Copy invite link"
                   >
@@ -352,6 +400,15 @@ export default function FriendsView({ myUsername, initialFriends, initialIncomin
                       <QRCode value={inviteLink} size={180} />
                     </div>
                   </div>
+                )}
+                {inviteToken && (
+                  <button
+                    onClick={resetInvite}
+                    disabled={resettingInvite}
+                    className="mt-3 text-xs font-semibold text-muted-foreground hover:text-foreground disabled:opacity-50"
+                  >
+                    {resettingInvite ? 'Resetting…' : 'Reset link'}
+                  </button>
                 )}
               </>
             ) : (

@@ -15,6 +15,7 @@ export default function FriendsClient() {
   return (
     <FriendsView
       myUsername={me.data.profile?.username ?? null}
+      inviteToken={me.data.profile?.invite_token ?? null}
       initialFriends={friends.data.friends}
       initialIncoming={friends.data.incoming}
       initialSent={friends.data.sent}
